@@ -1,0 +1,6 @@
+app_name = "happifoam_manufacturing"
+app_title = "Happifoam Manufacturing"
+app_publisher = "Bright"
+app_description = "Foam Manufacturing Management"
+app_email = "bright@example.com"
+app_license = "mit"

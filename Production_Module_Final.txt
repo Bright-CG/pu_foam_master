@@ -1,0 +1,20 @@
+Production Module (Final Version - Production Grade)
+1. Overview
+This module handles foam production tracking using Density Config as the source of truth. It supports multiple densities per production batch, runtime-based output calculation, variance tracking, approval workflow, and controlled stock entry.
+2. Document Structure
+2.1 Production Batch (Parent)
+- Represents a single machine run / shift - Fields:   - Batch ID   - Date   - Production Manager   - Approval Status (Draft, Pending Approval, Approved)   - Blockstore Status (Pending, Confirmed)   - Total Expected CBM   - Total Actual CBM   - Total Variance % 
+2.2 Density Runs (Child Table)
+- Each row represents one density produced during the batch - Fields:   - Density   - Runtime Minutes   - Output Rate (auto from density config)   - Expected CBM (calculated)   - Actual CBM (from produced items)   - Variance CBM   - Variance % 
+2.3 Produced Items (Nested Child Table)
+- Captures actual blocks produced - Fields:   - Item Code   - Quantity   - CBM per Unit   - Total CBM 
+3. Core Calculations
+Expected CBM = Runtime Minutes × Output Rate Actual CBM = Sum of (Qty × CBM per Unit) Variance CBM = Actual CBM - Expected CBM Variance % = (Variance / Expected CBM) × 100
+4. Workflow
+Step 1: Production Manager records batch Step 2: Inputs runtime per density Step 3: System calculates expected CBM Step 4: Manager inputs produced items Step 5: System calculates actual CBM and variance Step 6: Submit for approval Step 7: Authority reviews variance and approves Step 8: Blockstore confirms quantities Step 9: Stock Entry is created
+5. Variance Handling
+- Variance is shown per density and total batch - Display format: +5% or -3% - Recommended label: 'Production Variance (%)' - Highlight large variances for review 
+6. Cost Integration
+- Pull operation cost from Density Config - Convert hourly cost to per-minute cost - Multiply by runtime to get cost per density - Aggregate for batch total cost
+7. Affected Modules
+- Module 1: Density Config (no structural change, only used) - Module 2: Production Batch (major update) - Module 3: Inventory / Stock Entry (triggered after confirmation) 

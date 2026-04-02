@@ -1,0 +1,25 @@
+# Standard Frappe App Gitignore
+__pycache__/
+*.pyc
+.DS_Store
+*.swp
+*.pyo
+*.pyd
+.project
+.pydevproject
+.settings/
+.vscode/
+.idea/
+
+# User requested exclusions
+*.docx
+*.png
+*.jpg
+*.jpeg
+*.rtf
+command.txt
+
+# Duplicate or auxiliary files already moved or handled
+# (Keeping them local but ignoring from repo)
+# Production_Module_Final.*
+# New module by module now.*
