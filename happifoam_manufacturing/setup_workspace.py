@@ -26,7 +26,7 @@ def create_workspace():
         "doctype": "Workspace",
         "name": workspace_name,
         "title": workspace_name,
-        "module": "Manufacturing",
+        "module": "happifoam_manufacturing",
         "public": 1,
         "is_standard": 1,
         "content": '[{"id":"1","type":"header","data":{"text":"Happifoam Manufacturing"}},{"id":"2","type":"shortcut","data":{"shortcut_name":"Density Configuration"}},{"id":"3","type":"shortcut","data":{"shortcut_name":"Production Batch"}},{"id":"4","type":"shortcut","data":{"shortcut_name":"Stock Transfer Request"}}]'

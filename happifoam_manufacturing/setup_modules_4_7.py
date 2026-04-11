@@ -1,7 +1,7 @@
 import frappe
 
 def create_doctypes():
-    app_name = "Happifoam Manufacturing"
+    app_name = "happifoam_manufacturing"
 
     # 1. Custom Roles
     roles = ["Production Manager", "Approver", "Blockstore"]

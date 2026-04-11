@@ -19,7 +19,24 @@ __pycache__/
 *.rtf
 command.txt
 
-# Duplicate or auxiliary files already moved or handled
-# (Keeping them local but ignoring from repo)
-# Production_Module_Final.*
-# New module by module now.*
+# Backups
+*_backup*
+backup/
+
+# Specific files identified as unnecessary
+New module by module now.txt
+Production_Module_Final.txt
+UpdatePromptForTheDensityConfigDoctype.txt
+Version restoration walkthrough.md
+fix_libs/
+CodesFromClaude/
+
+# DO NOT IGNORE these essential files (even if they match patterns above)
+!modules.txt
+!requirements.txt
+!MANIFEST.in
+!setup.py
+!README.md
+!walkthrough today.md
+!happifoam_manufacturing/
+!fake_gunicorn.sh

@@ -54,7 +54,7 @@
  "links": [],
  "modified": "2026-04-03 00:00:00.000000",
  "modified_by": "Administrator",
- "module": "Manufacturing",
+ "module": "happifoam_manufacturing",
  "name": "Production Inputs",
  "owner": "Administrator",
  "permissions": [],

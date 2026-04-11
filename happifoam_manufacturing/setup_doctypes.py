@@ -2,7 +2,7 @@ import os
 import frappe
 
 def create_doctypes():
-    app_name = "Manufacturing"
+    app_name = "happifoam_manufacturing"
 
     # 1. Production Inputs (Child Table)
     if not frappe.db.exists("DocType", "Production Inputs"):
