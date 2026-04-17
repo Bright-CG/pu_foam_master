@@ -1,0 +1,155 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "DEN-.###",
+ "creation": "2026-04-11 16:20:00.123456",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "density_name",
+  "dimensions_sb",
+  "width_inches",
+  "height_inches",
+  "conveyor_speed",
+  "calibration_factor",
+  "blow_index",
+  "col_break_dims",
+  "width_meters",
+  "height_meters",
+  "output_rate_m3_per_min",
+  "production_sb",
+  "production_inputs",
+  "operations_sb",
+  "bom_operations",
+  "variants_sb",
+  "standard_lengths",
+  "generate_variants_btn"
+ ],
+ "fields": [
+  {
+   "fieldname": "density_name",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Density Name",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "dimensions_sb",
+   "fieldtype": "Section Break",
+   "label": "Machine Dimensions & Speed"
+  },
+  {
+   "fieldname": "width_inches",
+   "fieldtype": "Float",
+   "label": "Width (Inches)"
+  },
+  {
+   "fieldname": "height_inches",
+   "fieldtype": "Float",
+   "label": "Height (Inches)"
+  },
+  {
+   "fieldname": "conveyor_speed",
+   "fieldtype": "Float",
+   "label": "Conveyor Speed"
+  },
+  {
+   "default": "1.0",
+   "fieldname": "calibration_factor",
+   "fieldtype": "Float",
+   "label": "Calibration Factor"
+  },
+  {
+   "fieldname": "blow_index",
+   "fieldtype": "Float",
+   "label": "Blow Index"
+  },
+  {
+   "fieldname": "col_break_dims",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "width_meters",
+   "fieldtype": "Float",
+   "label": "Width (Meters)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "height_meters",
+   "fieldtype": "Float",
+   "label": "Height (Meters)",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "output_rate_m3_per_min",
+   "fieldtype": "Float",
+   "label": "Output Rate m3/min",
+   "read_only": 1
+  },
+  {
+   "fieldname": "production_sb",
+   "fieldtype": "Section Break",
+   "label": "Production Inputs (Chemicals)"
+  },
+  {
+   "fieldname": "production_inputs",
+   "fieldtype": "Table",
+   "label": "Production Inputs",
+   "options": "Production Inputs"
+  },
+  {
+   "fieldname": "operations_sb",
+   "fieldtype": "Section Break",
+   "label": "Operations"
+  },
+  {
+   "fieldname": "bom_operations",
+   "fieldtype": "Table",
+   "label": "BOM Operations",
+   "options": "BOM Operation"
+  },
+  {
+   "fieldname": "variants_sb",
+   "fieldtype": "Section Break",
+   "label": "Output Item Variants"
+  },
+  {
+   "description": "Enter lengths separated by commas (e.g., 54, 60, 72, 80).",
+   "fieldname": "standard_lengths",
+   "fieldtype": "Data",
+   "label": "Target Lengths (Inches)"
+  },
+  {
+   "fieldname": "generate_variants_btn",
+   "fieldtype": "Button",
+   "label": "Generate Block Variants"
+  }
+ ],
+ "index_pages": [],
+ "links": [],
+ "modified": "2026-04-15 15:20:00.000000",
+ "modified_by": "Administrator",
+ "module": "PUFM Manufacturing",
+ "name": "Density Configuration",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

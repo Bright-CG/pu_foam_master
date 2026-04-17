@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-	name="happifoam_manufacturing",
+	name="pu_foam_master",
 	version="0.0.1",
 	description="Foam Manufacturing Management",
 	author="Bright",

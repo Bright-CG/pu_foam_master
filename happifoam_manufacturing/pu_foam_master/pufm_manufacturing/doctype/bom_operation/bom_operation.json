@@ -1,0 +1,62 @@
+{
+ "actions": [],
+ "creation": "2026-04-15 15:15:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "operation",
+  "workstation",
+  "time",
+  "hour_rate",
+  "operating_cost"
+ ],
+ "fields": [
+  {
+   "fieldname": "operation",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Operation",
+   "options": "Operation",
+   "reqd": 1
+  },
+  {
+   "fieldname": "workstation",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Workstation",
+   "options": "Workstation"
+  },
+  {
+   "fieldname": "time",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Time (mins)"
+  },
+  {
+   "fieldname": "hour_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Hour Rate"
+  },
+  {
+   "fieldname": "operating_cost",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Operating Cost",
+   "read_only": 1
+  }
+ ],
+ "index_pages": [],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-15 15:15:00.000000",
+ "modified_by": "Administrator",
+ "module": "PUFM Manufacturing",
+ "name": "BOM Operation",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

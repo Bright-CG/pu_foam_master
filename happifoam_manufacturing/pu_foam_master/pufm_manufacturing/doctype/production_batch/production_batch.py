@@ -23,7 +23,7 @@ class ProductionBatch(Document):
 		for item in self.get("produced_items"):
 			if item.item_code:
 				if not item.cbm_per_unit:
-					item.cbm_per_unit = frappe.db.get_value("Item", item.item_code, "custom_cbm") or 0.0
+					item.cbm_per_unit = frappe.db.get_value("Item", item.item_code, "cbm_value") or 0.0
 				item.total_cbm = flt(item.qty) * flt(item.cbm_per_unit)
 				
 				run_id = str(item.density_run_id)
