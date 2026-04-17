@@ -1,0 +1,106 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-17 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "batch_id",
+  "posting_date",
+  "shift",
+  "workflow_state",
+  "scrap_stock_entry",
+  "chemical_consumption_entry",
+  "fg_receipt_entry"
+ ],
+ "fields": [
+  {
+   "default": "PB-.YYYY.-.MM.-.###",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "PB-.YYYY.-.MM.-.###",
+   "reqd": 1
+  },
+  {
+   "fieldname": "batch_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch ID",
+   "read_only": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Shift",
+   "options": "Morning\nAfternoon\nNight",
+   "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "workflow_state",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Workflow State",
+   "options": "Draft\nPending MD Approval\nPending Store Confirmation\nCompleted",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scrap_stock_entry",
+   "fieldtype": "Link",
+   "label": "Scrap Stock Entry",
+   "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "chemical_consumption_entry",
+   "fieldtype": "Link",
+   "label": "Chemical Consumption Entry",
+   "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fg_receipt_entry",
+   "fieldtype": "Link",
+   "label": "FG Receipt Entry",
+   "options": "Stock Entry",
+   "read_only": 1
+  }
+ ],
+ "index_pages": [],
+ "links": [],
+ "modified": "2026-04-17 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PUFM Manufacturing",
+ "name": "PUFM Production Batch",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
