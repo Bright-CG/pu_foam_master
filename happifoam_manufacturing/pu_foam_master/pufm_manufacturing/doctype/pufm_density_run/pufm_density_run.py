@@ -7,6 +7,17 @@ class PufmDensityRun(Document):
 	def validate(self):
 		self.calculate_expected_and_actual()
 
+	def on_update(self):
+		self.update_parent_batch()
+
+	def on_trash(self):
+		self.update_parent_batch()
+
+	def update_parent_batch(self):
+		if self.parent_batch:
+			parent_doc = frappe.get_doc("PUFM Production Batch", self.parent_batch)
+			parent_doc.update_totals()
+
 	def calculate_expected_and_actual(self):
 		self.expected_cbm = 0
 		self.actual_cbm = 0

@@ -34,6 +34,36 @@ class PufmProductionBatch(Document):
 			fields=["name", "density_config", "scrap_weight_kg", "actual_cbm", "expected_cbm"],
 		)
 
+	def update_totals(self):
+		"""Aggregates totals from all linked Density Runs."""
+		runs = self._get_linked_runs()
+		
+		# Reset totals
+		self.total_actual_cbm = 0
+		self.total_scrap_weight = 0
+		self.total_produced_qty = 0
+		
+		run_names = [run.name for run in runs]
+		if not run_names:
+			self.save(ignore_permissions=True)
+			return
+
+		# Sum basics from Runs
+		for run in runs:
+			self.total_actual_cbm += flt(run.actual_cbm)
+			self.total_scrap_weight += flt(run.scrap_weight_kg)
+
+		# Sum Produced Blocks quantity across all runs
+		produced_blocks = frappe.get_all(
+			"PUFM Produced Block",
+			filters={"parent": ["in", run_names], "parenttype": "PUFM Density Run"},
+			fields=["quantity"]
+		)
+		self.total_produced_qty = sum(flt(b.quantity) for b in produced_blocks)
+
+		self.save(ignore_permissions=True)
+		frappe.db.commit()
+
 	def _get_settings(self):
 		return frappe.get_single("PUFM Manufacturing Settings")
 

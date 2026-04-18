@@ -1,0 +1,97 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"h1\",\"type\":\"header\",\"data\":{\"text\":\"Configuration\",\"col\":12}},{\"id\":\"s1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Density Configuration\",\"col\":4}},{\"id\":\"h2\",\"type\":\"header\",\"data\":{\"text\":\"Production\",\"col\":12}},{\"id\":\"s2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Reporting\",\"col\":4}},{\"id\":\"s3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Density Run\",\"col\":4}}]",
+ "creation": "2026-04-11 13:31:00.613984",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Happifoam Manufacturing",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuration",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Density Configuration",
+   "link_count": 0,
+   "link_to": "Density Configuration",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Production",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Production Reporting",
+   "link_count": 0,
+   "link_to": "PUFM Production Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "PUFM Density Run",
+   "link_count": 0,
+   "link_to": "PUFM Density Run",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-04-18 16:02:17.640663",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "Happifoam Manufacturing",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 0.0,
+ "shortcuts": [
+  {
+   "doc_view": "",
+   "icon": "settings",
+   "label": "Density Configuration",
+   "link_to": "Density Configuration",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "",
+   "icon": "manufacturing",
+   "label": "Production Reporting",
+   "link_to": "PUFM Production Batch",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "",
+   "icon": "list",
+   "label": "Density Run",
+   "link_to": "PUFM Density Run",
+   "type": "DocType"
+  }
+ ],
+ "title": "Happifoam Manufacturing"
+}

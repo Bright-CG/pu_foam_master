@@ -11,6 +11,9 @@
         "posting_date",
         "shift",
         "workflow_state",
+        "total_actual_cbm",
+        "total_scrap_weight",
+        "total_produced_qty",
         "scrap_stock_entry",
         "chemical_consumption_entry",
         "fg_receipt_entry"
@@ -58,6 +61,24 @@
             "reqd": 1
         },
         {
+            "fieldname": "total_actual_cbm",
+            "fieldtype": "Float",
+            "label": "Total Actual CBM",
+            "read_only": 1
+        },
+        {
+            "fieldname": "total_scrap_weight",
+            "fieldtype": "Float",
+            "label": "Total Scrap Weight",
+            "read_only": 1
+        },
+        {
+            "fieldname": "total_produced_qty",
+            "fieldtype": "Float",
+            "label": "Total Produced Quantity",
+            "read_only": 1
+        },
+        {
             "fieldname": "scrap_stock_entry",
             "fieldtype": "Link",
             "label": "Scrap Stock Entry",
@@ -84,6 +105,7 @@
     "modified": "2026-04-17 10:00:00.000000",
     "modified_by": "Administrator",
     "module": "pufm_manufacturing",
+    "custom": 1,
     "name": "PUFM Production Batch",
     "owner": "Administrator",
     "permissions": [

@@ -47,6 +47,7 @@
  "modified": "2026-04-17 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
+ "custom": 1,
  "name": "PUFM Produced Block",
  "owner": "Administrator",
  "permissions": [],
