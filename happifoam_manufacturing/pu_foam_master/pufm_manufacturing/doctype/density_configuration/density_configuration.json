@@ -127,11 +127,10 @@
    "label": "Generate Block Variants"
   }
  ],
- "index_pages": [],
  "links": [],
- "modified": "2026-04-15 15:20:00.000000",
+ "modified": "2026-04-18 15:18:01.388731",
  "modified_by": "Administrator",
- "module": "PUFM Manufacturing",
+ "module": "pufm_manufacturing",
  "name": "Density Configuration",
  "naming_rule": "Expression",
  "owner": "Administrator",
@@ -149,6 +148,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
