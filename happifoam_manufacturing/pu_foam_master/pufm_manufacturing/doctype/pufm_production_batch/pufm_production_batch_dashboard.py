@@ -4,7 +4,7 @@ def get_data():
 		"transactions": [
 			{
 				"label": "Density Runs",
-				"items": ["PUFM Density Run"],
+				"items": ["Pufm Density Run"],
 			}
 		],
 	}

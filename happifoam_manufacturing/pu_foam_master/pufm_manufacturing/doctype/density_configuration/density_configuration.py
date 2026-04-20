@@ -5,6 +5,7 @@ from frappe.utils import flt
 class DensityConfiguration(Document):
     def validate(self):
         self.calculate_values()
+        self.sync_existing_generated_items()
 
     def calculate_values(self):
         # Parent Calculations
@@ -35,7 +36,7 @@ class DensityConfiguration(Document):
     @frappe.whitelist()
     def generate_variants(self):
         if not self.density_name:
-            frappe.throw("Please select a Density Name (Item Template) first.")
+            frappe.throw("Please set Density Name first.")
         
         if not self.standard_lengths:
             frappe.throw("Please enter Target Lengths (Inches).")
@@ -44,54 +45,108 @@ class DensityConfiguration(Document):
         if not lengths:
             frappe.throw("No valid lengths found. Use commas to separate values.")
 
-        template = frappe.get_doc("Item", self.density_name)
-        if not template.has_variants:
-            frappe.throw(f"Item {self.density_name} must be a Template (Has Variants must be checked).")
-
-        count = 0
-        for length_str in lengths:
-            try:
-                length = flt(length_str)
-            except ValueError:
-                continue
-
-            # Naming: {Density}-{Width}x{Height}x{Length}
-            w = int(flt(self.width_inches))
-            h = int(flt(self.height_inches))
-            l = int(length)
-            
-            variant_code = f"{template.item_code}-{w}x{h}x{l}"
-            
-            # Calculate CBM: (Width * Height * Length) / 61023.74
-            cbm = (flt(self.width_inches) * flt(self.height_inches) * length) / 61023.74
-
-            if frappe.db.exists("Item", variant_code):
-                # Update existing
-                item = frappe.get_doc("Item", variant_code)
-                item.update({
-                    "width": flt(self.width_inches),
-                    "height": flt(self.height_inches),
-                    "length": length,
-                    "cbm_value": cbm
-                })
-                item.save(ignore_permissions=True)
-            else:
-                # Create new
-                item = frappe.new_doc("Item")
-                item.item_code = variant_code
-                item.item_name = variant_code
-                item.variant_of = self.density_name
-                item.is_stock_item = 1
-                item.stock_uom = template.stock_uom or "Nos"
-                item.item_group = template.item_group
-                item.width = flt(self.width_inches)
-                item.height = flt(self.height_inches)
-                item.length = length
-                item.cbm_value = cbm
-                
-                item.insert(ignore_permissions=True)
-            
-            count += 1
+        created_count, updated_count, skipped_count = self._sync_items_for_lengths(
+            lengths=lengths,
+            create_missing=True,
+        )
 
         frappe.db.commit()
-        return count
+        return {
+            "created": created_count,
+            "updated": updated_count,
+            "skipped": skipped_count,
+            "total_lengths": len(lengths),
+        }
+
+    def sync_existing_generated_items(self):
+        if not self.density_name or not self.standard_lengths:
+            return
+        self._sync_items_for_lengths(
+            lengths=[l.strip() for l in self.standard_lengths.split(",") if l.strip()],
+            create_missing=False,
+        )
+
+    def _sync_items_for_lengths(self, lengths, create_missing):
+        cbm_factor = _get_cbm_factor()
+        item_group = _get_block_item_group()
+
+        created_count = 0
+        updated_count = 0
+        skipped_count = 0
+
+        for length in _parse_lengths(lengths):
+            item_name = _build_block_item_name(self.density_name, length)
+            cbm = (flt(self.width_inches) * flt(self.height_inches) * length) / cbm_factor
+            existing_item = frappe.db.exists("Item", item_name)
+
+            if existing_item:
+                item = frappe.get_doc("Item", item_name)
+                changed = False
+                desired_values = {
+                    "custom_width": flt(self.width_inches),
+                    "custom_height": flt(self.height_inches),
+                    "custom_length": length,
+                    "custom_cbm_value": cbm,
+                }
+                for fieldname, desired in desired_values.items():
+                    if flt(item.get(fieldname)) != flt(desired):
+                        item.set(fieldname, desired)
+                        changed = True
+
+                if changed:
+                    item.save(ignore_permissions=True)
+                    updated_count += 1
+                else:
+                    skipped_count += 1
+                continue
+
+            if not create_missing:
+                skipped_count += 1
+                continue
+
+            item = frappe.new_doc("Item")
+            item.item_code = item_name
+            item.item_name = item_name
+            item.item_group = item_group
+            item.is_stock_item = 1
+            item.stock_uom = "Nos"
+            item.custom_width = flt(self.width_inches)
+            item.custom_height = flt(self.height_inches)
+            item.custom_length = length
+            item.custom_cbm_value = cbm
+            item.insert(ignore_permissions=True)
+            created_count += 1
+
+        return created_count, updated_count, skipped_count
+
+
+def _format_length(length):
+    return str(int(length)) if float(length).is_integer() else str(length)
+
+
+def _build_block_item_name(density_name, length):
+    return f"{density_name.strip()} by {_format_length(length)} Block"
+
+
+def _parse_lengths(lengths):
+    parsed = []
+    for value in lengths:
+        try:
+            length = flt(value)
+        except (TypeError, ValueError):
+            continue
+        if length > 0:
+            parsed.append(length)
+    return parsed
+
+
+def _get_cbm_factor():
+    cbm_factor = flt(frappe.db.get_single_value("Pufm Manufacturing Settings", "cbm_factor") or 61023.7)
+    return cbm_factor if cbm_factor > 0 else 61023.7
+
+
+def _get_block_item_group():
+    return (
+        frappe.db.get_single_value("Pufm Manufacturing Settings", "block_item_group")
+        or "Products"
+    )

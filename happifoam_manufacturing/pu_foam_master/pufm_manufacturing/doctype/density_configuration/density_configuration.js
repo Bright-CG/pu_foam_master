@@ -27,7 +27,7 @@ frappe.ui.form.on("Density Configuration", {
             return;
         }
 
-        frappe.confirm('This will create or update Item Variants. Continue?', () => {
+        frappe.confirm("This will create standard Items from the configured lengths. Continue?", () => {
             frm.call({
                 method: "generate_variants",
                 doc: frm.doc,
@@ -36,7 +36,10 @@ frappe.ui.form.on("Density Configuration", {
                         frappe.msgprint({
                             title: __('Success'),
                             indicator: 'green',
-                            message: __("Generated {0} Block Variants for Density {1}.", [r.message, frm.doc.density_name])
+                            message: __(
+                                "Created {0}, updated {1}, and skipped {2} items for Density {3}.",
+                                [r.message.created || 0, r.message.updated || 0, r.message.skipped || 0, frm.doc.density_name]
+                            )
                         });
                     }
                 }

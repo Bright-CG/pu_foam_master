@@ -29,7 +29,7 @@ class PufmProductionBatch(Document):
 
 	def _get_linked_runs(self):
 		return frappe.get_all(
-			"PUFM Density Run",
+			"Pufm Density Run",
 			filters={"parent_batch": self.name},
 			fields=["name", "density_config", "scrap_weight_kg", "actual_cbm", "expected_cbm"],
 		)
@@ -55,8 +55,8 @@ class PufmProductionBatch(Document):
 
 		# Sum Produced Blocks quantity across all runs
 		produced_blocks = frappe.get_all(
-			"PUFM Produced Block",
-			filters={"parent": ["in", run_names], "parenttype": "PUFM Density Run"},
+			"Pufm Produced Block",
+			filters={"parent": ["in", run_names], "parenttype": "Pufm Density Run"},
 			fields=["quantity"]
 		)
 		self.total_produced_qty = sum(flt(b.quantity) for b in produced_blocks)
@@ -65,7 +65,7 @@ class PufmProductionBatch(Document):
 		frappe.db.commit()
 
 	def _get_settings(self):
-		return frappe.get_single("PUFM Manufacturing Settings")
+		return frappe.get_single("Pufm Manufacturing Settings")
 
 	def create_scrap_stock_entry(self):
 		if self.scrap_stock_entry:
@@ -79,7 +79,7 @@ class PufmProductionBatch(Document):
 		settings = self._get_settings()
 		scrap_warehouse = settings.default_scrap_warehouse
 		if not scrap_warehouse:
-			frappe.throw("Set Default Scrap Warehouse in PUFM Manufacturing Settings.")
+			frappe.throw("Set Default Scrap Warehouse in Pufm Manufacturing Settings.")
 
 		scrap_item = frappe.db.get_single_value("Stock Settings", "scrap_item")
 		if not scrap_item:
@@ -129,7 +129,7 @@ class PufmProductionBatch(Document):
 		settings = self._get_settings()
 		wip_warehouse = settings.default_wip_warehouse
 		if not wip_warehouse:
-			frappe.throw("Set Default WIP Warehouse in PUFM Manufacturing Settings.")
+			frappe.throw("Set Default WIP Warehouse in Pufm Manufacturing Settings.")
 
 		entry = frappe.new_doc("Stock Entry")
 		entry.stock_entry_type = "Material Issue"
@@ -157,15 +157,15 @@ class PufmProductionBatch(Document):
 		if self.fg_receipt_entry:
 			return
 
-		run_names = frappe.get_all("PUFM Density Run", filters={"parent_batch": self.name}, pluck="name")
+		run_names = frappe.get_all("Pufm Density Run", filters={"parent_batch": self.name}, pluck="name")
 		if not run_names:
 			return
 
 		fg_map = {}
 		for run_name in run_names:
 			rows = frappe.get_all(
-				"PUFM Produced Block",
-				filters={"parent": run_name, "parenttype": "PUFM Density Run"},
+				"Pufm Produced Block",
+				filters={"parent": run_name, "parenttype": "Pufm Density Run"},
 				fields=["block_item", "quantity"],
 			)
 			for row in rows:
@@ -179,7 +179,7 @@ class PufmProductionBatch(Document):
 		settings = self._get_settings()
 		fg_warehouse = settings.default_fg_warehouse
 		if not fg_warehouse:
-			frappe.throw("Set Default FG Warehouse in PUFM Manufacturing Settings.")
+			frappe.throw("Set Default FG Warehouse in Pufm Manufacturing Settings.")
 
 		entry = frappe.new_doc("Stock Entry")
 		entry.stock_entry_type = "Material Receipt"

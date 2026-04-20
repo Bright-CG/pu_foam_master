@@ -1,62 +1,63 @@
 {
- "actions": [],
- "creation": "2026-04-11 16:20:00.123456",
- "doctype": "DocType",
- "editable_grid": 1,
- "engine": "InnoDB",
- "field_order": [
-  "item_code",
-  "flow_factor",
-  "set_at",
-  "flow_min",
-  "qty_per_m3"
- ],
- "fields": [
-  {
-   "fieldname": "item_code",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Item Code",
-   "options": "Item",
-   "reqd": 1
-  },
-  {
-   "fieldname": "flow_factor",
-   "fieldtype": "Float",
-   "in_list_view": 1,
-   "label": "Flow Factor"
-  },
-  {
-   "fieldname": "set_at",
-   "fieldtype": "Float",
-   "in_list_view": 1,
-   "label": "Set At (%)"
-  },
-  {
-   "fieldname": "flow_min",
-   "fieldtype": "Float",
-   "in_list_view": 1,
-   "label": "Flow (ml/min)",
-   "read_only": 1
-  },
-  {
-   "fieldname": "qty_per_m3",
-   "fieldtype": "Float",
-   "in_list_view": 1,
-   "label": "Qty per m3",
-   "read_only": 1
-  }
- ],
- "istable": 1,
- "links": [],
- "modified": "2026-04-18 15:18:06.075937",
- "modified_by": "Administrator",
- "module": "pufm_manufacturing",
- "name": "Production Inputs",
- "owner": "Administrator",
- "permissions": [],
- "row_format": "Dynamic",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+    "actions": [],
+    "creation": "2026-04-11 16:20:00.123456",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "item_code",
+        "flow_factor",
+        "set_at",
+        "flow_min",
+        "qty_per_m3"
+    ],
+    "fields": [
+        {
+            "fieldname": "item_code",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Item Code",
+            "options": "Item",
+            "reqd": 1
+        },
+        {
+            "fieldname": "flow_factor",
+            "fieldtype": "Float",
+            "in_list_view": 1,
+            "label": "Flow Factor"
+        },
+        {
+            "fieldname": "set_at",
+            "fieldtype": "Float",
+            "in_list_view": 1,
+            "label": "Set At (%)"
+        },
+        {
+            "fieldname": "flow_min",
+            "fieldtype": "Float",
+            "in_list_view": 1,
+            "label": "Flow (ml/min)",
+            "read_only": 1
+        },
+        {
+            "fieldname": "qty_per_m3",
+            "fieldtype": "Float",
+            "in_list_view": 1,
+            "label": "Qty per m3",
+            "read_only": 1
+        }
+    ],
+    "istable": 1,
+    "links": [],
+    "modified": "2026-04-18 15:18:06.075937",
+    "modified_by": "Administrator",
+    "module": "pufm_manufacturing",
+    "name": "Production Inputs",
+    "owner": "Administrator",
+    "permissions": [],
+    "row_format": "Dynamic",
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "custom": 0
 }

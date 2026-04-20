@@ -15,7 +15,7 @@ class PufmDensityRun(Document):
 
 	def update_parent_batch(self):
 		if self.parent_batch:
-			parent_doc = frappe.get_doc("PUFM Production Batch", self.parent_batch)
+			parent_doc = frappe.get_doc("Pufm Production Batch", self.parent_batch)
 			parent_doc.update_totals()
 
 	def calculate_expected_and_actual(self):
@@ -53,19 +53,29 @@ def get_filtered_block_items(doctype, txt, searchfield, start, page_len, filters
 		return []
 
 	search_field = "item_code" if searchfield not in {"item_code", "item_name"} else searchfield
+	density_name = (density_name or "").strip()
+	if not density_name:
+		return []
 
 	return frappe.db.sql(
 		"""
-		SELECT item_code, item_name
+		SELECT name, item_name
 		FROM `tabItem`
-		WHERE variant_of = %(variant_of)s
+		WHERE (
+				item_code LIKE %(new_pattern)s
+				OR item_name LIKE %(new_pattern)s
+				OR variant_of = %(density_name)s
+				OR item_code LIKE %(legacy_pattern)s
+			)
 			AND disabled = 0
 			AND ({searchfield} LIKE %(txt)s OR item_name LIKE %(txt)s)
 		ORDER BY item_code
 		LIMIT %(start)s, %(page_len)s
 		""".format(searchfield=search_field),
 		{
-			"variant_of": density_name,
+			"new_pattern": f"{density_name} by % Block",
+			"legacy_pattern": f"{density_name}-%",
+			"density_name": density_name,
 			"txt": f"%{txt}%",
 			"start": start,
 			"page_len": page_len,

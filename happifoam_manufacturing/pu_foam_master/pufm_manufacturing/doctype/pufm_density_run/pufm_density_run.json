@@ -1,96 +1,96 @@
 {
- "actions": [],
- "allow_rename": 1,
- "autoname": "D-RUN-.YYYY.-.MM.-.###",
- "creation": "2026-04-17 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "parent_batch",
-  "density_config",
-  "minutes_run",
-  "expected_cbm",
-  "scrap_weight_kg",
-  "produced_blocks_table",
-  "actual_cbm",
-  "variance_percent"
- ],
- "fields": [
-  {
-   "fieldname": "parent_batch",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Parent Batch",
-   "options": "PUFM Production Batch",
-   "reqd": 1
-  },
-  {
-   "fieldname": "density_config",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Density Configuration",
-   "options": "Density Configuration",
-   "reqd": 1
-  },
-  {
-   "fieldname": "minutes_run",
-   "fieldtype": "Float",
-   "label": "Minutes Run",
-   "reqd": 1
-  },
-  {
-   "fieldname": "expected_cbm",
-   "fieldtype": "Float",
-   "label": "Expected CBM",
-   "read_only": 1
-  },
-  {
-   "fieldname": "scrap_weight_kg",
-   "fieldtype": "Float",
-   "label": "Scrap Weight (kg)"
-  },
-  {
-   "fieldname": "produced_blocks_table",
-   "fieldtype": "Table",
-   "label": "Produced Blocks",
-   "options": "PUFM Produced Block"
-  },
-  {
-   "fieldname": "actual_cbm",
-   "fieldtype": "Float",
-   "label": "Actual CBM",
-   "read_only": 1
-  },
-  {
-   "fieldname": "variance_percent",
-   "fieldtype": "Percent",
-   "label": "Variance %",
-   "read_only": 1
-  }
- ],
- "index_pages": [],
- "links": [],
- "modified": "2026-04-17 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "pufm_manufacturing",
- "custom": 1,
- "name": "PUFM Density Run",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+    "actions": [],
+    "allow_rename": 1,
+    "autoname": "D-RUN-.YYYY.-.MM.-.###",
+    "creation": "2026-04-17 10:00:00.000000",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "parent_batch",
+        "density_config",
+        "minutes_run",
+        "expected_cbm",
+        "scrap_weight_kg",
+        "produced_blocks_table",
+        "actual_cbm",
+        "variance_percent"
+    ],
+    "fields": [
+        {
+            "fieldname": "parent_batch",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Parent Batch",
+            "options": "Pufm Production Batch",
+            "reqd": 1
+        },
+        {
+            "fieldname": "density_config",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Density Configuration",
+            "options": "Density Configuration",
+            "reqd": 1
+        },
+        {
+            "fieldname": "minutes_run",
+            "fieldtype": "Float",
+            "label": "Minutes Run",
+            "reqd": 1
+        },
+        {
+            "fieldname": "expected_cbm",
+            "fieldtype": "Float",
+            "label": "Expected CBM",
+            "read_only": 1
+        },
+        {
+            "fieldname": "scrap_weight_kg",
+            "fieldtype": "Float",
+            "label": "Scrap Weight (kg)"
+        },
+        {
+            "fieldname": "produced_blocks_table",
+            "fieldtype": "Table",
+            "label": "Produced Blocks",
+            "options": "Pufm Produced Block"
+        },
+        {
+            "fieldname": "actual_cbm",
+            "fieldtype": "Float",
+            "label": "Actual CBM",
+            "read_only": 1
+        },
+        {
+            "fieldname": "variance_percent",
+            "fieldtype": "Percent",
+            "label": "Variance %",
+            "read_only": 1
+        }
+    ],
+    "index_pages": [],
+    "links": [],
+    "modified": "2026-04-17 10:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "pufm_manufacturing",
+    "name": "Pufm Density Run",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "custom": 0
 }

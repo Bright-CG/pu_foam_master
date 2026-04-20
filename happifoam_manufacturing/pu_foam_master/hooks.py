@@ -17,10 +17,10 @@ fixtures = [
         "dt": "Custom Field",
         "filters": [
             ["name", "in", [
-                "Item-width",
-                "Item-height",
-                "Item-length",
-                "Item-cbm_value"
+                "Item-custom_width",
+                "Item-custom_height",
+                "Item-custom_length",
+                "Item-custom_cbm_value"
             ]]
         ]
     }
@@ -28,5 +28,10 @@ fixtures = [
 
 # ── Post Install / After Migrate Hooks ───────────────────────────────────────
 after_migrate = [
-    "pu_foam_master.setup_workspace.create_workspace"
+    "pu_foam_master.custom_fields.ensure_item_custom_fields",
+    "pu_foam_master.setup_workspace.create_workspace",
+]
+
+after_install = [
+    "pu_foam_master.custom_fields.ensure_item_custom_fields",
 ]

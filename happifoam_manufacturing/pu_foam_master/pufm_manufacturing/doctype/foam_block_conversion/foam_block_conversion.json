@@ -1,0 +1,170 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "autoname": "naming_series:",
+    "creation": "2026-04-20 00:00:00.000000",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "naming_series",
+        "posting_date",
+        "material_request",
+        "target_warehouse",
+        "processed_by",
+        "vol_summary_sb",
+        "total_input_cbm",
+        "total_output_cbm",
+        "cbm_variance",
+        "waste_overheads_sb",
+        "scrap_weight",
+        "conversion_rate",
+        "conversion_cost",
+        "stock_entry",
+        "inputs_sb",
+        "inputs",
+        "outputs_sb",
+        "outputs"
+    ],
+    "fields": [
+        {
+            "default": "CONV-.YYYY.-.MM.-.#####",
+            "fieldname": "naming_series",
+            "fieldtype": "Select",
+            "hidden": 1,
+            "label": "Naming Series",
+            "options": "CONV-.YYYY.-.MM.-.#####",
+            "reqd": 1
+        },
+        {
+            "default": "Today",
+            "fieldname": "posting_date",
+            "fieldtype": "Date",
+            "label": "Posting Date",
+            "reqd": 1
+        },
+        {
+            "fieldname": "material_request",
+            "fieldtype": "Link",
+            "label": "Material Request",
+            "options": "Material Request"
+        },
+        {
+            "fieldname": "target_warehouse",
+            "fieldtype": "Link",
+            "label": "Target Warehouse",
+            "options": "Warehouse",
+            "reqd": 1
+        },
+        {
+            "default": "frappe.session.user",
+            "fieldname": "processed_by",
+            "fieldtype": "Link",
+            "label": "Processed By",
+            "options": "User"
+        },
+        {
+            "fieldname": "vol_summary_sb",
+            "fieldtype": "Section Break",
+            "label": "Volumetric Summary & Variance"
+        },
+        {
+            "fieldname": "total_input_cbm",
+            "fieldtype": "Float",
+            "label": "Total Input CBM",
+            "read_only": 1
+        },
+        {
+            "fieldname": "total_output_cbm",
+            "fieldtype": "Float",
+            "label": "Total Output CBM",
+            "read_only": 1
+        },
+        {
+            "fieldname": "cbm_variance",
+            "fieldtype": "Float",
+            "label": "CBM Variance",
+            "read_only": 1
+        },
+        {
+            "fieldname": "waste_overheads_sb",
+            "fieldtype": "Section Break",
+            "label": "Waste & Overheads"
+        },
+        {
+            "fieldname": "scrap_weight",
+            "fieldtype": "Float",
+            "label": "Scrap Weight (KG)"
+        },
+        {
+            "fieldname": "conversion_rate",
+            "fieldtype": "Currency",
+            "label": "Conversion Rate",
+            "read_only": 1
+        },
+        {
+            "fieldname": "conversion_cost",
+            "fieldtype": "Currency",
+            "label": "Conversion Cost",
+            "read_only": 1
+        },
+        {
+            "fieldname": "stock_entry",
+            "fieldtype": "Link",
+            "label": "Stock Entry",
+            "options": "Stock Entry",
+            "read_only": 1
+        },
+        {
+            "fieldname": "inputs_sb",
+            "fieldtype": "Section Break",
+            "label": "Inputs"
+        },
+        {
+            "fieldname": "inputs",
+            "fieldtype": "Table",
+            "label": "Block Conversion Input",
+            "options": "Block Conversion Input",
+            "reqd": 1
+        },
+        {
+            "fieldname": "outputs_sb",
+            "fieldtype": "Section Break",
+            "label": "Outputs"
+        },
+        {
+            "fieldname": "outputs",
+            "fieldtype": "Table",
+            "label": "Block Conversion Output",
+            "options": "Block Conversion Output",
+            "reqd": 1
+        }
+    ],
+    "index_pages": [],
+    "is_submittable": 1,
+    "links": [],
+    "modified": "2026-04-20 00:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "pufm_manufacturing",
+    "name": "Foam Block Conversion",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "submit": 1,
+            "write": 1
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1,
+    "custom": 0
+}

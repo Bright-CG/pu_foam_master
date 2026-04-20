@@ -44,7 +44,7 @@
    "is_query_report": 0,
    "label": "Production Reporting",
    "link_count": 0,
-   "link_to": "PUFM Production Batch",
+   "link_to": "Pufm Production Batch",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -52,9 +52,9 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "PUFM Density Run",
+   "label": "Pufm Density Run",
    "link_count": 0,
-   "link_to": "PUFM Density Run",
+   "link_to": "Pufm Density Run",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -82,14 +82,14 @@
    "doc_view": "",
    "icon": "manufacturing",
    "label": "Production Reporting",
-   "link_to": "PUFM Production Batch",
+   "link_to": "Pufm Production Batch",
    "type": "DocType"
   },
   {
    "doc_view": "",
    "icon": "list",
    "label": "Density Run",
-   "link_to": "PUFM Density Run",
+   "link_to": "Pufm Density Run",
    "type": "DocType"
   }
  ],

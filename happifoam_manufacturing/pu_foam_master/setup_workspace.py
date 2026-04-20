@@ -6,7 +6,7 @@ def create_workspace():
 
     # ── 1. Shortcuts (quick-access buttons rendered at the top of the workspace) ──
     # Only standalone DocTypes that users navigate to directly.
-    # Child tables (Production Inputs, BOM Operation, PUFM Produced Block) are excluded.
+    # Child tables (Production Inputs, BOM Operation, Pufm Produced Block) are excluded.
     shortcuts = [
         {
             "label": "Density Configuration",
@@ -16,15 +16,21 @@ def create_workspace():
         },
         {
             "label": "Production Reporting",
-            "link_to": "PUFM Production Batch",
+            "link_to": "Pufm Production Batch",
             "type": "DocType",
             "icon": "manufacturing",
         },
         {
             "label": "Density Run",
-            "link_to": "PUFM Density Run",
+            "link_to": "Pufm Density Run",
             "type": "DocType",
             "icon": "list",
+        },
+        {
+            "label": "Foam Block Conversion",
+            "link_to": "Foam Block Conversion",
+            "type": "DocType",
+            "icon": "shuffle",
         },
     ]
 
@@ -42,13 +48,19 @@ def create_workspace():
         {"label": "Production", "is_header": 1},
         {
             "label": "Production Reporting",
-            "link_to": "PUFM Production Batch",
+            "link_to": "Pufm Production Batch",
             "link_type": "DocType",
             "type": "Link",
         },
         {
-            "label": "PUFM Density Run",
-            "link_to": "PUFM Density Run",
+            "label": "Pufm Density Run",
+            "link_to": "Pufm Density Run",
+            "link_type": "DocType",
+            "type": "Link",
+        },
+        {
+            "label": "Foam Block Conversion",
+            "link_to": "Foam Block Conversion",
             "link_type": "DocType",
             "type": "Link",
         },
@@ -61,7 +73,8 @@ def create_workspace():
         '{"id":"s1","type":"shortcut","data":{"shortcut_name":"Density Configuration","col":4}},'
         '{"id":"h2","type":"header","data":{"text":"Production","col":12}},'
         '{"id":"s2","type":"shortcut","data":{"shortcut_name":"Production Reporting","col":4}},'
-        '{"id":"s3","type":"shortcut","data":{"shortcut_name":"Density Run","col":4}}'
+        '{"id":"s3","type":"shortcut","data":{"shortcut_name":"Density Run","col":4}},'
+        '{"id":"s4","type":"shortcut","data":{"shortcut_name":"Foam Block Conversion","col":4}}'
         ']'
     )
 

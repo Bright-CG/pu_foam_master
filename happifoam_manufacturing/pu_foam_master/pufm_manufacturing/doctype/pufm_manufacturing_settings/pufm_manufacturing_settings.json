@@ -1,58 +1,93 @@
 {
- "actions": [],
- "allow_rename": 1,
- "creation": "2026-04-17 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "default_wip_warehouse",
-  "default_fg_warehouse",
-  "default_scrap_warehouse"
- ],
- "fields": [
-  {
-   "fieldname": "default_wip_warehouse",
-   "fieldtype": "Link",
-   "label": "Default WIP Warehouse",
-   "options": "Warehouse"
-  },
-  {
-   "fieldname": "default_fg_warehouse",
-   "fieldtype": "Link",
-   "label": "Default FG Warehouse",
-   "options": "Warehouse"
-  },
-  {
-   "fieldname": "default_scrap_warehouse",
-   "fieldtype": "Link",
-   "label": "Default Scrap Warehouse",
-   "options": "Warehouse"
-  }
- ],
- "index_pages": [],
- "issingle": 1,
- "links": [],
- "modified": "2026-04-17 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "pufm_manufacturing",
- "custom": 1,
- "name": "PUFM Manufacturing Settings",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+    "actions": [],
+    "allow_rename": 1,
+    "creation": "2026-04-17 10:00:00.000000",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "default_wip_warehouse",
+        "default_fg_warehouse",
+        "default_scrap_warehouse",
+        "conversion_rate_per_cbm",
+        "scrap_item",
+        "scrap_warehouse",
+        "cbm_factor",
+        "block_item_group"
+    ],
+    "fields": [
+        {
+            "fieldname": "default_wip_warehouse",
+            "fieldtype": "Link",
+            "label": "Default WIP Warehouse",
+            "options": "Warehouse"
+        },
+        {
+            "fieldname": "default_fg_warehouse",
+            "fieldtype": "Link",
+            "label": "Default FG Warehouse",
+            "options": "Warehouse"
+        },
+        {
+            "fieldname": "default_scrap_warehouse",
+            "fieldtype": "Link",
+            "label": "Default Scrap Warehouse",
+            "options": "Warehouse"
+        },
+        {
+            "fieldname": "conversion_rate_per_cbm",
+            "fieldtype": "Currency",
+            "label": "Conversion Rate per CBM"
+        },
+        {
+            "fieldname": "scrap_item",
+            "fieldtype": "Link",
+            "label": "Scrap Item",
+            "options": "Item"
+        },
+        {
+            "fieldname": "scrap_warehouse",
+            "fieldtype": "Link",
+            "label": "Scrap Warehouse",
+            "options": "Warehouse"
+        },
+        {
+            "default": "61023.7",
+            "fieldname": "cbm_factor",
+            "fieldtype": "Float",
+            "label": "CBM Factor"
+        },
+        {
+            "default": "Products",
+            "fieldname": "block_item_group",
+            "fieldtype": "Link",
+            "label": "Block Item Group",
+            "options": "Item Group"
+        }
+    ],
+    "index_pages": [],
+    "issingle": 1,
+    "links": [],
+    "modified": "2026-04-17 10:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "pufm_manufacturing",
+    "name": "Pufm Manufacturing Settings",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "custom": 0
 }

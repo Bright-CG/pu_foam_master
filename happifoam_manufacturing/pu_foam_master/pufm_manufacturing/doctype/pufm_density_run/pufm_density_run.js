@@ -1,4 +1,4 @@
-frappe.ui.form.on("PUFM Density Run", {
+frappe.ui.form.on("Pufm Density Run", {
 	refresh(frm) {
 		set_block_item_query(frm);
 	},
