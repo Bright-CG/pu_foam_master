@@ -10,7 +10,7 @@
         "width",
         "height",
         "length",
-        "cbm_value"
+        "custom_cbm_value"
     ],
     "fields": [
         {
@@ -47,7 +47,7 @@
             "label": "Length (Inches)"
         },
         {
-            "fieldname": "cbm_value",
+            "fieldname": "custom_cbm_value",
             "fieldtype": "Float",
             "in_list_view": 1,
             "label": "CBM Value",

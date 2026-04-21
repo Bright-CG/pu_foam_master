@@ -127,3 +127,11 @@ function recalculate_summary(frm) {
 	frm.set_value("cbm_variance", variance);
 	frm.set_value("conversion_cost", conversionCost);
 }
+
+frappe.ui.form.on('Foam Block Conversion', {
+    onload: function(frm) {
+        if (frm.is_new()) {
+            frm.set_value('processed_by', frappe.session.user);
+        }
+    }
+});

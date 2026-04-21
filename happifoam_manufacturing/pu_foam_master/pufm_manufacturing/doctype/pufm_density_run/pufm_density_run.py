@@ -31,7 +31,7 @@ class PufmDensityRun(Document):
 
 		for row in self.get("produced_blocks_table") or []:
 			if row.block_item:
-				row.unit_cbm = flt(frappe.db.get_value("Item", row.block_item, "cbm_value"))
+				row.unit_cbm = flt(frappe.db.get_value("Item", row.block_item, "custom_cbm_value"))
 			else:
 				row.unit_cbm = 0
 			row.total_cbm = flt(row.quantity) * flt(row.unit_cbm)
