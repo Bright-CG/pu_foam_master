@@ -12,7 +12,18 @@
         "scrap_item",
         "scrap_warehouse",
         "cbm_factor",
-        "block_item_group"
+        "block_item_group",
+        "quilting_rates_section",
+        "gum_cost_per_m",
+        "thread_cost_per_m_quilt",
+        "non_woven_cost_per_m",
+        "quilting_labor_per_m",
+        "mattress_consumable_rates",
+        "tape_rate_per_yard",
+        "pvc_rate_per_sqm",
+        "label_rate_per_pc",
+        "thread_rate_per_mat",
+        "fabric_waste_factor"
     ],
     "fields": [
         {
@@ -62,6 +73,70 @@
             "fieldtype": "Link",
             "label": "Block Item Group",
             "options": "Item Group"
+        },
+        {
+            "fieldname": "quilting_rates_section",
+            "fieldtype": "Section Break",
+            "label": "Quilting Overhead Rates"
+        },
+        {
+            "default": "0",
+            "fieldname": "gum_cost_per_m",
+            "fieldtype": "Currency",
+            "label": "Gum Cost per Meter"
+        },
+        {
+            "default": "0",
+            "fieldname": "thread_cost_per_m_quilt",
+            "fieldtype": "Currency",
+            "label": "Thread Cost per Meter (Quilt)"
+        },
+        {
+            "default": "0",
+            "fieldname": "non_woven_cost_per_m",
+            "fieldtype": "Currency",
+            "label": "Non Woven Cost per Meter"
+        },
+        {
+            "default": "0",
+            "fieldname": "quilting_labor_per_m",
+            "fieldtype": "Currency",
+            "label": "Quilting Labor per Meter"
+        },
+        {
+            "fieldname": "mattress_consumable_rates",
+            "fieldtype": "Section Break",
+            "label": "Mattress Consumable Rates"
+        },
+        {
+            "default": "0",
+            "fieldname": "tape_rate_per_yard",
+            "fieldtype": "Currency",
+            "label": "Tape Rate (per Yard)"
+        },
+        {
+            "default": "0",
+            "fieldname": "pvc_rate_per_sqm",
+            "fieldtype": "Currency",
+            "label": "PVC/Nylon Rate (per Sqm)"
+        },
+        {
+            "default": "0",
+            "fieldname": "label_rate_per_pc",
+            "fieldtype": "Currency",
+            "label": "Label Rate (per Pc)"
+        },
+        {
+            "default": "0",
+            "fieldname": "thread_rate_per_mat",
+            "fieldtype": "Currency",
+            "label": "Thread Rate (per Mat)"
+        },
+        {
+            "default": "0",
+            "fieldname": "fabric_waste_factor",
+            "fieldtype": "Percent",
+            "label": "Fabric Waste Factor (%)"
         }
     ],
     "index_pages": [],

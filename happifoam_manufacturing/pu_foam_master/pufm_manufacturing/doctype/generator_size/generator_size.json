@@ -1,0 +1,78 @@
+{
+ "actions": [],
+ "creation": "2026-04-21 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "size_template",
+  "width",
+  "length",
+  "height",
+  "unit_cbm",
+  "core_item",
+  "mattress_item"
+ ],
+ "fields": [
+  {
+   "fieldname": "size_template",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Size Template",
+   "options": "Standard Mattress Size"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Width (in)"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Length (in)"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Height (in)"
+  },
+  {
+   "fieldname": "unit_cbm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Unit CBM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "core_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Core Item Created",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "mattress_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Mattress Item Created",
+   "options": "Item",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-21 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "Generator Size",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

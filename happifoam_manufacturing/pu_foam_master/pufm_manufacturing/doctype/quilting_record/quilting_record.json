@@ -1,0 +1,106 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-21 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "posting_date",
+  "finished_item",
+  "output_qty_meters",
+  "target_warehouse",
+  "total_production_cost",
+  "stock_entry",
+  "inputs"
+ ],
+ "fields": [
+  {
+   "default": "QUILT-.YYYY.-.MM.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "QUILT-.YYYY.-.MM.-.#####",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "finished_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Finished Quilted Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "output_qty_meters",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Output Qty (Meters)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "target_warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Target Warehouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "total_production_cost",
+   "fieldtype": "Currency",
+   "label": "Total Production Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_entry",
+   "fieldtype": "Link",
+   "label": "Stock Entry",
+   "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "inputs",
+   "fieldtype": "Table",
+   "label": "Quilting Inputs",
+   "options": "Quilting Input",
+   "reqd": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-04-21 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "Quilting Record",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

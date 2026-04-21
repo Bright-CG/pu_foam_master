@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-21 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "density_configuration",
+  "brand_name",
+  "fetch_sizes",
+  "generate_items",
+  "sizes"
+ ],
+ "fields": [
+  {
+   "fieldname": "density_configuration",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Density Configuration",
+   "options": "Density Configuration",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "density_configuration.density_name",
+   "fieldname": "brand_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Brand Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fetch_sizes",
+   "fieldtype": "Button",
+   "label": "Fetch Standard Sizes"
+  },
+  {
+   "fieldname": "generate_items",
+   "fieldtype": "Button",
+   "label": "Generate Items"
+  },
+  {
+   "fieldname": "sizes",
+   "fieldtype": "Table",
+   "label": "Generator Sizes",
+   "options": "Generator Size"
+  }
+ ],
+ "index_pages": [],
+ "links": [],
+ "modified": "2026-04-21 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "Mattress Item Generator",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

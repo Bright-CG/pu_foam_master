@@ -30,8 +30,10 @@ fixtures = [
 after_migrate = [
     "pu_foam_master.custom_fields.ensure_item_custom_fields",
     "pu_foam_master.setup_workspace.create_workspace",
+    "pu_foam_master.setup_defaults.ensure_standard_mattress_sizes",
 ]
 
 after_install = [
     "pu_foam_master.custom_fields.ensure_item_custom_fields",
+    "pu_foam_master.setup_defaults.ensure_standard_mattress_sizes",
 ]
