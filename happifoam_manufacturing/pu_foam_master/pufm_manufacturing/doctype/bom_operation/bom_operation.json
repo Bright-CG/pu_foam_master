@@ -28,22 +28,27 @@
             "options": "Workstation"
         },
         {
+            "allow_on_submit": 1,
             "fieldname": "time",
             "fieldtype": "Float",
             "in_list_view": 1,
-            "label": "Time (mins)"
+            "label": "Time (mins)",
+            "precision": "5"
         },
         {
+            "allow_on_submit": 1,
             "fieldname": "hour_rate",
             "fieldtype": "Currency",
             "in_list_view": 1,
             "label": "Hour Rate"
         },
         {
+            "allow_on_submit": 1,
             "fieldname": "operating_cost",
             "fieldtype": "Float",
             "in_list_view": 1,
             "label": "Operating Cost",
+            "precision": "5",
             "read_only": 1
         }
     ],

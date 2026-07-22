@@ -14,7 +14,6 @@ def execute():
         "BOM Operation",
         "Production Inputs",
         "Pufm Produced Block",
-        "Output Item Variant",
         "Block Conversion Input",
         "Block Conversion Output",
     ]

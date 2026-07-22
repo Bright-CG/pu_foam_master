@@ -1,4 +1,20 @@
 frappe.ui.form.on("Density Configuration", {
+    setup: function(frm) {
+        frm.set_query("company", function() {
+            return { filters: { disabled: 0 } };
+        });
+    },
+    onload: function(frm) {
+        if (frm.is_new() && !frm.doc.company) {
+            frappe.db.exists("Company", "Solarfoam").then((exists) => {
+                if (exists) {
+                    frm.set_value("company", "Solarfoam");
+                } else {
+                    frm.set_value("company", frappe.defaults.get_user_default("Company"));
+                }
+            });
+        }
+    },
     refresh: function(frm) {
         calculate_parent(frm);
         recalculate_operations(frm);
@@ -21,31 +37,42 @@ frappe.ui.form.on("Density Configuration", {
     bom_operations_add: function(frm) {
         recalculate_operations(frm);
     },
-    generate_variants_btn: function(frm) {
-        if (!frm.doc.density_name || !frm.doc.standard_lengths) {
-            frappe.msgprint("Please fill in Density Name and Target Lengths first.");
+    generate_block_variants: function(frm) {
+        if (!frm.doc.name || frm.is_new()) {
+            frappe.msgprint(__("Please save the Density Configuration first."));
+            return;
+        }
+        if (!frm.doc.target_block_lengths) {
+            frappe.msgprint(__("Please enter lengths first."));
             return;
         }
 
-        frappe.confirm("This will create standard Items from the configured lengths. Continue?", () => {
-            frm.call({
-                method: "generate_variants",
-                doc: frm.doc,
-                callback: function(r) {
-                    if (r.message) {
-                        frappe.msgprint({
-                            title: __('Success'),
-                            indicator: 'green',
-                            message: __(
-                                "Created {0}, updated {1}, and skipped {2} items for Density {3}.",
-                                [r.message.created || 0, r.message.updated || 0, r.message.skipped || 0, frm.doc.density_name]
-                            )
-                        });
-                    }
+        frm.call({
+            method: "pu_foam_master.pufm_manufacturing.doctype.density_configuration.density_configuration.generate_block_items",
+            args: {
+                docname: frm.doc.name,
+                lengths_string: frm.doc.target_block_lengths,
+            },
+            freeze: true,
+            freeze_message: __("Generating block items..."),
+            callback: function(r) {
+                if (r.message) {
+                    frappe.msgprint({
+                        title: __("Block Items"),
+                        indicator: "green",
+                        message: r.message.message || __("Done"),
+                    });
                 }
-            });
+            },
+            error: function() {
+                frappe.msgprint({
+                    title: __("Error"),
+                    indicator: "red",
+                    message: __("Failed to generate block items."),
+                });
+            },
         });
-    }
+    },
 });
 
 frappe.ui.form.on("Production Inputs", {
@@ -54,7 +81,7 @@ frappe.ui.form.on("Production Inputs", {
     },
     set_at: function(frm, cdt, cdn) {
         calculate_production_row(frm, cdt, cdn);
-    }
+    },
 });
 
 frappe.ui.form.on("BOM Operation", {
@@ -63,22 +90,25 @@ frappe.ui.form.on("BOM Operation", {
     },
     hour_rate: function(frm, cdt, cdn) {
         calculate_operation_row(frm, cdt, cdn);
-    }
+    },
 });
 
+function round5(value) {
+    return Number(flt(value || 0, 5));
+}
+
 function calculate_parent(frm) {
-    let wm = (frm.doc.width_inches || 0) * 0.0254;
-    let hm = (frm.doc.height_inches || 0) * 0.0254;
-    let factor = (frm.doc.calibration_factor || 1.0);
-    let rate = (frm.doc.conveyor_speed || 0) * factor * wm * hm;
+    let wm = round5((frm.doc.width_inches || 0) * 0.0254);
+    let hm = round5((frm.doc.height_inches || 0) * 0.0254);
+    let factor = frm.doc.calibration_factor || 1.0;
+    let rate = round5((frm.doc.conveyor_speed || 0) * factor * wm * hm);
 
     frm.set_value("width_meters", wm);
     frm.set_value("height_meters", hm);
     frm.set_value("output_rate_m3_per_min", rate);
 
-    // Update all production rows because rate changed
     if (frm.doc.production_inputs) {
-        frm.doc.production_inputs.forEach(row => {
+        frm.doc.production_inputs.forEach((row) => {
             calculate_production_row(frm, row.doctype, row.name);
         });
     }
@@ -86,10 +116,10 @@ function calculate_parent(frm) {
 
 function calculate_production_row(frm, cdt, cdn) {
     let row = locals[cdt][cdn];
-    let flow = (row.flow_factor || 0) * (row.set_at || 0);
+    let flow = round5((row.flow_factor || 0) * (row.set_at || 0));
     let qty = 0;
     if (frm.doc.output_rate_m3_per_min) {
-        qty = flow / frm.doc.output_rate_m3_per_min;
+        qty = round5(flow / frm.doc.output_rate_m3_per_min);
     }
     frappe.model.set_value(cdt, cdn, "flow_min", flow);
     frappe.model.set_value(cdt, cdn, "qty_per_m3", qty);
@@ -97,14 +127,13 @@ function calculate_production_row(frm, cdt, cdn) {
 
 function calculate_operation_row(frm, cdt, cdn) {
     let row = locals[cdt][cdn];
-    // operating_cost = (time / 60) * hour_rate
-    let cost = ((row.time || 0) / 60.0) * (row.hour_rate || 0);
+    let cost = round5(((row.time || 0) / 60.0) * (row.hour_rate || 0));
     frappe.model.set_value(cdt, cdn, "operating_cost", cost);
 }
 
 function recalculate_operations(frm) {
     if (frm.doc.bom_operations) {
-        frm.doc.bom_operations.forEach(row => {
+        frm.doc.bom_operations.forEach((row) => {
             calculate_operation_row(frm, row.doctype, row.name);
         });
     }

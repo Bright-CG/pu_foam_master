@@ -12,7 +12,7 @@ def run():
     else:
         print(f"Module Def {module_name} already exists")
 
-    doctypes = ["Density Configuration", "Production Inputs", "Output Item Variant", "Production Batch", "Stock Transfer Request"]
+    doctypes = ["Density Configuration", "Production Inputs", "Production Batch", "Stock Transfer Request"]
     for dt in doctypes:
         if frappe.db.exists("DocType", dt):
             frappe.db.set_value("DocType", dt, "module", module_name)

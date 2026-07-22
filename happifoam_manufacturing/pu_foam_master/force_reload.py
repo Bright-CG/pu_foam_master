@@ -34,7 +34,7 @@ def run():
     print(f"Forced mapping: {module_name} -> {app_name}")
 
     # 4. Reload DocTypes
-    doctypes = ["Density Configuration", "Production Inputs", "Output Item Variant"]
+    doctypes = ["Density Configuration", "Production Inputs"]
     for dt_name in doctypes:
         try:
             scrubbed = frappe.scrub(dt_name)

@@ -3,7 +3,7 @@ import os
 
 def run():
     site = frappe.local.site
-    doctypes = ["Density Configuration", "Production Inputs", "Output Item Variant"]
+    doctypes = ["Density Configuration", "Production Inputs"]
     module_name = "happifoam_manufacturing"
 
     print(f"Starting repair for site: {site}")

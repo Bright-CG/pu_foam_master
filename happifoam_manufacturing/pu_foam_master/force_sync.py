@@ -5,7 +5,7 @@ import os
 def run():
     print("Starting Force Sync (Stability Mode)...")
     site = frappe.local.site
-    doctypes = ["Density Configuration", "Production Inputs", "Output Item Variant"]
+    doctypes = ["Density Configuration", "Production Inputs"]
     app_name = "happifoam_manufacturing"
     
     # CRITICAL: Disable developer_mode in the session to prevent 'export_doc' which fails due to module mapping
@@ -26,8 +26,8 @@ def run():
     # Use absolute path inside container
     app_dir = "/home/frappe/frappe-bench/apps/happifoam_manufacturing/happifoam_manufacturing"
     
-    for dt in ["production_inputs", "output_item_variant"]:
-        dt_name = "Production Inputs" if dt == "production_inputs" else "Output Item Variant"
+    for dt in ["production_inputs"]:
+        dt_name = "Production Inputs"
         if not frappe.db.exists("DocType", dt_name):
             path = os.path.join(app_dir, "doctype", dt, f"{dt}.json")
             if os.path.exists(path):

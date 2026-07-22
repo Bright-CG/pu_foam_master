@@ -115,10 +115,14 @@ class FoamBlockConversion(Document):
 			)
 
 		scrap_item = frappe.db.get_single_value("Pufm Manufacturing Settings", "scrap_item")
-		scrap_warehouse = frappe.db.get_single_value("Pufm Manufacturing Settings", "scrap_warehouse")
+		scrap_warehouse = frappe.db.get_single_value(
+			"Pufm Manufacturing Settings", "default_scrap_warehouse"
+		)
 		if flt(self.scrap_weight) > 0:
 			if not scrap_item or not scrap_warehouse:
-				frappe.throw("Please set Scrap Item and Scrap Warehouse in Pufm Manufacturing Settings.")
+				frappe.throw(
+					"Please set Scrap Item and Default Scrap Warehouse in Pufm Manufacturing Settings."
+				)
 			scrap_doc = frappe.get_cached_doc("Item", scrap_item)
 			entry.append(
 				"items",

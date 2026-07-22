@@ -7,6 +7,15 @@ class PufmDensityRun(Document):
 	def validate(self):
 		self.calculate_expected_and_actual()
 
+	def before_save(self):
+		# Enforce Expected CBM on the server before commit
+		if self.density_config and self.minutes_run:
+			output_rate = frappe.db.get_value(
+				"Density Configuration", self.density_config, "output_rate_m3_per_min"
+			)
+			self.expected_cbm = flt(flt(self.minutes_run) * flt(output_rate), 5)
+			self.output_rate_m3_per_min = flt(output_rate, 5)
+
 	def on_update(self):
 		self.update_parent_batch()
 
@@ -25,9 +34,12 @@ class PufmDensityRun(Document):
 
 		if self.density_config:
 			output_rate = flt(
-				frappe.db.get_value("Density Configuration", self.density_config, "output_rate_m3_per_min")
+				frappe.db.get_value(
+					"Density Configuration", self.density_config, "output_rate_m3_per_min"
+				)
 			)
-			self.expected_cbm = flt(self.minutes_run) * output_rate
+			self.output_rate_m3_per_min = flt(output_rate, 5)
+			self.expected_cbm = flt(flt(self.minutes_run) * output_rate, 5)
 
 		for row in self.get("produced_blocks_table") or []:
 			if row.block_item:
@@ -73,8 +85,8 @@ def get_filtered_block_items(doctype, txt, searchfield, start, page_len, filters
 		LIMIT %(start)s, %(page_len)s
 		""".format(searchfield=search_field),
 		{
-			"new_pattern": f"{density_name} by % Block",
-			"legacy_pattern": f"{density_name}-%",
+			"new_pattern": f"{density_name}-% Block",
+			"legacy_pattern": f"{density_name} by % Block",
 			"density_name": density_name,
 			"txt": f"%{txt}%",
 			"start": start,

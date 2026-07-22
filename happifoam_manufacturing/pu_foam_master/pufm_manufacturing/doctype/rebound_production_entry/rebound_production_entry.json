@@ -1,0 +1,210 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-05-28 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "posting_date",
+  "rebound_configuration",
+  "target_block_item",
+  "dimensions_section",
+  "length_inches",
+  "width_inches",
+  "height_inches",
+  "quantity_produced",
+  "volume_section",
+  "total_volume_cbm",
+  "expected_scrap_kg",
+  "expected_mdi_kg",
+  "actuals_section",
+  "actual_scrap_kg",
+  "actual_mdi_kg",
+  "overheads_section",
+  "total_hours",
+  "power_cost_ngn",
+  "diesel_cost_ngn",
+  "labour_cost_ngn",
+  "depreciation_cost_ngn",
+  "stock_entry",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "REB-PROD-.YYYY.-.MM.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "REB-PROD-.YYYY.-.MM.-.#####",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "rebound_configuration",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Rebound Configuration",
+   "options": "Rebound Configuration",
+   "reqd": 1
+  },
+  {
+   "fieldname": "target_block_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Target Block Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "dimensions_section",
+   "fieldtype": "Section Break",
+   "label": "Dimensions"
+  },
+  {
+   "fieldname": "length_inches",
+   "fieldtype": "Float",
+   "label": "Length (Inches)"
+  },
+  {
+   "fieldname": "width_inches",
+   "fieldtype": "Float",
+   "label": "Width (Inches)"
+  },
+  {
+   "fieldname": "height_inches",
+   "fieldtype": "Float",
+   "label": "Height (Inches)"
+  },
+  {
+   "fieldname": "quantity_produced",
+   "fieldtype": "Int",
+   "label": "Quantity Produced",
+   "reqd": 1
+  },
+  {
+   "fieldname": "volume_section",
+   "fieldtype": "Section Break",
+   "label": "Calculated Volume & Materials"
+  },
+  {
+   "fieldname": "total_volume_cbm",
+   "fieldtype": "Float",
+   "label": "Total Volume (CBM)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expected_scrap_kg",
+   "fieldtype": "Float",
+   "label": "Expected Scrap (kg)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expected_mdi_kg",
+   "fieldtype": "Float",
+   "label": "Expected MDI (kg)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actuals_section",
+   "fieldtype": "Section Break",
+   "label": "Actual Consumption"
+  },
+  {
+   "fieldname": "actual_scrap_kg",
+   "fieldtype": "Float",
+   "label": "Actual Scrap (kg)"
+  },
+  {
+   "fieldname": "actual_mdi_kg",
+   "fieldtype": "Float",
+   "label": "Actual MDI (kg)"
+  },
+  {
+   "fieldname": "overheads_section",
+   "fieldtype": "Section Break",
+   "label": "Overhead Absorption (NGN)"
+  },
+  {
+   "fieldname": "total_hours",
+   "fieldtype": "Float",
+   "label": "Total Hours",
+   "read_only": 1
+  },
+  {
+   "fieldname": "power_cost_ngn",
+   "fieldtype": "Currency",
+   "label": "Power Cost (NGN)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "diesel_cost_ngn",
+   "fieldtype": "Currency",
+   "label": "Diesel Cost (NGN)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "labour_cost_ngn",
+   "fieldtype": "Currency",
+   "label": "Labour Cost (NGN)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "depreciation_cost_ngn",
+   "fieldtype": "Currency",
+   "label": "Depreciation Cost (NGN)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_entry",
+   "fieldtype": "Link",
+   "label": "Stock Entry",
+   "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Rebound Production Entry",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-05-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "Rebound Production Entry",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

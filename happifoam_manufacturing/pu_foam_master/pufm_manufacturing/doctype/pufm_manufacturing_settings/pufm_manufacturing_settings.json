@@ -5,12 +5,14 @@
     "doctype": "DocType",
     "engine": "InnoDB",
     "field_order": [
+        "warehouses_section",
         "default_wip_warehouse",
         "default_fg_warehouse",
         "default_scrap_warehouse",
-        "conversion_rate_per_cbm",
+        "items_factors_section",
         "scrap_item",
-        "scrap_warehouse",
+        "mdi_item",
+        "conversion_rate_per_cbm",
         "cbm_factor",
         "block_item_group",
         "quilting_rates_section",
@@ -23,9 +25,33 @@
         "pvc_rate_per_sqm",
         "label_rate_per_pc",
         "thread_rate_per_mat",
-        "fabric_waste_factor"
+        "fabric_waste_factor",
+        "financial_scrap_defaults_section",
+        "rebate_income_account",
+        "rebate_expense_account",
+        "scrap_input_rate",
+        "scrap_output_rate",
+        "rebound_economics_section",
+        "rebound_exchange_rate",
+        "power_cost_usd_per_hour",
+        "diesel_cost_usd_per_hour",
+        "labour_cost_usd_per_hour",
+        "depreciation_cost_usd_per_hour",
+        "absorption_accounts_section",
+        "power_absorption_account",
+        "diesel_absorption_account",
+        "labour_absorption_account",
+        "depreciation_absorption_account",
+        "volume_rebate_settings_section",
+        "primary_volume_uom",
+        "default_vat_rate"
     ],
     "fields": [
+        {
+            "fieldname": "warehouses_section",
+            "fieldtype": "Section Break",
+            "label": "Warehouses"
+        },
         {
             "fieldname": "default_wip_warehouse",
             "fieldtype": "Link",
@@ -45,9 +71,9 @@
             "options": "Warehouse"
         },
         {
-            "fieldname": "conversion_rate_per_cbm",
-            "fieldtype": "Currency",
-            "label": "Conversion Rate per CBM"
+            "fieldname": "items_factors_section",
+            "fieldtype": "Section Break",
+            "label": "Items & Factors"
         },
         {
             "fieldname": "scrap_item",
@@ -56,10 +82,15 @@
             "options": "Item"
         },
         {
-            "fieldname": "scrap_warehouse",
+            "fieldname": "mdi_item",
             "fieldtype": "Link",
-            "label": "Scrap Warehouse",
-            "options": "Warehouse"
+            "label": "MDI Item",
+            "options": "Item"
+        },
+        {
+            "fieldname": "conversion_rate_per_cbm",
+            "fieldtype": "Currency",
+            "label": "Conversion Rate per CBM"
         },
         {
             "default": "61023.7",
@@ -112,7 +143,7 @@
             "default": "0",
             "fieldname": "tape_rate_per_yard",
             "fieldtype": "Currency",
-            "label": "Tape Rate (per Yard)"
+            "label": "Tape Rate (per Meter)"
         },
         {
             "default": "0",
@@ -137,12 +168,118 @@
             "fieldname": "fabric_waste_factor",
             "fieldtype": "Percent",
             "label": "Fabric Waste Factor (%)"
+        },
+        {
+            "fieldname": "financial_scrap_defaults_section",
+            "fieldtype": "Section Break",
+            "label": "Financial & Scrap Defaults"
+        },
+        {
+            "fieldname": "rebate_income_account",
+            "fieldtype": "Link",
+            "label": "Rebate Income Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "rebate_expense_account",
+            "fieldtype": "Link",
+            "label": "Rebate Expense Account",
+            "options": "Account"
+        },
+        {
+            "default": "0",
+            "fieldname": "scrap_input_rate",
+            "fieldtype": "Currency",
+            "label": "Scrap Input Rate"
+        },
+        {
+            "default": "0",
+            "fieldname": "scrap_output_rate",
+            "fieldtype": "Currency",
+            "label": "Scrap Output Rate"
+        },
+        {
+            "fieldname": "rebound_economics_section",
+            "fieldtype": "Section Break",
+            "label": "Rebound Economics (USD Pegged)"
+        },
+        {
+            "default": "1550",
+            "fieldname": "rebound_exchange_rate",
+            "fieldtype": "Float",
+            "label": "Rebound Exchange Rate (NGN/USD)"
+        },
+        {
+            "fieldname": "power_cost_usd_per_hour",
+            "fieldtype": "Currency",
+            "label": "Power Cost USD per Hour"
+        },
+        {
+            "fieldname": "diesel_cost_usd_per_hour",
+            "fieldtype": "Currency",
+            "label": "Diesel Cost USD per Hour"
+        },
+        {
+            "fieldname": "labour_cost_usd_per_hour",
+            "fieldtype": "Currency",
+            "label": "Labour Cost USD per Hour"
+        },
+        {
+            "fieldname": "depreciation_cost_usd_per_hour",
+            "fieldtype": "Currency",
+            "label": "Depreciation Cost USD per Hour"
+        },
+        {
+            "fieldname": "absorption_accounts_section",
+            "fieldtype": "Section Break",
+            "label": "Absorption Accounts"
+        },
+        {
+            "fieldname": "power_absorption_account",
+            "fieldtype": "Link",
+            "label": "Power Absorption Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "diesel_absorption_account",
+            "fieldtype": "Link",
+            "label": "Diesel Absorption Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "labour_absorption_account",
+            "fieldtype": "Link",
+            "label": "Labour Absorption Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "depreciation_absorption_account",
+            "fieldtype": "Link",
+            "label": "Depreciation Absorption Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "volume_rebate_settings_section",
+            "fieldtype": "Section Break",
+            "label": "Volume & Rebate Settings"
+        },
+        {
+            "default": "CBM",
+            "fieldname": "primary_volume_uom",
+            "fieldtype": "Select",
+            "label": "Primary Volume UOM",
+            "options": "CBM\nCubic Inches"
+        },
+        {
+            "fieldname": "default_vat_rate",
+            "fieldtype": "Float",
+            "label": "Default VAT Rate (%)"
         }
     ],
     "index_pages": [],
     "issingle": 1,
     "links": [],
-    "modified": "2026-04-17 10:00:00.000000",
+    "modified": "2026-07-22 16:00:00.000000",
     "modified_by": "Administrator",
     "module": "pufm_manufacturing",
     "name": "Pufm Manufacturing Settings",

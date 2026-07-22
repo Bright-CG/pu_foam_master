@@ -7,7 +7,7 @@ def run():
     print("Starting Force Sync...")
     
     # 1. Cleanup existing records to force re-creation
-    doctypes_to_clean = ['Density Configuration', 'Production Inputs', 'Output Item Variant', 'Block Size Table']
+    doctypes_to_clean = ['Density Configuration', 'Production Inputs', 'Block Size Table']
     for dt in doctypes_to_clean:
         if frappe.db.exists('DocType', dt):
             print(f"Deleting DocType: {dt}")

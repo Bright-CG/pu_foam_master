@@ -1,0 +1,61 @@
+<style>
+  .advice-note {
+    page-break-after: always;
+    padding: 8px 0;
+  }
+  .advice-note:last-child {
+    page-break-after: auto;
+  }
+  .title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .meta {
+    margin-bottom: 12px;
+  }
+</style>
+
+{% for row in doc.entries %}
+<div class="advice-note">
+  <div class="title">Rebate Advice Note</div>
+  <div class="meta">
+    <div><strong>Settlement:</strong> {{ doc.name }}</div>
+    <div><strong>Period:</strong> {{ doc.from_date }} to {{ doc.to_date }}</div>
+  </div>
+  <table class="table table-bordered">
+    <tr>
+      <th>Customer</th>
+      <td>{{ row.customer }}</td>
+    </tr>
+    <tr>
+      <th>Total Turnover</th>
+      <td>{{ frappe.format(row.total_turnover, {"fieldtype": "Currency"}) }}</td>
+    </tr>
+    <tr>
+      <th>Rebate Percentage</th>
+      <td>{{ row.rebate_percentage }}%</td>
+    </tr>
+    <tr>
+      <th>Freight Rebate Percentage</th>
+      <td>{{ row.freight_rebate_percentage }}%</td>
+    </tr>
+    <tr>
+      <th>Rebate Amount</th>
+      <td>{{ frappe.format(row.rebate_amount, {"fieldtype": "Currency"}) }}</td>
+    </tr>
+    <tr>
+      <th>Freight Rebate Amount</th>
+      <td>{{ frappe.format(row.freight_rebate_amount, {"fieldtype": "Currency"}) }}</td>
+    </tr>
+    <tr>
+      <th>Final Rebate Amount</th>
+      <td>{{ frappe.format(row.final_rebate_amount, {"fieldtype": "Currency"}) }}</td>
+    </tr>
+    <tr>
+      <th>Credit Note</th>
+      <td>{{ row.credit_note or "-" }}</td>
+    </tr>
+  </table>
+</div>
+{% endfor %}

@@ -1,0 +1,119 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-05-28 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "posting_date",
+  "scrap_item",
+  "container_capacity_kg",
+  "shipping_cost_ngn",
+  "local_logistics_ngn",
+  "process_loss_contingency_ngn",
+  "calculated_cost_per_kg",
+  "stock_reconciliation",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "SCRAP-COST-.YYYY.-.MM.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "SCRAP-COST-.YYYY.-.MM.-.#####",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scrap_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Scrap Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "default": "20000",
+   "fieldname": "container_capacity_kg",
+   "fieldtype": "Float",
+   "label": "Container Capacity (kg)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "shipping_cost_ngn",
+   "fieldtype": "Currency",
+   "label": "Shipping Cost (NGN)"
+  },
+  {
+   "fieldname": "local_logistics_ngn",
+   "fieldtype": "Currency",
+   "label": "Local Logistics (NGN)"
+  },
+  {
+   "default": "3000000",
+   "fieldname": "process_loss_contingency_ngn",
+   "fieldtype": "Currency",
+   "label": "Process Loss Contingency (NGN)"
+  },
+  {
+   "fieldname": "calculated_cost_per_kg",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Calculated Cost per kg",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_reconciliation",
+   "fieldtype": "Link",
+   "label": "Stock Reconciliation",
+   "options": "Stock Reconciliation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Scrap Costing Calculator",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-05-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "Scrap Costing Calculator",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
