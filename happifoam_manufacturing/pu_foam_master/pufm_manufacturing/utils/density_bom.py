@@ -50,6 +50,88 @@ def get_preferred_company():
 	return companies[0] if companies else None
 
 
+def get_user_allowed_companies(user=None):
+	"""Companies the user may operate on (User Permission aware)."""
+	user = user or frappe.session.user
+	if user in ("Administrator", "system"):
+		return frappe.get_all("Company", pluck="name", order_by="name asc")
+
+	roles = set(frappe.get_roles(user))
+	if "System Manager" in roles:
+		return frappe.get_all("Company", pluck="name", order_by="name asc")
+
+	permitted = frappe.get_all(
+		"User Permission",
+		filters={"user": user, "allow": "Company"},
+		pluck="for_value",
+	)
+	if permitted:
+		return [c for c in permitted if frappe.db.exists("Company", c)]
+
+	# No User Permission rows → user can see all companies (ERPNext default)
+	return frappe.get_all("Company", pluck="name", order_by="name asc")
+
+
+def assert_user_can_access_company(company, user=None, action="operate on"):
+	"""Raise PermissionError if the user cannot use this company."""
+	user = user or frappe.session.user
+	if not company:
+		frappe.throw(_("Company is required."))
+	if not frappe.db.exists("Company", company):
+		frappe.throw(_("Company {0} does not exist.").format(company))
+
+	allowed = get_user_allowed_companies(user)
+	if company not in allowed:
+		raise frappe.PermissionError(
+			_(
+				"You are not allowed to {0} company '{1}'. "
+				"Ask an administrator to grant User Permission for this Company."
+			).format(action, company)
+		)
+	return True
+
+
+def warehouse_belongs_to_company(warehouse, company):
+	if not warehouse or not company:
+		return False
+	wh_company = frappe.db.get_value("Warehouse", warehouse, "company")
+	return wh_company == company
+
+
+def resolve_warehouse_for_company(preferred, company, name_contains=None):
+	"""
+	Return preferred warehouse if it belongs to company; otherwise find a
+	company warehouse by abbr naming or name_contains hint.
+	"""
+	if preferred and warehouse_belongs_to_company(preferred, company):
+		return preferred
+
+	abbr = frappe.db.get_value("Company", company, "abbr") or ""
+	candidates = []
+	if preferred and abbr:
+		# Rewrite "... - SFD" / "... - SF" to this company's abbr
+		base = preferred.rsplit(" - ", 1)[0] if " - " in preferred else preferred
+		candidates.append(f"{base} - {abbr}")
+	if name_contains and abbr:
+		candidates.append(f"{name_contains} - {abbr}")
+
+	for name in candidates:
+		if frappe.db.exists("Warehouse", name) and warehouse_belongs_to_company(name, company):
+			return name
+
+	if name_contains:
+		rows = frappe.get_all(
+			"Warehouse",
+			filters={"company": company, "disabled": 0, "name": ["like", f"%{name_contains}%"]},
+			pluck="name",
+			limit=1,
+		)
+		if rows:
+			return rows[0]
+
+	return None
+
+
 def ensure_virtual_item(density_name):
 	item_code = get_virtual_item_code(density_name)
 	if frappe.db.exists("Item", item_code):
@@ -69,6 +151,34 @@ def ensure_virtual_item(density_name):
 	item.custom_cbm_value = 1
 	item.insert(ignore_permissions=True)
 	return item_code
+
+
+def get_active_bom(bom_name=None, density_config=None):
+	"""
+	Return a submitted + active BOM document.
+	Never returns cancelled (docstatus=2) or inactive BOMs.
+	"""
+	if not bom_name and density_config:
+		bom_name = frappe.db.get_value("Density Configuration", density_config, "active_bom")
+
+	if not bom_name:
+		frappe.throw(_("No Active BOM linked. Submit/update the Density Configuration first."))
+
+	# Strict filter: submitted + active only
+	matches = frappe.get_all(
+		"BOM",
+		filters={"name": bom_name, "docstatus": 1, "is_active": 1},
+		pluck="name",
+		limit=1,
+	)
+	if not matches:
+		frappe.throw(
+			_(
+				"BOM {0} is not an Active submitted BOM (must have docstatus=1 and is_active=1)."
+			).format(bom_name)
+		)
+
+	return frappe.get_doc("BOM", bom_name)
 
 
 def sync_bom_for_density_config(doc, cancel_existing=True):
@@ -260,10 +370,15 @@ def smoke_test_bom_replace(density_name="D40"):
 	"""Manual check: cancel+recreate BOM without link errors."""
 	doc = frappe.get_doc("Density Configuration", density_name)
 	old_bom = doc.active_bom
-	new_bom = sync_bom_for_density_config(doc, cancel_existing=True)
+	sync_bom_for_density_config(doc, cancel_existing=True)
 	doc.reload()
 	old_status = frappe.db.get_value("BOM", old_bom, "docstatus") if old_bom else None
-	new_status = frappe.db.get_value("BOM", doc.active_bom, "docstatus")
+	new_active = frappe.get_all(
+		"BOM",
+		filters={"name": doc.active_bom, "docstatus": 1, "is_active": 1},
+		pluck="name",
+	)
+	new_status = 1 if new_active else frappe.db.get_value("BOM", doc.active_bom, "docstatus")
 	frappe.db.commit()
 	return {
 		"old_bom": old_bom,

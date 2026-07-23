@@ -15,6 +15,7 @@ class PufmDensityRun(Document):
 			)
 			self.expected_cbm = flt(flt(self.minutes_run) * flt(output_rate), 5)
 			self.output_rate_m3_per_min = flt(output_rate, 5)
+		self._apply_variance_percentage()
 
 	def on_update(self):
 		self.update_parent_batch()
@@ -31,6 +32,7 @@ class PufmDensityRun(Document):
 		self.expected_cbm = 0
 		self.actual_cbm = 0
 		self.variance_percent = 0
+		self.variance_percentage = 0
 
 		if self.density_config:
 			output_rate = flt(
@@ -41,16 +43,28 @@ class PufmDensityRun(Document):
 			self.output_rate_m3_per_min = flt(output_rate, 5)
 			self.expected_cbm = flt(flt(self.minutes_run) * output_rate, 5)
 
+		self.actual_cbm = 0
 		for row in self.get("produced_blocks_table") or []:
 			if row.block_item:
 				row.unit_cbm = flt(frappe.db.get_value("Item", row.block_item, "custom_cbm_value"))
 			else:
 				row.unit_cbm = 0
-			row.total_cbm = flt(row.quantity) * flt(row.unit_cbm)
-			self.actual_cbm += row.total_cbm
+			row.total_cbm = flt(flt(row.quantity) * flt(row.unit_cbm), 5)
+			self.actual_cbm = flt(self.actual_cbm + flt(row.total_cbm), 5)
 
-		if self.expected_cbm:
-			self.variance_percent = ((self.actual_cbm - self.expected_cbm) / self.expected_cbm) * 100
+		self._apply_variance_percentage()
+
+	def _apply_variance_percentage(self):
+		"""Variance % = ((Actual CBM - Expected CBM) / Expected CBM) * 100."""
+		expected = flt(self.expected_cbm)
+		actual = flt(self.actual_cbm)
+		if expected:
+			variance = flt(((actual - expected) / expected) * 100, 5)
+		else:
+			variance = 0.0
+		self.variance_percentage = variance
+		# Keep legacy Percent field in sync for older forms/reports
+		self.variance_percent = variance
 
 
 @frappe.whitelist()

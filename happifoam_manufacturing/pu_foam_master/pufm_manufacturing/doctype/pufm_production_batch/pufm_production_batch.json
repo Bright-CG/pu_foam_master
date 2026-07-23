@@ -8,6 +8,7 @@
     "field_order": [
         "naming_series",
         "batch_id",
+        "company",
         "posting_date",
         "shift",
         "workflow_state",
@@ -34,6 +35,14 @@
             "in_list_view": 1,
             "label": "Batch ID",
             "read_only": 1
+        },
+        {
+            "fieldname": "company",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Company",
+            "options": "Company",
+            "reqd": 1
         },
         {
             "default": "Today",
@@ -102,7 +111,7 @@
     ],
     "index_pages": [],
     "links": [],
-    "modified": "2026-04-17 10:00:00.000000",
+    "modified": "2026-07-23 13:20:00.000000",
     "modified_by": "Administrator",
     "module": "pufm_manufacturing",
     "name": "Pufm Production Batch",

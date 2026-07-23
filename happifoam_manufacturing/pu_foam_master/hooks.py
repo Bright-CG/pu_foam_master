@@ -44,6 +44,7 @@ after_migrate = [
 	"pu_foam_master.setup_migrations.migrate_rebate_settlement_tool",
 	"pu_foam_master.setup_migrations.cleanup_output_item_variant",
 	"pu_foam_master.setup_migrations.backfill_density_configuration_company",
+	"pu_foam_master.setup_migrations.backfill_production_batch_company",
 	"pu_foam_master.setup_defaults.migrate_rebate_expense_account",
 	"pu_foam_master.custom_fields.ensure_item_custom_fields",
 	"pu_foam_master.custom_fields.ensure_sales_invoice_rebate_fields",

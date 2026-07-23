@@ -60,11 +60,15 @@ class DensityConfiguration(Document):
 				row.qty_per_m3 = flt(0, PRECISION)
 
 		for row in self.get("bom_operations") or []:
-			time_mins = flt(row.get("time") or row.get("time_in_mins"), PRECISION)
+			# Time to produce 1 m3 at current machine output rate
+			if self.output_rate_m3_per_min:
+				row.time = flt(1 / flt(self.output_rate_m3_per_min), PRECISION)
+			else:
+				row.time = flt(0, PRECISION)
 			hour_rate = flt(row.get("hour_rate"), PRECISION)
-			row.operating_cost = flt((time_mins / 60.0) * hour_rate, PRECISION)
+			row.operating_cost = flt((flt(row.time) / 60.0) * hour_rate, PRECISION)
 			if hasattr(row, "time_in_mins"):
-				row.time_in_mins = time_mins
+				row.time_in_mins = flt(row.time, PRECISION)
 			if hasattr(row, "description") and not row.get("description"):
 				row.description = row.operation
 

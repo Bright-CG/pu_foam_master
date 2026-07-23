@@ -15,6 +15,7 @@
   "total_input_cbm",
   "total_output_cbm",
   "cbm_variance",
+  "variance_percentage",
   "waste_overheads_sb",
   "scrap_weight",
   "conversion_rate",
@@ -88,6 +89,14 @@
    "read_only": 1
   },
   {
+   "fieldname": "variance_percentage",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Variance %",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
    "fieldname": "waste_overheads_sb",
    "fieldtype": "Section Break",
    "label": "Waste & Overheads"
@@ -153,7 +162,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-20 18:13:54.391470",
+ "modified": "2026-07-23 15:45:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Foam Block Conversion",

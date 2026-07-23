@@ -34,8 +34,10 @@ frappe.ui.form.on("Density Configuration", {
     production_inputs_add: function(frm) {
         calculate_parent(frm);
     },
-    bom_operations_add: function(frm) {
-        recalculate_operations(frm);
+    bom_operations_add: function(frm, cdt, cdn) {
+        apply_operation_time(frm, cdt, cdn);
+        calculate_operation_row(frm, cdt, cdn);
+        frm.refresh_field("bom_operations");
     },
     generate_block_variants: function(frm) {
         if (!frm.doc.name || frm.is_new()) {
@@ -85,6 +87,10 @@ frappe.ui.form.on("Production Inputs", {
 });
 
 frappe.ui.form.on("BOM Operation", {
+    workstation: function(frm, cdt, cdn) {
+        apply_operation_time(frm, cdt, cdn);
+        calculate_operation_row(frm, cdt, cdn);
+    },
     time: function(frm, cdt, cdn) {
         calculate_operation_row(frm, cdt, cdn);
     },
@@ -95,6 +101,12 @@ frappe.ui.form.on("BOM Operation", {
 
 function round5(value) {
     return Number(flt(value || 0, 5));
+}
+
+function apply_operation_time(frm, cdt, cdn) {
+    let rate = flt(frm.doc.output_rate_m3_per_min);
+    let time_mins = rate ? round5(1 / rate) : 0;
+    frappe.model.set_value(cdt, cdn, "time", time_mins);
 }
 
 function calculate_parent(frm) {
@@ -112,6 +124,7 @@ function calculate_parent(frm) {
             calculate_production_row(frm, row.doctype, row.name);
         });
     }
+    recalculate_operations(frm);
 }
 
 function calculate_production_row(frm, cdt, cdn) {
@@ -132,9 +145,12 @@ function calculate_operation_row(frm, cdt, cdn) {
 }
 
 function recalculate_operations(frm) {
-    if (frm.doc.bom_operations) {
-        frm.doc.bom_operations.forEach((row) => {
-            calculate_operation_row(frm, row.doctype, row.name);
-        });
+    if (!frm.doc.bom_operations) {
+        return;
     }
+    frm.doc.bom_operations.forEach((row) => {
+        apply_operation_time(frm, row.doctype, row.name);
+        calculate_operation_row(frm, row.doctype, row.name);
+        frm.refresh_field("bom_operations");
+    });
 }

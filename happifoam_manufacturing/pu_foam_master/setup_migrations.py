@@ -107,8 +107,14 @@ def backfill_density_configuration_company():
 			doc.db_set("company", company, update_modified=False)
 
 		bom_company = None
-		if doc.active_bom and frappe.db.exists("BOM", doc.active_bom):
-			bom_company = frappe.db.get_value("BOM", doc.active_bom, "company")
+		if doc.active_bom:
+			active = frappe.get_all(
+				"BOM",
+				filters={"name": doc.active_bom, "docstatus": 1, "is_active": 1},
+				fields=["company"],
+				limit=1,
+			)
+			bom_company = active[0].company if active else None
 
 		if bom_company == doc.company:
 			continue
@@ -125,3 +131,27 @@ def backfill_density_configuration_company():
 		f"[setup_migrations] Density company backfill -> {company}. "
 		f"BOM rebuilt for {len(rebuilt)} density config(s)."
 	)
+
+
+def backfill_production_batch_company():
+	"""Set Company on existing Production Batches to preferred Solarfoam / SF."""
+	if not frappe.db.has_column("Pufm Production Batch", "company"):
+		return
+
+	from pu_foam_master.pufm_manufacturing.utils.density_bom import get_preferred_company
+
+	company = get_preferred_company()
+	if not company:
+		print("[setup_migrations] No company found; skip production batch company backfill.")
+		return
+
+	frappe.db.sql(
+		"""
+		UPDATE `tabPufm Production Batch`
+		SET company = %s
+		WHERE IFNULL(company, '') = ''
+		""",
+		(company,),
+	)
+	frappe.db.commit()
+	print(f"[setup_migrations] Production Batch company backfill -> {company}.")

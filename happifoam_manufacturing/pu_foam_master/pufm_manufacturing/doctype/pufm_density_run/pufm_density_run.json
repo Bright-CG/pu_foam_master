@@ -11,10 +11,12 @@
         "output_rate_m3_per_min",
         "minutes_run",
         "expected_cbm",
+        "target_warehouse",
         "scrap_weight_kg",
         "produced_blocks_table",
         "actual_cbm",
-        "variance_percent"
+        "variance_percent",
+        "variance_percentage"
     ],
     "fields": [
         {
@@ -56,6 +58,14 @@
             "read_only": 1
         },
         {
+            "description": "Where finished blocks from this density run are received. Falls back to Default FG Warehouse.",
+            "fieldname": "target_warehouse",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Target Warehouse",
+            "options": "Warehouse"
+        },
+        {
             "fieldname": "scrap_weight_kg",
             "fieldtype": "Float",
             "label": "Scrap Weight (kg)"
@@ -70,18 +80,28 @@
             "fieldname": "actual_cbm",
             "fieldtype": "Float",
             "label": "Actual CBM",
+            "precision": "5",
             "read_only": 1
         },
         {
             "fieldname": "variance_percent",
             "fieldtype": "Percent",
+            "hidden": 1,
+            "label": "Variance % (legacy)",
+            "read_only": 1
+        },
+        {
+            "fieldname": "variance_percentage",
+            "fieldtype": "Float",
+            "in_list_view": 1,
             "label": "Variance %",
+            "precision": "5",
             "read_only": 1
         }
     ],
     "index_pages": [],
     "links": [],
-    "modified": "2026-07-22 21:20:00.000000",
+    "modified": "2026-07-23 14:40:00.000000",
     "modified_by": "Administrator",
     "module": "pufm_manufacturing",
     "name": "Pufm Density Run",

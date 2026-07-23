@@ -28,6 +28,13 @@ class FoamBlockConversion(Document):
 		self.total_output_cbm = sum(flt(row.total_cbm) for row in self.get("outputs") or [])
 		self.cbm_variance = flt(self.total_output_cbm) - flt(self.total_input_cbm)
 		self.conversion_cost = flt(self.total_input_cbm) * flt(self.conversion_rate)
+		if self.total_input_cbm:
+			self.variance_percentage = flt(
+				((self.total_output_cbm - self.total_input_cbm) / self.total_input_cbm) * 100,
+				2,
+			)
+		else:
+			self.variance_percentage = 0.0
 
 	def _validate_rows(self):
 		if not self.target_warehouse:

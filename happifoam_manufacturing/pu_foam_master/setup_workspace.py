@@ -42,6 +42,13 @@ def create_workspace():
 			"icon": "shuffle",
 		},
 		{
+			"label": "Production Variance Report",
+			"link_to": "Production Variance Report",
+			"type": "Report",
+			"icon": "file",
+			"is_query_report": 1,
+		},
+		{
 			"label": "Rebound Configuration",
 			"link_to": "Rebound Configuration",
 			"type": "DocType",
@@ -94,6 +101,7 @@ def create_workspace():
 		{"label": "Pufm Production Batch", "link_to": "Pufm Production Batch", "link_type": "DocType", "type": "Link"},
 		{"label": "Pufm Density Run", "link_to": "Pufm Density Run", "link_type": "DocType", "type": "Link"},
 		{"label": "Foam Block Conversion", "link_to": "Foam Block Conversion", "link_type": "DocType", "type": "Link"},
+		{"label": "Production Variance Report", "link_to": "Production Variance Report", "link_type": "Report", "is_query_report": 1, "type": "Link"},
 		{"label": "Rebound Production", "is_header": 1},
 		{"label": "Pufm Manufacturing Settings", "link_to": "Pufm Manufacturing Settings", "link_type": "DocType", "type": "Link"},
 		{"label": "Rebound Configuration", "link_to": "Rebound Configuration", "link_type": "DocType", "type": "Link"},
@@ -118,6 +126,7 @@ def create_workspace():
 		'{"id":"s0b","type":"shortcut","data":{"shortcut_name":"Pufm Production Batch","col":3}},'
 		'{"id":"s0c","type":"shortcut","data":{"shortcut_name":"Pufm Density Run","col":3}},'
 		'{"id":"s0d","type":"shortcut","data":{"shortcut_name":"Foam Block Conversion","col":3}},'
+		'{"id":"s0e","type":"shortcut","data":{"shortcut_name":"Production Variance Report","col":3}},'
 		'{"id":"h1","type":"header","data":{"text":"Rebound Production","col":12}},'
 		'{"id":"s1","type":"shortcut","data":{"shortcut_name":"Pufm Manufacturing Settings","col":3}},'
 		'{"id":"s2","type":"shortcut","data":{"shortcut_name":"Rebound Configuration","col":3}},'
