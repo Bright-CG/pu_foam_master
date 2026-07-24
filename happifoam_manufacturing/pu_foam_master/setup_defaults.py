@@ -123,5 +123,98 @@ def ensure_customer_rebate_fields():
 	frappe.db.commit()
 
 
+def ensure_foam_sheets():
+	"""Seed continuous foam sheet Items (Meter UOM, batch-only, no serials)."""
+	_ensure_item_group("Sub Assembly", parent="All Item Groups", is_group=0)
+	_ensure_uom("Meter")
+
+	sheets = [
+		{
+			"item_code": "Foam Sheet - 0.5 Inch",
+			"custom_height": 0.5,
+			"custom_cbm_value": 0.02709,
+		},
+		{
+			"item_code": "Foam Sheet - 1.0 Inch",
+			"custom_height": 1.0,
+			"custom_cbm_value": 0.05419,
+		},
+	]
+
+	for sheet in sheets:
+		item_code = sheet["item_code"]
+		if frappe.db.exists("Item", item_code):
+			# Keep continuous sheets non-serialized even if created earlier
+			item = frappe.get_doc("Item", item_code)
+			changed = False
+			if not item.has_batch_no:
+				item.has_batch_no = 1
+				changed = True
+			if item.has_serial_no:
+				item.has_serial_no = 0
+				item.serial_no_series = ""
+				changed = True
+			if (item.stock_uom or "") != "Meter":
+				# Don't force UOM change if stock already exists; only set when safe
+				if not frappe.db.exists("Bin", {"item_code": item_code}):
+					item.stock_uom = "Meter"
+					changed = True
+			if changed:
+				item.save(ignore_permissions=True)
+			continue
+
+		frappe.get_doc(
+			{
+				"doctype": "Item",
+				"item_code": item_code,
+				"item_name": item_code,
+				"item_group": "Sub Assembly",
+				"stock_uom": "Meter",
+				"is_stock_item": 1,
+				"include_item_in_manufacturing": 1,
+				"has_batch_no": 1,
+				"create_new_batch": 1,
+				"has_serial_no": 0,
+				"serial_no_series": "",
+				"custom_width": 84,
+				"custom_length": 39.37,
+				"custom_height": sheet["custom_height"],
+				"custom_cbm_value": sheet["custom_cbm_value"],
+			}
+		).insert(ignore_permissions=True)
+
+	frappe.db.commit()
+
+
+def _ensure_item_group(group_name, parent="All Item Groups", is_group=0):
+	if frappe.db.exists("Item Group", group_name):
+		return group_name
+	if parent and not frappe.db.exists("Item Group", parent):
+		frappe.get_doc(
+			{
+				"doctype": "Item Group",
+				"item_group_name": parent,
+				"is_group": 1,
+			}
+		).insert(ignore_permissions=True, ignore_if_duplicate=True)
+	frappe.get_doc(
+		{
+			"doctype": "Item Group",
+			"item_group_name": group_name,
+			"parent_item_group": parent,
+			"is_group": is_group,
+		}
+	).insert(ignore_permissions=True, ignore_if_duplicate=True)
+	return group_name
+
+
+def _ensure_uom(uom):
+	if frappe.db.exists("UOM", uom):
+		return
+	frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert(
+		ignore_permissions=True, ignore_if_duplicate=True
+	)
+
+
 def ensure_customer_rebate_field():
 	ensure_customer_rebate_fields()

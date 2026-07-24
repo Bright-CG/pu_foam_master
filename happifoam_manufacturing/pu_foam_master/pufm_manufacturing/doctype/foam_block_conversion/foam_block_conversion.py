@@ -177,38 +177,47 @@ class FoamBlockConversion(Document):
 		for row in output_rows:
 			item_doc = frappe.get_cached_doc("Item", row.item_code)
 			qty = flt(row.qty)
-			serial_qty = cint(qty)
-			if serial_qty <= 0 or abs(qty - serial_qty) > 0.0001:
-				frappe.throw(
-					"Output quantity for {0} must be a whole number to generate serial numbers "
-					"(got {1}).".format(row.item_code, qty)
-				)
+			if qty <= 0:
+				continue
+
+			has_serial = cint(frappe.db.get_value("Item", row.item_code, "has_serial_no"))
+			# Discrete serialized items need whole qty; continuous sheets (Meter) may be fractional
+			if has_serial:
+				serial_qty = cint(qty)
+				if serial_qty <= 0 or abs(qty - serial_qty) > 0.0001:
+					frappe.throw(
+						"Output quantity for {0} must be a whole number to generate serial numbers "
+						"(got {1}).".format(row.item_code, qty)
+					)
 
 			batch_id = self._ensure_output_batch(row.item_code)
-			serial_string = self._build_output_serials(batch_id, serial_qty)
+			serial_string = None
+			if has_serial:
+				serial_string = self._build_output_serials(batch_id, cint(qty))
 
 			core_unit_cost = flt(cost_per_cbm * flt(row.unit_cbm), PRECISION)
 			amount = flt(core_unit_cost * qty, PRECISION)
 			total_target_amount = flt(total_target_amount + amount, PRECISION)
-			entry.append(
-				"items",
-				{
-					"item_code": row.item_code,
-					"qty": qty,
-					"t_warehouse": self.target_warehouse,
-					"uom": row.uom or item_doc.stock_uom,
-					"stock_uom": item_doc.stock_uom,
-					"conversion_factor": 1,
-					"basic_rate": core_unit_cost,
-					"valuation_rate": core_unit_cost,
-					"amount": amount,
-					"set_basic_rate_manually": 1,
-					"allow_zero_valuation_rate": 1 if core_unit_cost <= 0 else 0,
-					"use_serial_batch_fields": 1,
-					"batch_no": batch_id,
-					"serial_no": serial_string,
-				},
-			)
+
+			target_row = {
+				"item_code": row.item_code,
+				"qty": qty,
+				"t_warehouse": self.target_warehouse,
+				"uom": row.uom or item_doc.stock_uom,
+				"stock_uom": item_doc.stock_uom,
+				"conversion_factor": 1,
+				"basic_rate": core_unit_cost,
+				"valuation_rate": core_unit_cost,
+				"amount": amount,
+				"set_basic_rate_manually": 1,
+				"allow_zero_valuation_rate": 1 if core_unit_cost <= 0 else 0,
+				"use_serial_batch_fields": 1,
+				"batch_no": batch_id,
+			}
+			if serial_string:
+				target_row["serial_no"] = serial_string
+
+			entry.append("items", target_row)
 
 		# Absorb residual rounding so Input Cost = Output Cores + Scrap
 		left = flt(total_input_cost, PRECISION)
