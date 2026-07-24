@@ -12,6 +12,7 @@
         "items_factors_section",
         "scrap_item",
         "mdi_item",
+        "default_brand",
         "conversion_rate_per_cbm",
         "cbm_factor",
         "block_item_group",
@@ -86,6 +87,12 @@
             "fieldtype": "Link",
             "label": "MDI Item",
             "options": "Item"
+        },
+        {
+            "fieldname": "default_brand",
+            "fieldtype": "Link",
+            "label": "Default Brand",
+            "options": "Brand"
         },
         {
             "fieldname": "conversion_rate_per_cbm",

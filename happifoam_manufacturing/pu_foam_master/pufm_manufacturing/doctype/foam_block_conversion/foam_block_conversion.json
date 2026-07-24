@@ -8,6 +8,7 @@
  "field_order": [
   "naming_series",
   "posting_date",
+  "company",
   "material_request",
   "target_warehouse",
   "processed_by",
@@ -43,6 +44,15 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "default": ":Company",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
    "reqd": 1
   },
   {

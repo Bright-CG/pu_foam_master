@@ -1,7 +1,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe.model.naming import make_autoname
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 
 class FoamBlockConversion(Document):
@@ -37,6 +37,9 @@ class FoamBlockConversion(Document):
 			self.variance_percentage = 0.0
 
 	def _validate_rows(self):
+		if not self.company:
+			frappe.throw("Company is required.")
+
 		if not self.target_warehouse:
 			frappe.throw("Target Warehouse is required.")
 
@@ -46,6 +49,7 @@ class FoamBlockConversion(Document):
 		if not self.outputs:
 			frappe.throw("At least one output row is required.")
 
+		density_prefixes = set()
 		for row in self.inputs:
 			if not row.source_warehouse:
 				frappe.throw(f"Source Warehouse is required in input row {row.idx}.")
@@ -53,6 +57,21 @@ class FoamBlockConversion(Document):
 				frappe.throw(f"Item Code is required in input row {row.idx}.")
 			if flt(row.qty) <= 0:
 				frappe.throw(f"Qty must be greater than zero in input row {row.idx}.")
+
+			# Allow multi-size / gumming; block multi-density cost pooling
+			prefix = (
+				row.item_code.split("-")[0]
+				if "-" in row.item_code
+				else row.item_code
+			)
+			density_prefixes.add(prefix)
+
+		if len(density_prefixes) > 1:
+			frappe.throw(
+				"Costing Error: You are mixing different foam densities ({0}). "
+				"You can mix different block sizes, but they MUST be of the same density "
+				"in a single conversion document.".format(", ".join(sorted(density_prefixes)))
+			)
 
 		for row in self.outputs:
 			if not row.item_code:
@@ -66,25 +85,54 @@ class FoamBlockConversion(Document):
 			frappe.throw("Total Output CBM must be greater than zero.")
 
 	def _create_repack_stock_entry(self):
+		"""
+		Repack Stock Entry with volumetric cost apportionment:
+		  Total Input Cost = Sum(Core/Sheet Value) + Scrap Value
+		"""
+		PRECISION = 5
 		input_rows = self.get("inputs") or []
 		output_rows = self.get("outputs") or []
-		total_input_value = 0
 
-		entry = frappe.new_doc("Stock Entry")
-		entry.stock_entry_type = "Repack"
-		entry.posting_date = self.posting_date
-		entry.set_posting_time = 1
+		settings = frappe.get_single("Pufm Manufacturing Settings")
+		scrap_output_rate = flt(getattr(settings, "scrap_output_rate", 0) or 0)
+		scrap_item = getattr(settings, "scrap_item", None)
+		scrap_warehouse = getattr(settings, "default_scrap_warehouse", None)
 
+		# --- Step 1: Source block value ---
+		total_input_cost = 0.0
+		source_rates = {}
 		for row in input_rows:
-			item_doc = frappe.get_cached_doc("Item", row.item_code)
-			valuation_rate = flt(
+			source_rate = flt(
 				frappe.db.get_value(
 					"Bin",
 					{"item_code": row.item_code, "warehouse": row.source_warehouse},
 					"valuation_rate",
 				)
+				or 0.0
 			)
-			total_input_value += flt(row.qty) * valuation_rate
+			source_rates[row.idx] = source_rate
+			total_input_cost = flt(total_input_cost + (flt(row.qty) * source_rate), PRECISION)
+
+		# --- Step 2: Scrap & net cost per CBM ---
+		scrap_value = flt(flt(self.scrap_weight) * scrap_output_rate, PRECISION)
+		net_slicing_cost = flt(total_input_cost - scrap_value, PRECISION)
+		total_output_cbm = flt(self.total_output_cbm)
+		cost_per_cbm = (
+			flt(net_slicing_cost / total_output_cbm, PRECISION) if total_output_cbm > 0 else 0.0
+		)
+
+		entry = frappe.new_doc("Stock Entry")
+		entry.stock_entry_type = "Repack"
+		entry.purpose = "Repack"
+		entry.posting_date = self.posting_date
+		entry.set_posting_time = 1
+		if getattr(self, "company", None):
+			entry.company = self.company
+
+		# --- Step 3A: Source rows (blocks) ---
+		for row in input_rows:
+			item_doc = frappe.get_cached_doc("Item", row.item_code)
+			source_rate = flt(source_rates.get(row.idx), PRECISION)
 			entry.append(
 				"items",
 				{
@@ -94,37 +142,14 @@ class FoamBlockConversion(Document):
 					"uom": item_doc.stock_uom,
 					"stock_uom": item_doc.stock_uom,
 					"conversion_factor": 1,
-					"valuation_rate": valuation_rate,
+					"basic_rate": source_rate,
+					"valuation_rate": source_rate,
+					"set_basic_rate_manually": 1,
+					"allow_zero_valuation_rate": 1 if source_rate <= 0 else 0,
 				},
 			)
 
-		total_pool = total_input_value + flt(self.conversion_cost)
-		total_output_cbm = flt(self.total_output_cbm)
-
-		for row in output_rows:
-			item_doc = frappe.get_cached_doc("Item", row.item_code)
-			row_total_cbm = flt(row.total_cbm)
-			share = (row_total_cbm / total_output_cbm) if total_output_cbm else 0
-			output_value = total_pool * share
-			basic_rate = (output_value / flt(row.qty)) if flt(row.qty) else 0
-			entry.append(
-				"items",
-				{
-					"item_code": row.item_code,
-					"qty": flt(row.qty),
-					"t_warehouse": self.target_warehouse,
-					"uom": row.uom or item_doc.stock_uom,
-					"stock_uom": item_doc.stock_uom,
-					"conversion_factor": 1,
-					"basic_rate": basic_rate,
-					"valuation_rate": basic_rate,
-				},
-			)
-
-		scrap_item = frappe.db.get_single_value("Pufm Manufacturing Settings", "scrap_item")
-		scrap_warehouse = frappe.db.get_single_value(
-			"Pufm Manufacturing Settings", "default_scrap_warehouse"
-		)
+		# --- Step 3B: Target scrap ---
 		if flt(self.scrap_weight) > 0:
 			if not scrap_item or not scrap_warehouse:
 				frappe.throw(
@@ -140,11 +165,86 @@ class FoamBlockConversion(Document):
 					"uom": scrap_doc.stock_uom,
 					"stock_uom": scrap_doc.stock_uom,
 					"conversion_factor": 1,
-					"basic_rate": 0,
-					"valuation_rate": 0,
+					"basic_rate": scrap_output_rate,
+					"valuation_rate": scrap_output_rate,
+					"set_basic_rate_manually": 1,
+					"allow_zero_valuation_rate": 1 if scrap_output_rate <= 0 else 0,
 				},
 			)
+
+		# --- Step 3C: Target cores / sheets (CBM apportionment + batch/serial) ---
+		total_target_amount = 0.0
+		for row in output_rows:
+			item_doc = frappe.get_cached_doc("Item", row.item_code)
+			qty = flt(row.qty)
+			serial_qty = cint(qty)
+			if serial_qty <= 0 or abs(qty - serial_qty) > 0.0001:
+				frappe.throw(
+					"Output quantity for {0} must be a whole number to generate serial numbers "
+					"(got {1}).".format(row.item_code, qty)
+				)
+
+			batch_id = self._ensure_output_batch(row.item_code)
+			serial_string = self._build_output_serials(batch_id, serial_qty)
+
+			core_unit_cost = flt(cost_per_cbm * flt(row.unit_cbm), PRECISION)
+			amount = flt(core_unit_cost * qty, PRECISION)
+			total_target_amount = flt(total_target_amount + amount, PRECISION)
+			entry.append(
+				"items",
+				{
+					"item_code": row.item_code,
+					"qty": qty,
+					"t_warehouse": self.target_warehouse,
+					"uom": row.uom or item_doc.stock_uom,
+					"stock_uom": item_doc.stock_uom,
+					"conversion_factor": 1,
+					"basic_rate": core_unit_cost,
+					"valuation_rate": core_unit_cost,
+					"amount": amount,
+					"set_basic_rate_manually": 1,
+					"allow_zero_valuation_rate": 1 if core_unit_cost <= 0 else 0,
+					"use_serial_batch_fields": 1,
+					"batch_no": batch_id,
+					"serial_no": serial_string,
+				},
+			)
+
+		# Absorb residual rounding so Input Cost = Output Cores + Scrap
+		left = flt(total_input_cost, PRECISION)
+		right = flt(total_target_amount + scrap_value, PRECISION)
+		residual = flt(left - right, PRECISION)
+		if abs(residual) > 0.00001:
+			for se_row in reversed(entry.items):
+				if (
+					se_row.t_warehouse
+					and flt(se_row.qty)
+					and (not scrap_item or se_row.item_code != scrap_item)
+				):
+					new_amount = flt(flt(se_row.basic_rate) * flt(se_row.qty) + residual, PRECISION)
+					new_rate = flt(new_amount / flt(se_row.qty), PRECISION)
+					se_row.basic_rate = new_rate
+					se_row.valuation_rate = new_rate
+					se_row.amount = new_amount
+					break
 
 		entry.insert(ignore_permissions=True)
 		entry.submit()
 		self.db_set("stock_entry", entry.name, update_modified=False)
+
+	def _ensure_output_batch(self, item_code):
+		"""Batch ID inherits conversion name + item (globally unique per ERPNext)."""
+		batch_id = f"{self.name}-{item_code}"
+		if not frappe.db.exists("Batch", batch_id):
+			new_batch = frappe.new_doc("Batch")
+			new_batch.batch_id = batch_id
+			new_batch.item = item_code
+			new_batch.reference_doctype = "Foam Block Conversion"
+			new_batch.reference_name = self.name
+			new_batch.insert(ignore_permissions=True)
+		return batch_id
+
+	@staticmethod
+	def _build_output_serials(batch_id, qty):
+		"""Serials: {batch_id}-{n}."""
+		return "\n".join(f"{batch_id}-{i}" for i in range(1, cint(qty) + 1))

@@ -2,7 +2,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.model.naming import make_autoname
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from pu_foam_master.pufm_manufacturing.utils.density_bom import (
 	PRECISION,
@@ -199,6 +199,7 @@ class PufmProductionBatch(Document):
 			"Stock Settings", "scrap_item"
 		)
 		labour_account = getattr(settings, "labour_absorption_account", None)
+		default_brand = getattr(settings, "default_brand", None)
 
 		wip_warehouse = self._resolve_wip_warehouse(settings)
 		default_fg = self._company_warehouse(
@@ -209,7 +210,7 @@ class PufmProductionBatch(Document):
 		)
 
 		entry = frappe.new_doc("Stock Entry")
-		entry.company = company
+		entry.company = self.company
 		entry.stock_entry_type = "Repack"
 		entry.purpose = "Repack"
 		entry.posting_date = self.posting_date
@@ -314,22 +315,38 @@ class PufmProductionBatch(Document):
 				qty = flt(block["quantity"], PRECISION)
 				if qty <= 0:
 					continue
+				serial_qty = cint(qty)
+				if serial_qty <= 0 or abs(qty - serial_qty) > 0.0001:
+					frappe.throw(
+						_(
+							"Finished block quantity for {0} must be a whole number "
+							"to generate serial numbers (got {1})."
+						).format(block["block_item"], qty)
+					)
+
+				item_code = block["block_item"]
+				self._ensure_block_item_traceability(item_code, default_brand)
+				batch_no = self._ensure_block_batch(item_code)
+				serial_string = self._build_block_serials(item_code, batch_no, serial_qty)
+
 				unit_cbm = flt(block["unit_cbm"], PRECISION)
 				block_unit_cost = flt(cost_per_cbm * unit_cbm, PRECISION)
 				block_amount = flt(block_unit_cost * qty, PRECISION)
-				entry.append(
-					"items",
-					{
-						"item_code": block["block_item"],
-						"qty": qty,
-						"t_warehouse": target_wh,
-						"basic_rate": block_unit_cost,
-						"valuation_rate": block_unit_cost,
-						"amount": block_amount,
-						"allow_zero_valuation_rate": 1 if block_unit_cost <= 0 else 0,
-						"set_basic_rate_manually": 1,
-					},
-				)
+				row = {
+					"item_code": item_code,
+					"qty": qty,
+					"t_warehouse": target_wh,
+					"basic_rate": block_unit_cost,
+					"valuation_rate": block_unit_cost,
+					"amount": block_amount,
+					"allow_zero_valuation_rate": 1 if block_unit_cost <= 0 else 0,
+					"set_basic_rate_manually": 1,
+					# v15: required so batch_no / serial_no are applied on submit
+					"use_serial_batch_fields": 1,
+					"batch_no": batch_no,
+					"serial_no": serial_string,
+				}
+				entry.append("items", row)
 				total_target_amount = flt(total_target_amount + block_amount, PRECISION)
 
 		if not entry.get("items"):
@@ -363,6 +380,67 @@ class PufmProductionBatch(Document):
 			flt(r.scrap_weight_kg) > 0 for r in runs
 		):
 			self.scrap_stock_entry = entry.name
+
+	def _ensure_block_item_traceability(self, item_code, default_brand=None):
+		"""Ensure FG block Item accepts batch + serial (and optional brand)."""
+		if not item_code or not frappe.db.exists("Item", item_code):
+			frappe.throw(_("Block Item {0} does not exist.").format(item_code))
+
+		item = frappe.get_doc("Item", item_code)
+		changed = False
+		for fieldname, value in (
+			("has_batch_no", 1),
+			("create_new_batch", 1),
+			("has_serial_no", 1),
+			("serial_no_series", ""),
+		):
+			if item.get(fieldname) != value:
+				item.set(fieldname, value)
+				changed = True
+		if default_brand and item.brand != default_brand:
+			item.brand = default_brand
+			changed = True
+		if changed:
+			item.save(ignore_permissions=True)
+
+	def _ensure_block_batch(self, item_code):
+		"""
+		Create/return a Batch for this Production Batch + block Item.
+
+		ERPNext Batch.batch_id is globally unique and linked to one Item, so the
+		Production Batch name is used when free; otherwise `{PB}-{item_code}`.
+		"""
+		preferred = self.name
+		existing_item = frappe.db.get_value("Batch", preferred, "item")
+		if existing_item == item_code:
+			return preferred
+		if existing_item and existing_item != item_code:
+			batch_id = f"{self.name}-{item_code}"
+		else:
+			batch_id = preferred
+
+		if frappe.db.exists("Batch", batch_id):
+			batch_item = frappe.db.get_value("Batch", batch_id, "item")
+			if batch_item and batch_item != item_code:
+				batch_id = f"{self.name}-{item_code}"
+			else:
+				return batch_id
+
+		if not frappe.db.exists("Batch", batch_id):
+			new_batch = frappe.new_doc("Batch")
+			new_batch.batch_id = batch_id
+			new_batch.item = item_code
+			new_batch.reference_doctype = "Pufm Production Batch"
+			new_batch.reference_name = self.name
+			new_batch.insert(ignore_permissions=True)
+
+		return batch_id
+
+	@staticmethod
+	def _build_block_serials(item_code, batch_id, qty):
+		"""Newline-separated serials: {item_code}-{batch_id}-{n}."""
+		serial_nos = [f"{item_code}-{batch_id}-{i}" for i in range(1, cint(qty) + 1)]
+		return "\n".join(serial_nos)
 
 	def _calculate_run_costing(self, run_doc, wip_warehouse, scrap_output_rate):
 		"""Per-density-run RM + Op - Scrap → Cost_Per_CBM."""

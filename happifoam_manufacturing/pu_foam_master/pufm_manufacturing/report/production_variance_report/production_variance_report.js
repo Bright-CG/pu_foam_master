@@ -22,7 +22,7 @@ frappe.query_reports["Production Variance Report"] = {
 			label: __("Threshold (+/- %)"),
 			fieldtype: "Float",
 			default: 5.0,
-			reqd: 1,
+			reqd: 0,
 		},
 	],
 };

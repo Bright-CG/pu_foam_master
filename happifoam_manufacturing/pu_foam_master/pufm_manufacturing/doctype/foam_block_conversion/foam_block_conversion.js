@@ -1,12 +1,55 @@
 frappe.ui.form.on("Foam Block Conversion", {
-	refresh(frm) {
+	setup(frm) {
+		frm.set_query("source_warehouse", "inputs", () => {
+			return {
+				filters: {
+					company: frm.doc.company,
+					disabled: 0,
+				},
+			};
+		});
+		frm.set_query("target_warehouse", () => {
+			return {
+				filters: {
+					company: frm.doc.company,
+					disabled: 0,
+				},
+			};
+		});
 		frm.set_query("material_request", () => ({
-			filters: { material_request_type: "Manufacture" }
+			filters: { material_request_type: "Manufacture" },
 		}));
+	},
+	refresh(frm) {
 		recalculate_summary(frm);
 	},
 	onload(frm) {
+		if (frm.is_new() && !frm.doc.processed_by) {
+			frm.set_value("processed_by", frappe.session.user);
+		}
 		set_conversion_rate(frm);
+	},
+	company(frm) {
+		// Clear warehouses that no longer belong to the selected company
+		if (frm.doc.target_warehouse) {
+			frappe.db.get_value("Warehouse", frm.doc.target_warehouse, "company").then((r) => {
+				const wh_company = r && r.message && r.message.company;
+				if (wh_company && wh_company !== frm.doc.company) {
+					frm.set_value("target_warehouse", null);
+				}
+			});
+		}
+		(frm.doc.inputs || []).forEach((row) => {
+			if (!row.source_warehouse) {
+				return;
+			}
+			frappe.db.get_value("Warehouse", row.source_warehouse, "company").then((r) => {
+				const wh_company = r && r.message && r.message.company;
+				if (wh_company && wh_company !== frm.doc.company) {
+					frappe.model.set_value(row.doctype, row.name, "source_warehouse", null);
+				}
+			});
+		});
 	},
 	inputs_add(frm) {
 		recalculate_summary(frm);
@@ -22,7 +65,7 @@ frappe.ui.form.on("Foam Block Conversion", {
 	},
 	validate(frm) {
 		recalculate_summary(frm);
-	}
+	},
 });
 
 frappe.ui.form.on("Block Conversion Input", {
@@ -39,7 +82,7 @@ frappe.ui.form.on("Block Conversion Input", {
 	},
 	qty(frm, cdt, cdn) {
 		recalculate_input_row(frm, cdt, cdn);
-	}
+	},
 });
 
 frappe.ui.form.on("Block Conversion Output", {
@@ -52,16 +95,16 @@ frappe.ui.form.on("Block Conversion Output", {
 			method: "frappe.client.get",
 			args: {
 				doctype: "Item",
-				name: row.item_code
+				name: row.item_code,
 			},
-			callback: function(res) {
+			callback: function (res) {
 				const item = res.message || {};
 				frappe.model.set_value(cdt, cdn, "uom", item.stock_uom || null);
 				frappe.model.set_value(cdt, cdn, "width", flt(item.custom_width));
 				frappe.model.set_value(cdt, cdn, "height", flt(item.custom_height));
 				frappe.model.set_value(cdt, cdn, "length", flt(item.custom_length));
 				recalculate_output_row(frm, cdt, cdn);
-			}
+			},
 		});
 	},
 	qty(frm, cdt, cdn) {
@@ -75,7 +118,7 @@ frappe.ui.form.on("Block Conversion Output", {
 	},
 	length(frm, cdt, cdn) {
 		recalculate_output_row(frm, cdt, cdn);
-	}
+	},
 });
 
 function set_conversion_rate(frm) {
@@ -108,7 +151,7 @@ function recalculate_output_row(frm, cdt, cdn) {
 		const width = flt(row.width);
 		const height = flt(row.height);
 		const length = flt(row.length);
-		const unit = (width > 0 && height > 0 && length > 0) ? ((width * height * length) / cbmFactor) : 0;
+		const unit = width > 0 && height > 0 && length > 0 ? (width * height * length) / cbmFactor : 0;
 		const total = flt(row.qty) * unit;
 		frappe.model.set_value(cdt, cdn, "unit_cbm", unit);
 		frappe.model.set_value(cdt, cdn, "total_cbm", total);
@@ -127,11 +170,3 @@ function recalculate_summary(frm) {
 	frm.set_value("cbm_variance", variance);
 	frm.set_value("conversion_cost", conversionCost);
 }
-
-frappe.ui.form.on('Foam Block Conversion', {
-    onload: function(frm) {
-        if (frm.is_new()) {
-            frm.set_value('processed_by', frappe.session.user);
-        }
-    }
-});

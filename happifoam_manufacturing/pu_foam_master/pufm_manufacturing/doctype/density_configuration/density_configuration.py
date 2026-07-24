@@ -94,10 +94,9 @@ def generate_block_items(docname, lengths_string=None):
 	if width <= 0 or height <= 0:
 		frappe.throw(_("Width (Inches) and Height (Inches) must be greater than zero."))
 
-	item_group = (
-		frappe.db.get_single_value("Pufm Manufacturing Settings", "block_item_group")
-		or "Raw Material"
-	)
+	settings = frappe.get_single("Pufm Manufacturing Settings")
+	item_group = settings.block_item_group or "Raw Material"
+	default_brand = settings.default_brand or None
 	if not frappe.db.exists("Item Group", item_group):
 		frappe.throw(
 			_("Item Group {0} does not exist. Set Block Item Group in settings.").format(item_group)
@@ -128,6 +127,7 @@ def generate_block_items(docname, lengths_string=None):
 			item.custom_width = width
 			item.custom_height = height
 			item.custom_cbm_value = volume_cbm
+			_apply_block_item_traceability(item, default_brand)
 			item.save(ignore_permissions=True)
 			updated.append(item_code)
 			continue
@@ -141,12 +141,18 @@ def generate_block_items(docname, lengths_string=None):
 				"stock_uom": "Nos",
 				"is_stock_item": 1,
 				"include_item_in_manufacturing": 1,
+				"has_batch_no": 1,
+				"create_new_batch": 1,
+				"has_serial_no": 1,
+				"serial_no_series": "",
 				"custom_length": length,
 				"custom_width": width,
 				"custom_height": height,
 				"custom_cbm_value": volume_cbm,
 			}
 		)
+		if default_brand:
+			item.brand = default_brand
 		item.insert(ignore_permissions=True)
 		created.append(item_code)
 
@@ -170,3 +176,13 @@ def generate_block_items(docname, lengths_string=None):
 		"updated": updated,
 		"invalid": invalid,
 	}
+
+
+def _apply_block_item_traceability(item, default_brand=None):
+	"""Enable batch + serial tracking (and optional brand) on foam block Items."""
+	item.has_batch_no = 1
+	item.create_new_batch = 1
+	item.has_serial_no = 1
+	item.serial_no_series = ""
+	if default_brand:
+		item.brand = default_brand

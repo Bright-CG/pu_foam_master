@@ -136,8 +136,11 @@ def create_workspace():
 		'{"id":"s5","type":"shortcut","data":{"shortcut_name":"Rebate Settlement Tool","col":6}},'
 		'{"id":"s6","type":"shortcut","data":{"shortcut_name":"Sales Invoice","col":6}},'
 		'{"id":"h3","type":"header","data":{"text":"Mattress Production","col":12}},'
-		'{"id":"s7","type":"shortcut","data":{"shortcut_name":"Quilting Record","col":6}},'
-		'{"id":"s8","type":"shortcut","data":{"shortcut_name":"Mattress Production Entry","col":6}}'
+		'{"id":"s7a","type":"shortcut","data":{"shortcut_name":"Standard Mattress Size","col":3}},'
+		'{"id":"s7b","type":"shortcut","data":{"shortcut_name":"Mattress Item Generator","col":3}},'
+		'{"id":"s7c","type":"shortcut","data":{"shortcut_name":"Mattress Brand Policy","col":3}},'
+		'{"id":"s7","type":"shortcut","data":{"shortcut_name":"Quilting Record","col":3}},'
+		'{"id":"s8","type":"shortcut","data":{"shortcut_name":"Mattress Production Entry","col":3}}'
 		']'
 	)
 

@@ -7,6 +7,8 @@
  "field_order": [
   "density_configuration",
   "brand_name",
+  "core_item_group",
+  "mattress_item_group",
   "fetch_sizes",
   "generate_items",
   "sizes"
@@ -29,6 +31,20 @@
    "read_only": 1
   },
   {
+   "default": "Foam Cores",
+   "fieldname": "core_item_group",
+   "fieldtype": "Data",
+   "label": "Core Item Group",
+   "reqd": 1
+  },
+  {
+   "default": "Finished Mattresses",
+   "fieldname": "mattress_item_group",
+   "fieldtype": "Data",
+   "label": "Finished Mattress Item Group",
+   "reqd": 1
+  },
+  {
    "fieldname": "fetch_sizes",
    "fieldtype": "Button",
    "label": "Fetch Standard Sizes"
@@ -47,7 +63,7 @@
  ],
  "index_pages": [],
  "links": [],
- "modified": "2026-04-21 00:00:00.000000",
+ "modified": "2026-07-23 18:14:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Mattress Item Generator",

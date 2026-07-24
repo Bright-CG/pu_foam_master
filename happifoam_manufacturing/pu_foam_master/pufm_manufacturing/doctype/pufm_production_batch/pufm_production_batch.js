@@ -1,20 +1,19 @@
 frappe.ui.form.on("Pufm Production Batch", {
 	setup(frm) {
-		frm.set_query("company", () => {
+		// Density Runs are linked docs (not a child table); warehouse filter lives on
+		// Pufm Density Run. Keep company scoped via User Permissions on Company Link.
+		frm.set_query("target_warehouse", "density_runs", () => {
 			return {
-				query: "pu_foam_master.pufm_manufacturing.doctype.pufm_production_batch.pufm_production_batch.company_query",
+				filters: {
+					company: frm.doc.company,
+					disabled: 0,
+				},
 			};
 		});
 	},
 	onload(frm) {
 		if (frm.is_new() && !frm.doc.company) {
-			frappe.db.exists("Company", "Solarfoam").then((exists) => {
-				if (exists) {
-					frm.set_value("company", "Solarfoam");
-				} else {
-					frm.set_value("company", frappe.defaults.get_user_default("Company"));
-				}
-			});
+			frm.set_value("company", frappe.defaults.get_user_default("Company"));
 		}
 	},
 	refresh(frm) {

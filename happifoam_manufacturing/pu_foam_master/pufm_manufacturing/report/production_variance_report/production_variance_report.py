@@ -81,9 +81,12 @@ def get_columns():
 
 
 def get_data(filters):
-	threshold = flt(
-		filters.get("variance_threshold") if filters.get("variance_threshold") is not None else 5.0
-	)
+	raw_threshold = filters.get("variance_threshold")
+	# Explicit 0 / "0" must be kept; only None / blank fall back.
+	if raw_threshold in [None, ""]:
+		threshold = 0.0
+	else:
+		threshold = flt(raw_threshold)
 
 	combined = []
 	combined.extend(_get_density_run_rows(filters))
@@ -91,10 +94,8 @@ def get_data(filters):
 
 	data = []
 	for row in combined:
-		variance = flt(row.get("variance_percentage", 0))
-		if abs(variance) < threshold:
-			continue
-		data.append(row)
+		if abs(flt(row.get("variance_percentage"))) >= threshold:
+			data.append(row)
 
 	data.sort(key=lambda r: (r.get("posting_date") or "", r.get("reference_doc") or ""), reverse=True)
 	return data
