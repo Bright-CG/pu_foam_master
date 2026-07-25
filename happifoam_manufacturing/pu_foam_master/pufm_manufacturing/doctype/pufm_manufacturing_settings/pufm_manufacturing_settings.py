@@ -12,6 +12,7 @@ class PufmManufacturingSettings(Document):
 			("diesel_absorption_account", "Diesel Absorption Account"),
 			("labour_absorption_account", "Labour Absorption Account"),
 			("depreciation_absorption_account", "Depreciation Absorption Account"),
+			("conversion_absorption_account", "Conversion (Slicing) Absorption Account"),
 		):
 			validate_account_type(self.get(fieldname), "Expense", label)
 

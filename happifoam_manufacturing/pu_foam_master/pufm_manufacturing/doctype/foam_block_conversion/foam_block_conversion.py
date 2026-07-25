@@ -19,15 +19,14 @@ class FoamBlockConversion(Document):
 		self._create_repack_stock_entry()
 
 	def _set_conversion_rate(self):
-		self.conversion_rate = flt(
-			frappe.db.get_single_value("Pufm Manufacturing Settings", "conversion_rate_per_cbm")
-		)
+		settings = frappe.get_single("Pufm Manufacturing Settings")
+		self.conversion_rate = flt(getattr(settings, "conversion_rate_per_cbm", 0) or 0)
 
 	def _recalculate_totals(self):
 		self.total_input_cbm = sum(flt(row.total_cbm) for row in self.get("inputs") or [])
 		self.total_output_cbm = sum(flt(row.total_cbm) for row in self.get("outputs") or [])
 		self.cbm_variance = flt(self.total_output_cbm) - flt(self.total_input_cbm)
-		self.conversion_cost = flt(self.total_input_cbm) * flt(self.conversion_rate)
+		self.conversion_cost = flt(flt(self.total_input_cbm) * flt(self.conversion_rate), 2)
 		if self.total_input_cbm:
 			self.variance_percentage = flt(
 				((self.total_output_cbm - self.total_input_cbm) / self.total_input_cbm) * 100,
@@ -97,6 +96,14 @@ class FoamBlockConversion(Document):
 		scrap_output_rate = flt(getattr(settings, "scrap_output_rate", 0) or 0)
 		scrap_item = getattr(settings, "scrap_item", None)
 		scrap_warehouse = getattr(settings, "default_scrap_warehouse", None)
+		conversion_absorption_account = getattr(settings, "conversion_absorption_account", None)
+		conversion_cost = flt(self.conversion_cost)
+
+		if conversion_cost > 0 and not conversion_absorption_account:
+			frappe.throw(
+				"Set Conversion (Slicing) Absorption Account in Pufm Manufacturing Settings "
+				"to post conversion overhead."
+			)
 
 		# --- Step 1: Source block value ---
 		total_input_cost = 0.0
@@ -113,21 +120,30 @@ class FoamBlockConversion(Document):
 			source_rates[row.idx] = source_rate
 			total_input_cost = flt(total_input_cost + (flt(row.qty) * source_rate), PRECISION)
 
-		# --- Step 2: Scrap & net cost per CBM ---
+		# --- Step 2: Scrap + conversion overhead → net cost per CBM ---
 		scrap_value = flt(flt(self.scrap_weight) * scrap_output_rate, PRECISION)
-		net_slicing_cost = flt(total_input_cost - scrap_value, PRECISION)
+		net_slicing_cost = flt(total_input_cost + conversion_cost - scrap_value, PRECISION)
 		total_output_cbm = flt(self.total_output_cbm)
 		cost_per_cbm = (
 			flt(net_slicing_cost / total_output_cbm, PRECISION) if total_output_cbm > 0 else 0.0
 		)
 
 		entry = frappe.new_doc("Stock Entry")
+		entry.company = self.company
 		entry.stock_entry_type = "Repack"
 		entry.purpose = "Repack"
 		entry.posting_date = self.posting_date
 		entry.set_posting_time = 1
-		if getattr(self, "company", None):
-			entry.company = self.company
+
+		if conversion_cost > 0 and conversion_absorption_account:
+			entry.append(
+				"additional_costs",
+				{
+					"expense_account": conversion_absorption_account,
+					"description": "Conversion Operations for {0}".format(self.name),
+					"amount": conversion_cost,
+				},
+			)
 
 		# --- Step 3A: Source rows (blocks) ---
 		for row in input_rows:
@@ -219,8 +235,8 @@ class FoamBlockConversion(Document):
 
 			entry.append("items", target_row)
 
-		# Absorb residual rounding so Input Cost = Output Cores + Scrap
-		left = flt(total_input_cost, PRECISION)
+		# Absorb residual rounding so Input Cost + Conversion = Output Cores + Scrap
+		left = flt(total_input_cost + conversion_cost, PRECISION)
 		right = flt(total_target_amount + scrap_value, PRECISION)
 		residual = flt(left - right, PRECISION)
 		if abs(residual) > 0.00001:

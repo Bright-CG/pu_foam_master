@@ -13,7 +13,10 @@ frappe.ui.form.on("Pufm Production Batch", {
 	},
 	onload(frm) {
 		if (frm.is_new() && !frm.doc.company) {
-			frm.set_value("company", frappe.defaults.get_user_default("Company"));
+			const user_company = frappe.defaults.get_user_default("Company");
+			if (user_company) {
+				frm.set_value("company", user_company);
+			}
 		}
 	},
 	refresh(frm) {

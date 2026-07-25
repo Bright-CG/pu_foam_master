@@ -37,7 +37,6 @@
             "read_only": 1
         },
         {
-            "default": ":Company",
             "fieldname": "company",
             "fieldtype": "Link",
             "in_list_view": 1,

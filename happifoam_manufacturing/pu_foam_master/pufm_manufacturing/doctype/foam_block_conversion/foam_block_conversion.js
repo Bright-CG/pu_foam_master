@@ -21,16 +21,22 @@ frappe.ui.form.on("Foam Block Conversion", {
 		}));
 	},
 	refresh(frm) {
-		recalculate_summary(frm);
+		// Sync read-only totals without dirtying (keeps Submit visible)
+		sync_summary_fields(frm, { silent: true });
 	},
 	onload(frm) {
+		if (frm.is_new() && !frm.doc.company) {
+			const user_company = frappe.defaults.get_user_default("Company");
+			if (user_company) {
+				frm.set_value("company", user_company);
+			}
+		}
 		if (frm.is_new() && !frm.doc.processed_by) {
 			frm.set_value("processed_by", frappe.session.user);
 		}
 		set_conversion_rate(frm);
 	},
 	company(frm) {
-		// Clear warehouses that no longer belong to the selected company
 		if (frm.doc.target_warehouse) {
 			frappe.db.get_value("Warehouse", frm.doc.target_warehouse, "company").then((r) => {
 				const wh_company = r && r.message && r.message.company;
@@ -52,19 +58,19 @@ frappe.ui.form.on("Foam Block Conversion", {
 		});
 	},
 	inputs_add(frm) {
-		recalculate_summary(frm);
+		sync_summary_fields(frm);
 	},
 	inputs_remove(frm) {
-		recalculate_summary(frm);
+		sync_summary_fields(frm);
 	},
 	outputs_add(frm) {
-		recalculate_summary(frm);
+		sync_summary_fields(frm);
 	},
 	outputs_remove(frm) {
-		recalculate_summary(frm);
+		sync_summary_fields(frm);
 	},
 	validate(frm) {
-		recalculate_summary(frm);
+		sync_summary_fields(frm, { silent: true });
 	},
 });
 
@@ -76,8 +82,9 @@ frappe.ui.form.on("Block Conversion Input", {
 		}
 		frappe.db.get_value("Item", row.item_code, "custom_cbm_value").then((r) => {
 			const unitCbm = flt((r.message || {}).custom_cbm_value);
-			frappe.model.set_value(cdt, cdn, "unit_cbm", unitCbm);
-			recalculate_input_row(frm, cdt, cdn);
+			frappe.model.set_value(cdt, cdn, "unit_cbm", unitCbm).then(() => {
+				recalculate_input_row(frm, cdt, cdn);
+			});
 		});
 	},
 	qty(frm, cdt, cdn) {
@@ -102,8 +109,9 @@ frappe.ui.form.on("Block Conversion Output", {
 				frappe.model.set_value(cdt, cdn, "uom", item.stock_uom || null);
 				frappe.model.set_value(cdt, cdn, "width", flt(item.custom_width));
 				frappe.model.set_value(cdt, cdn, "height", flt(item.custom_height));
-				frappe.model.set_value(cdt, cdn, "length", flt(item.custom_length));
-				recalculate_output_row(frm, cdt, cdn);
+				frappe.model.set_value(cdt, cdn, "length", flt(item.custom_length)).then(() => {
+					recalculate_output_row(frm, cdt, cdn);
+				});
 			},
 		});
 	},
@@ -122,12 +130,20 @@ frappe.ui.form.on("Block Conversion Output", {
 });
 
 function set_conversion_rate(frm) {
-	if (frm.doc.conversion_rate) {
+	if (flt(frm.doc.conversion_rate)) {
 		return;
 	}
 	frappe.db.get_single_value("Pufm Manufacturing Settings", "conversion_rate_per_cbm").then((rate) => {
-		frm.set_value("conversion_rate", flt(rate));
-		recalculate_summary(frm);
+		const value = flt(rate);
+		if (!nearly_equal(frm.doc.conversion_rate, value)) {
+			if (frm.is_new()) {
+				frm.set_value("conversion_rate", value);
+			} else {
+				frm.doc.conversion_rate = value;
+				frm.refresh_field("conversion_rate");
+			}
+		}
+		sync_summary_fields(frm, { silent: !frm.is_new() });
 	});
 }
 
@@ -141,8 +157,9 @@ function get_cbm_factor() {
 function recalculate_input_row(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 	const total = flt(row.qty) * flt(row.unit_cbm);
-	frappe.model.set_value(cdt, cdn, "total_cbm", total);
-	recalculate_summary(frm);
+	frappe.model.set_value(cdt, cdn, "total_cbm", total).then(() => {
+		sync_summary_fields(frm);
+	});
 }
 
 function recalculate_output_row(frm, cdt, cdn) {
@@ -154,19 +171,41 @@ function recalculate_output_row(frm, cdt, cdn) {
 		const unit = width > 0 && height > 0 && length > 0 ? (width * height * length) / cbmFactor : 0;
 		const total = flt(row.qty) * unit;
 		frappe.model.set_value(cdt, cdn, "unit_cbm", unit);
-		frappe.model.set_value(cdt, cdn, "total_cbm", total);
-		recalculate_summary(frm);
+		frappe.model.set_value(cdt, cdn, "total_cbm", total).then(() => {
+			sync_summary_fields(frm);
+		});
 	});
 }
 
-function recalculate_summary(frm) {
+function compute_summary(frm) {
 	const totalInput = (frm.doc.inputs || []).reduce((acc, row) => acc + flt(row.total_cbm), 0);
 	const totalOutput = (frm.doc.outputs || []).reduce((acc, row) => acc + flt(row.total_cbm), 0);
-	const variance = totalOutput - totalInput;
-	const conversionCost = totalInput * flt(frm.doc.conversion_rate);
+	return {
+		total_input_cbm: totalInput,
+		total_output_cbm: totalOutput,
+		cbm_variance: totalOutput - totalInput,
+		conversion_cost: flt(totalInput * flt(frm.doc.conversion_rate), 2),
+	};
+}
 
-	frm.set_value("total_input_cbm", totalInput);
-	frm.set_value("total_output_cbm", totalOutput);
-	frm.set_value("cbm_variance", variance);
-	frm.set_value("conversion_cost", conversionCost);
+function sync_summary_fields(frm, opts) {
+	const silent = opts && opts.silent;
+	const values = compute_summary(frm);
+
+	Object.keys(values).forEach((fieldname) => {
+		const next = values[fieldname];
+		if (nearly_equal(frm.doc[fieldname], next)) {
+			return;
+		}
+		if (silent) {
+			frm.doc[fieldname] = next;
+			frm.refresh_field(fieldname);
+		} else {
+			frm.set_value(fieldname, next);
+		}
+	});
+}
+
+function nearly_equal(a, b, eps) {
+	return Math.abs(flt(a) - flt(b)) < (eps || 0.0000001);
 }

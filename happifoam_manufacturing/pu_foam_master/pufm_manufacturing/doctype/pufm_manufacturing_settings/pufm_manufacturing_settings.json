@@ -43,6 +43,7 @@
         "diesel_absorption_account",
         "labour_absorption_account",
         "depreciation_absorption_account",
+        "conversion_absorption_account",
         "volume_rebate_settings_section",
         "primary_volume_uom",
         "default_vat_rate"
@@ -95,6 +96,7 @@
             "options": "Brand"
         },
         {
+            "default": "0",
             "fieldname": "conversion_rate_per_cbm",
             "fieldtype": "Currency",
             "label": "Conversion Rate per CBM"
@@ -263,6 +265,12 @@
             "fieldname": "depreciation_absorption_account",
             "fieldtype": "Link",
             "label": "Depreciation Absorption Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "conversion_absorption_account",
+            "fieldtype": "Link",
+            "label": "Conversion (Slicing) Absorption Account",
             "options": "Account"
         },
         {

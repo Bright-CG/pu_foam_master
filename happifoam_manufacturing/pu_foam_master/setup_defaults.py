@@ -124,18 +124,27 @@ def ensure_customer_rebate_fields():
 
 
 def ensure_foam_sheets():
-	"""Seed continuous foam sheet Items (Meter UOM, batch-only, no serials)."""
+	"""Seed continuous foam sheet roll Items (Meter UOM, batch-only, no serials)."""
 	_ensure_item_group("Sub Assembly", parent="All Item Groups", is_group=0)
 	_ensure_uom("Meter")
 
+	# Rename legacy non-Roll names if they still exist
+	renames = {
+		"Foam Sheet - 0.5 Inch": "Foam Sheet Roll - 0.5 Inch",
+		"Foam Sheet - 1.0 Inch": "Foam Sheet Roll - 1.0 Inch",
+	}
+	for old_code, new_code in renames.items():
+		if frappe.db.exists("Item", old_code) and not frappe.db.exists("Item", new_code):
+			frappe.rename_doc("Item", old_code, new_code, force=True, merge=False)
+
 	sheets = [
 		{
-			"item_code": "Foam Sheet - 0.5 Inch",
+			"item_code": "Foam Sheet Roll - 0.5 Inch",
 			"custom_height": 0.5,
 			"custom_cbm_value": 0.02709,
 		},
 		{
-			"item_code": "Foam Sheet - 1.0 Inch",
+			"item_code": "Foam Sheet Roll - 1.0 Inch",
 			"custom_height": 1.0,
 			"custom_cbm_value": 0.05419,
 		},
@@ -144,9 +153,12 @@ def ensure_foam_sheets():
 	for sheet in sheets:
 		item_code = sheet["item_code"]
 		if frappe.db.exists("Item", item_code):
-			# Keep continuous sheets non-serialized even if created earlier
+			# Keep continuous rolls non-serialized even if created earlier
 			item = frappe.get_doc("Item", item_code)
 			changed = False
+			if item.item_name != item_code:
+				item.item_name = item_code
+				changed = True
 			if not item.has_batch_no:
 				item.has_batch_no = 1
 				changed = True
