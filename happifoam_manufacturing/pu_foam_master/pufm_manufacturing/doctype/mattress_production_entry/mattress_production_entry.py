@@ -225,21 +225,22 @@ def _recalculate_fabric_meters(row):
 
 @frappe.whitelist()
 def get_allowed_fabric_items_for_mattress(mattress_item):
-	brand = _extract_brand_from_item(mattress_item)
-	if not brand:
+	"""Resolve fabrics from the mattress Item's native Brand policy."""
+	if not mattress_item:
 		return []
-	policy_name = frappe.db.get_value("Density Configuration", {"density_name": brand}, "name")
-	if not policy_name:
+
+	item_brand = frappe.db.get_value("Item", mattress_item, "brand")
+	if not item_brand:
+		# Fallback: MAT-{BRAND}-{size} naming
+		item_brand = _extract_brand_from_item(mattress_item)
+	if not item_brand:
 		return []
-	return [
-		d.fabric_item
-		for d in frappe.get_all(
-			"Allowed Fabric",
-			filters={"parenttype": "Mattress Brand Policy", "parent": policy_name},
-			fields=["fabric_item"],
-		)
-		if d.fabric_item
-	]
+
+	from pu_foam_master.pufm_manufacturing.doctype.mattress_brand_policy.mattress_brand_policy import (
+		get_allowed_fabric_items,
+	)
+
+	return get_allowed_fabric_items(item_brand)
 
 
 def _extract_brand_from_item(item_code):

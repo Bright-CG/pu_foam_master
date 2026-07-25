@@ -10,6 +10,7 @@
   "core_item_group",
   "mattress_item_group",
   "fetch_sizes",
+  "generate_core_only",
   "generate_items",
   "sizes"
  ],
@@ -39,15 +40,23 @@
   },
   {
    "default": "Finished Mattresses",
+   "depends_on": "eval:!doc.generate_core_only",
    "fieldname": "mattress_item_group",
    "fieldtype": "Data",
    "label": "Finished Mattress Item Group",
-   "reqd": 1
+   "mandatory_depends_on": "eval:!doc.generate_core_only"
   },
   {
    "fieldname": "fetch_sizes",
    "fieldtype": "Button",
    "label": "Fetch Standard Sizes"
+  },
+  {
+   "default": "0",
+   "description": "For furniture/upholstery foams: create CORE items only (skip MAT finished mattresses).",
+   "fieldname": "generate_core_only",
+   "fieldtype": "Check",
+   "label": "Generate Core Only (No Finished Mattress)"
   },
   {
    "fieldname": "generate_items",
@@ -63,7 +72,7 @@
  ],
  "index_pages": [],
  "links": [],
- "modified": "2026-07-23 18:14:00.000000",
+ "modified": "2026-07-25 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Mattress Item Generator",

@@ -29,10 +29,30 @@ class DensityConfiguration(Document):
 		sync_bom_for_density_config(self, cancel_existing=False)
 
 	def on_update_after_submit(self):
-		# Recalculate recipe rates, rebuild BOM (cancel old -> submit new), sync block Items
+		# Always refresh recipe math for display
 		self.calculate_values()
+
+		if not self.is_new():
+			dimensions_changed = (
+				self.has_value_changed("width_inches")
+				or self.has_value_changed("height_inches")
+				or self.has_value_changed("conveyor_speed")
+				or self.has_value_changed("calibration_factor")
+			)
+			chemicals_changed = self.has_value_changed("production_inputs")
+			operations_changed = self.has_value_changed("bom_operations")
+
+			if not (dimensions_changed or chemicals_changed or operations_changed):
+				# Brand / text-only changes: refresh Item brand, skip BOM rebuild
+				if self.has_value_changed("brand"):
+					_sync_block_item_brands(self)
+				return
+
+		# Dimensions, chemicals, or operations changed → rebuild BOM
 		sync_bom_for_density_config(self, cancel_existing=True)
 		sync_related_block_items(self)
+		if self.brand:
+			_sync_block_item_brands(self)
 
 	def on_cancel(self):
 		cancel_active_bom(self)
@@ -96,7 +116,8 @@ def generate_block_items(docname, lengths_string=None):
 
 	settings = frappe.get_single("Pufm Manufacturing Settings")
 	item_group = settings.block_item_group or "Raw Material"
-	default_brand = settings.default_brand or None
+	# Prefer density Brand, fall back to manufacturing default
+	default_brand = doc.get("brand") or settings.default_brand or None
 	if not frappe.db.exists("Item Group", item_group):
 		frappe.throw(
 			_("Item Group {0} does not exist. Set Block Item Group in settings.").format(item_group)
@@ -186,3 +207,21 @@ def _apply_block_item_traceability(item, default_brand=None):
 	item.serial_no_series = ""
 	if default_brand:
 		item.brand = default_brand
+
+
+def _sync_block_item_brands(doc):
+	"""Push Density Configuration.brand onto related block Items."""
+	brand = (doc.get("brand") or "").strip()
+	if not brand:
+		return
+	density_name = (doc.density_name or "").strip()
+	if not density_name:
+		return
+	items = frappe.get_all(
+		"Item",
+		filters={"disabled": 0, "name": ["like", f"{density_name}-% Block"]},
+		pluck="name",
+	)
+	for item_code in items:
+		if frappe.db.get_value("Item", item_code, "brand") != brand:
+			frappe.db.set_value("Item", item_code, "brand", brand, update_modified=False)

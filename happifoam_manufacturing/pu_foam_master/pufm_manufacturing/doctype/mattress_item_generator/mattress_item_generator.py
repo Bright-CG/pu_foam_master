@@ -1,6 +1,6 @@
 import frappe
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 
 CBM_FACTOR = 61023.74
@@ -30,20 +30,27 @@ def generate_mattress_items(docname):
 		frappe.throw("Please fetch/add at least one size row.")
 
 	safe_core_group = get_or_create_item_group(doc.core_item_group)
-	safe_mattress_group = get_or_create_item_group(doc.mattress_item_group)
+	core_only = cint(doc.get("generate_core_only"))
+	safe_mattress_group = None
+	if not core_only:
+		safe_mattress_group = get_or_create_item_group(doc.mattress_item_group)
 
 	created_or_verified = []
 	for row in doc.sizes:
 		size = f"{int(flt(row.width))}x{int(flt(row.length))}x{int(flt(row.height))}"
 		core_code = f"CORE-{brand}-{size}"
-		mat_code = f"MAT-{brand}-{size}"
 
 		_ensure_item(core_code, safe_core_group, row)
-		_ensure_item(mat_code, safe_mattress_group, row)
-
 		row.core_item = core_code
-		row.mattress_item = mat_code
-		created_or_verified.extend([core_code, mat_code])
+		created_or_verified.append(core_code)
+
+		if not core_only:
+			mat_code = f"MAT-{brand}-{size}"
+			_ensure_item(mat_code, safe_mattress_group, row)
+			row.mattress_item = mat_code
+			created_or_verified.append(mat_code)
+		else:
+			row.mattress_item = None
 
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()

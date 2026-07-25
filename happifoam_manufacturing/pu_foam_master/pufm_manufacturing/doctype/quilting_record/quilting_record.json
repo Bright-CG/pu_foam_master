@@ -7,9 +7,12 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
+  "company",
   "posting_date",
   "finished_item",
   "output_qty_meters",
+  "total_input_meters",
+  "variance_meters",
   "target_warehouse",
   "total_production_cost",
   "stock_entry",
@@ -23,6 +26,14 @@
    "hidden": 1,
    "label": "Naming Series",
    "options": "QUILT-.YYYY.-.MM.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
    "reqd": 1
   },
   {
@@ -47,6 +58,18 @@
    "in_list_view": 1,
    "label": "Output Qty (Meters)",
    "reqd": 1
+  },
+  {
+   "fieldname": "total_input_meters",
+   "fieldtype": "Float",
+   "label": "Total Input Qty (Meters)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "variance_meters",
+   "fieldtype": "Float",
+   "label": "Variance / Scrap (Meters)",
+   "read_only": 1
   },
   {
    "fieldname": "target_warehouse",
@@ -79,7 +102,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-21 00:00:00.000000",
+ "modified": "2026-07-25 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Quilting Record",

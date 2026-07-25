@@ -8,6 +8,7 @@
     "field_order": [
         "density_name",
         "company",
+        "brand",
         "dimensions_sb",
         "width_inches",
         "height_inches",
@@ -45,6 +46,14 @@
             "label": "Company",
             "options": "Company",
             "reqd": 1
+        },
+        {
+            "allow_on_submit": 1,
+            "fieldname": "brand",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Brand",
+            "options": "Brand"
         },
         {
             "fieldname": "dimensions_sb",

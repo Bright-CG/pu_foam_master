@@ -1,26 +1,32 @@
 {
     "actions": [],
-    "allow_rename": 1,
-    "creation": "2026-04-17 10:00:00.000000",
+    "creation": "2026-03-21 12:00:00.000000",
     "doctype": "DocType",
     "engine": "InnoDB",
     "field_order": [
-        "warehouses_section",
+        "defaults_section",
         "default_wip_warehouse",
         "default_fg_warehouse",
         "default_scrap_warehouse",
-        "items_factors_section",
-        "scrap_item",
-        "mdi_item",
+        "column_break_wh",
         "default_brand",
-        "conversion_rate_per_cbm",
-        "cbm_factor",
+        "default_company",
         "block_item_group",
+        "conversion_overhead_section",
+        "conversion_glue_cost_per_cbm",
+        "conversion_power_cost_per_cbm",
+        "conversion_labor_cost_per_cbm",
+        "column_break_conversion",
+        "conversion_rate_per_cbm",
+        "conversion_absorption_account",
         "quilting_rates_section",
         "gum_cost_per_m",
         "thread_cost_per_m_quilt",
         "non_woven_cost_per_m",
         "quilting_labor_per_m",
+        "column_break_quilting",
+        "total_quilting_rate_per_m",
+        "quilting_absorption_account",
         "mattress_consumable_rates",
         "tape_rate_per_yard",
         "pvc_rate_per_sqm",
@@ -43,16 +49,15 @@
         "diesel_absorption_account",
         "labour_absorption_account",
         "depreciation_absorption_account",
-        "conversion_absorption_account",
         "volume_rebate_settings_section",
         "primary_volume_uom",
         "default_vat_rate"
     ],
     "fields": [
         {
-            "fieldname": "warehouses_section",
+            "fieldname": "defaults_section",
             "fieldtype": "Section Break",
-            "label": "Warehouses"
+            "label": "Defaults"
         },
         {
             "fieldname": "default_wip_warehouse",
@@ -73,21 +78,8 @@
             "options": "Warehouse"
         },
         {
-            "fieldname": "items_factors_section",
-            "fieldtype": "Section Break",
-            "label": "Items & Factors"
-        },
-        {
-            "fieldname": "scrap_item",
-            "fieldtype": "Link",
-            "label": "Scrap Item",
-            "options": "Item"
-        },
-        {
-            "fieldname": "mdi_item",
-            "fieldtype": "Link",
-            "label": "MDI Item",
-            "options": "Item"
+            "fieldname": "column_break_wh",
+            "fieldtype": "Column Break"
         },
         {
             "fieldname": "default_brand",
@@ -96,16 +88,10 @@
             "options": "Brand"
         },
         {
-            "default": "0",
-            "fieldname": "conversion_rate_per_cbm",
-            "fieldtype": "Currency",
-            "label": "Conversion Rate per CBM"
-        },
-        {
-            "default": "61023.7",
-            "fieldname": "cbm_factor",
-            "fieldtype": "Float",
-            "label": "CBM Factor"
+            "fieldname": "default_company",
+            "fieldtype": "Link",
+            "label": "Default Company",
+            "options": "Company"
         },
         {
             "default": "Products",
@@ -113,6 +99,48 @@
             "fieldtype": "Link",
             "label": "Block Item Group",
             "options": "Item Group"
+        },
+        {
+            "fieldname": "conversion_overhead_section",
+            "fieldtype": "Section Break",
+            "label": "Conversion (Slicing) Overhead Rates"
+        },
+        {
+            "default": "0",
+            "fieldname": "conversion_glue_cost_per_cbm",
+            "fieldtype": "Currency",
+            "label": "Glue Cost per CBM"
+        },
+        {
+            "default": "0",
+            "fieldname": "conversion_power_cost_per_cbm",
+            "fieldtype": "Currency",
+            "label": "Power Cost per CBM"
+        },
+        {
+            "default": "0",
+            "fieldname": "conversion_labor_cost_per_cbm",
+            "fieldtype": "Currency",
+            "label": "Labor Cost per CBM"
+        },
+        {
+            "fieldname": "column_break_conversion",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "0",
+            "description": "Auto-sum of glue + power + labor. Used by Foam Block Conversion.",
+            "fieldname": "conversion_rate_per_cbm",
+            "fieldtype": "Currency",
+            "label": "Total Conversion Rate per CBM",
+            "read_only": 1
+        },
+        {
+            "description": "Expense/absorption account posted as Stock Entry additional cost on conversion submit.",
+            "fieldname": "conversion_absorption_account",
+            "fieldtype": "Link",
+            "label": "Conversion Absorption Account",
+            "options": "Account"
         },
         {
             "fieldname": "quilting_rates_section",
@@ -142,6 +170,24 @@
             "fieldname": "quilting_labor_per_m",
             "fieldtype": "Currency",
             "label": "Quilting Labor per Meter"
+        },
+        {
+            "fieldname": "column_break_quilting",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "0",
+            "description": "Auto-sum of gum + thread + non-woven + labor.",
+            "fieldname": "total_quilting_rate_per_m",
+            "fieldtype": "Currency",
+            "label": "Total Quilting Rate per Meter",
+            "read_only": 1
+        },
+        {
+            "fieldname": "quilting_absorption_account",
+            "fieldtype": "Link",
+            "label": "Quilting Absorption Account",
+            "options": "Account"
         },
         {
             "fieldname": "mattress_consumable_rates",
@@ -268,12 +314,6 @@
             "options": "Account"
         },
         {
-            "fieldname": "conversion_absorption_account",
-            "fieldtype": "Link",
-            "label": "Conversion (Slicing) Absorption Account",
-            "options": "Account"
-        },
-        {
             "fieldname": "volume_rebate_settings_section",
             "fieldtype": "Section Break",
             "label": "Volume & Rebate Settings"
@@ -294,7 +334,7 @@
     "index_pages": [],
     "issingle": 1,
     "links": [],
-    "modified": "2026-07-22 16:00:00.000000",
+    "modified": "2026-07-25 14:30:00.000000",
     "modified_by": "Administrator",
     "module": "pufm_manufacturing",
     "name": "Pufm Manufacturing Settings",
