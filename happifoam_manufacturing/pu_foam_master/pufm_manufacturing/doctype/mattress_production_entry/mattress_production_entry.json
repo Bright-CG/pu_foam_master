@@ -7,7 +7,9 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
+  "company",
   "posting_date",
+  "source_warehouse",
   "target_warehouse",
   "shift",
   "supervisor",
@@ -25,6 +27,14 @@
    "reqd": 1
   },
   {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
    "default": "Today",
    "fieldname": "posting_date",
    "fieldtype": "Date",
@@ -33,10 +43,18 @@
    "reqd": 1
   },
   {
+   "fieldname": "source_warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source/WIP Warehouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
    "fieldname": "target_warehouse",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Target Warehouse",
+   "label": "Target/FG Warehouse",
    "options": "Warehouse",
    "reqd": 1
   },
@@ -70,7 +88,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-21 00:00:00.000000",
+ "modified": "2026-07-25 19:45:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Mattress Production Entry",

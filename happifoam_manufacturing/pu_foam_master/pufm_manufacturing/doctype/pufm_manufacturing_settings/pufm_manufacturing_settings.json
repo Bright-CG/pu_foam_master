@@ -33,6 +33,7 @@
         "label_rate_per_pc",
         "thread_rate_per_mat",
         "fabric_waste_factor",
+        "consumables_absorption_account",
         "financial_scrap_defaults_section",
         "rebate_income_account",
         "rebate_expense_account",
@@ -223,6 +224,13 @@
             "fieldname": "fabric_waste_factor",
             "fieldtype": "Percent",
             "label": "Fabric Waste Factor (%)"
+        },
+        {
+            "description": "Expense/absorption account used to balance non-stocked mattress consumables (PVC, thread, label, and tape when Tape Edge Item is not stocked) on Mattress Production Stock Entries.",
+            "fieldname": "consumables_absorption_account",
+            "fieldtype": "Link",
+            "label": "Consumables Absorption Account",
+            "options": "Account"
         },
         {
             "fieldname": "financial_scrap_defaults_section",
