@@ -2,6 +2,37 @@ import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 
+PUFM_ROLES = (
+	"PUFM Manager",
+	"PUFM Block Production",
+	"PUFM Conversion",
+	"PUFM Quilting",
+	"PUFM Assembly",
+	"PUFM Rebound",
+)
+
+
+def ensure_pufm_roles():
+	"""Create desk roles for department RBAC (idempotent; not master-data)."""
+	created = 0
+	for role_name in PUFM_ROLES:
+		if frappe.db.exists("Role", role_name):
+			continue
+		doc = frappe.get_doc(
+			{
+				"doctype": "Role",
+				"role_name": role_name,
+				"desk_access": 1,
+				"is_custom": 1,
+			}
+		)
+		doc.insert(ignore_permissions=True)
+		created += 1
+	if created:
+		frappe.db.commit()
+		print(f"[setup_defaults] Created {created} PUFM role(s).")
+
+
 def ensure_default_item_groups():
 	"""Manual helper only — not wired into install/migrate hooks."""
 	if not frappe.db.exists("Item Group", "All Item Groups"):

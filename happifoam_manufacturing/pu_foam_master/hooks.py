@@ -34,6 +34,23 @@ fixtures = [
 			]
 		],
 	},
+	{
+		"dt": "Role",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"PUFM Manager",
+					"PUFM Block Production",
+					"PUFM Conversion",
+					"PUFM Quilting",
+					"PUFM Assembly",
+					"PUFM Rebound",
+				],
+			]
+		],
+	},
 ]
 
 # No master-data seeding on install/migrate (Items, Warehouses, Companies, etc.).
@@ -45,6 +62,7 @@ after_migrate = [
 	"pu_foam_master.setup_migrations.backfill_density_configuration_company",
 	"pu_foam_master.setup_migrations.backfill_production_batch_company",
 	"pu_foam_master.setup_defaults.migrate_rebate_expense_account",
+	"pu_foam_master.setup_defaults.ensure_pufm_roles",
 	"pu_foam_master.custom_fields.ensure_item_custom_fields",
 	"pu_foam_master.custom_fields.ensure_sales_invoice_rebate_fields",
 	"pu_foam_master.setup_defaults.ensure_customer_rebate_fields",
@@ -53,6 +71,7 @@ after_migrate = [
 
 after_install = [
 	"pu_foam_master.setup_defaults.migrate_rebate_expense_account",
+	"pu_foam_master.setup_defaults.ensure_pufm_roles",
 	"pu_foam_master.custom_fields.ensure_item_custom_fields",
 	"pu_foam_master.custom_fields.ensure_sales_invoice_rebate_fields",
 	"pu_foam_master.setup_defaults.ensure_customer_rebate_fields",

@@ -10,6 +10,8 @@
         "batch_id",
         "company",
         "posting_date",
+        "sales_order",
+        "material_request",
         "shift",
         "workflow_state",
         "total_actual_cbm",
@@ -51,6 +53,18 @@
             "in_list_view": 1,
             "label": "Posting Date",
             "reqd": 1
+        },
+        {
+            "fieldname": "sales_order",
+            "fieldtype": "Link",
+            "label": "Sales Order",
+            "options": "Sales Order"
+        },
+        {
+            "fieldname": "material_request",
+            "fieldtype": "Link",
+            "label": "Material Request",
+            "options": "Material Request"
         },
         {
             "fieldname": "shift",
@@ -118,6 +132,8 @@
     "owner": "Administrator",
     "permissions": [
         {
+            "amend": 1,
+            "cancel": 1,
             "create": 1,
             "delete": 1,
             "email": 1,
@@ -127,6 +143,33 @@
             "report": 1,
             "role": "System Manager",
             "share": 1,
+            "submit": 1,
+            "write": 1
+        },
+        {
+            "amend": 1,
+            "cancel": 1,
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "PUFM Manager",
+            "share": 1,
+            "submit": 1,
+            "write": 1
+        },
+        {
+            "create": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "PUFM Block Production",
+            "submit": 1,
             "write": 1
         }
     ],

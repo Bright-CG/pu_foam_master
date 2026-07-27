@@ -1,0 +1,44 @@
+[
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Manager",
+  "role_name": "PUFM Manager"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Block Production",
+  "role_name": "PUFM Block Production"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Conversion",
+  "role_name": "PUFM Conversion"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Quilting",
+  "role_name": "PUFM Quilting"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Assembly",
+  "role_name": "PUFM Assembly"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Rebound",
+  "role_name": "PUFM Rebound"
+ }
+]
