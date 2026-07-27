@@ -18,6 +18,12 @@ class FoamBlockConversion(Document):
 	def on_submit(self):
 		self._create_repack_stock_entry()
 
+	def on_cancel(self):
+		if self.stock_entry and frappe.db.exists("Stock Entry", self.stock_entry):
+			se = frappe.get_doc("Stock Entry", self.stock_entry)
+			if se.docstatus == 1:
+				se.cancel()
+
 	def _set_conversion_rate(self):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
 		self.conversion_rate = flt(getattr(settings, "conversion_rate_per_cbm", 0) or 0)

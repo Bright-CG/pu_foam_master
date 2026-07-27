@@ -15,6 +15,10 @@
         "items_factors_section",
         "scrap_item",
         "mdi_item",
+        "default_tape_edge_item",
+        "default_pvc_nylon_item",
+        "default_thread_item",
+        "default_label_item",
         "conversion_overhead_section",
         "conversion_glue_cost_per_cbm",
         "conversion_power_cost_per_cbm",
@@ -119,6 +123,30 @@
             "fieldname": "mdi_item",
             "fieldtype": "Link",
             "label": "Default MDI/Binder Item",
+            "options": "Item"
+        },
+        {
+            "fieldname": "default_tape_edge_item",
+            "fieldtype": "Link",
+            "label": "Default Tape Edge Item",
+            "options": "Item"
+        },
+        {
+            "fieldname": "default_pvc_nylon_item",
+            "fieldtype": "Link",
+            "label": "Default PVC/Nylon Item",
+            "options": "Item"
+        },
+        {
+            "fieldname": "default_thread_item",
+            "fieldtype": "Link",
+            "label": "Default Thread Item",
+            "options": "Item"
+        },
+        {
+            "fieldname": "default_label_item",
+            "fieldtype": "Link",
+            "label": "Default Label Item",
             "options": "Item"
         },
         {

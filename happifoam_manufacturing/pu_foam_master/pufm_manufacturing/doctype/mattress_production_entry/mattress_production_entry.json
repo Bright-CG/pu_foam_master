@@ -16,6 +16,7 @@
   "shift",
   "supervisor",
   "stock_entry",
+  "amended_from",
   "production_items"
  ],
  "fields": [
@@ -90,6 +91,15 @@
    "fieldtype": "Link",
    "label": "Stock Entry",
    "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Mattress Production Entry",
+   "print_hide": 1,
    "read_only": 1
   },
   {

@@ -7,7 +7,6 @@ from frappe.utils import cint, flt, nowdate
 
 # Inches per meter (divide inches by this to get meters)
 INCH_TO_METER = 39.37
-TAPE_EDGE_ITEM = "Tape Edge"
 
 
 class MattressProductionEntry(Document):
@@ -27,9 +26,15 @@ class MattressProductionEntry(Document):
 		entry = self._create_repack_stock_entry()
 		self.db_set("stock_entry", entry.name, update_modified=False)
 
+	def on_cancel(self):
+		if self.stock_entry and frappe.db.exists("Stock Entry", self.stock_entry):
+			se = frappe.get_doc("Stock Entry", self.stock_entry)
+			if se.docstatus == 1:
+				se.cancel()
+
 	def _calculate_rows(self):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
-		tape_item = _resolve_tape_edge_item()
+		tape_item = _resolve_tape_edge_item(settings)
 		tape_rate = _get_tape_edge_rate(settings)
 
 		for row in self.production_items or []:
@@ -38,7 +43,7 @@ class MattressProductionEntry(Document):
 
 	def _create_repack_stock_entry(self):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
-		tape_item = _resolve_tape_edge_item()
+		tape_item = _resolve_tape_edge_item(settings)
 		tape_doc = frappe.get_cached_doc("Item", tape_item) if tape_item else None
 		tape_uom = (tape_doc.stock_uom if tape_doc else None) or "Meter"
 		tape_rate = _get_tape_edge_rate(settings)
@@ -274,15 +279,19 @@ def _tape_edge_meters(length_inches, width_inches, qty):
 	return (inches / INCH_TO_METER) * flt(qty)
 
 
-def _resolve_tape_edge_item():
-	if frappe.db.exists("Item", TAPE_EDGE_ITEM):
-		return TAPE_EDGE_ITEM
+def _resolve_tape_edge_item(settings=None):
+	"""Resolve Tape Edge Item from Manufacturing Settings (no hardcoded item codes)."""
+	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
+	item_code = getattr(settings, "default_tape_edge_item", None)
+	if item_code and frappe.db.exists("Item", item_code):
+		return item_code
 	return None
 
 
 def _get_tape_edge_rate(settings=None):
-	"""Prefer live stock valuation for Tape Edge (NGN/meter); fall back to settings."""
-	item_code = _resolve_tape_edge_item()
+	"""Prefer live stock valuation for Tape Edge (NGN/meter); fall back to settings rate."""
+	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
+	item_code = _resolve_tape_edge_item(settings)
 	if item_code:
 		rate = flt(frappe.db.get_value("Bin", {"item_code": item_code}, "valuation_rate"))
 		if rate <= 0:
@@ -290,7 +299,6 @@ def _get_tape_edge_rate(settings=None):
 		if rate > 0:
 			return rate
 
-	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
 	return flt(settings.tape_rate_per_yard)
 
 

@@ -21,6 +21,12 @@ class QuiltingRecord(Document):
 		stock_entry = self._create_manufacture_stock_entry()
 		self.db_set("stock_entry", stock_entry.name, update_modified=False)
 
+	def on_cancel(self):
+		if self.stock_entry and frappe.db.exists("Stock Entry", self.stock_entry):
+			se = frappe.get_doc("Stock Entry", self.stock_entry)
+			if se.docstatus == 1:
+				se.cancel()
+
 	def _validate_inputs(self):
 		if flt(self.output_qty_meters) <= 0:
 			frappe.throw("Output Qty (Meters) must be greater than zero.")

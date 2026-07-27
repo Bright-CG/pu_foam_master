@@ -18,6 +18,7 @@
   "target_warehouse",
   "total_production_cost",
   "stock_entry",
+  "amended_from",
   "inputs"
  ],
  "fields": [
@@ -104,6 +105,15 @@
    "fieldtype": "Link",
    "label": "Stock Entry",
    "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Quilting Record",
+   "print_hide": 1,
    "read_only": 1
   },
   {

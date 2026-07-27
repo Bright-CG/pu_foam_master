@@ -197,6 +197,7 @@ def setup_foundation_and_scrap_test():
 	settings.default_scrap_warehouse = warehouses["scrap"]
 	settings.scrap_item = scrap_item
 	settings.mdi_item = _resolve_item_code("TDI") or scrap_item
+	settings.default_tape_edge_item = _resolve_item_code("Tape Edge") or settings.default_tape_edge_item
 	settings.rebound_exchange_rate = flt(settings.rebound_exchange_rate) or 1550
 	settings.power_cost_usd_per_hour = flt(settings.power_cost_usd_per_hour) or 10
 	settings.diesel_cost_usd_per_hour = flt(settings.diesel_cost_usd_per_hour) or 8
