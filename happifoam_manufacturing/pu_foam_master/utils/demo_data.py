@@ -19,8 +19,12 @@ from frappe.utils import nowdate, nowtime
 def seed_test_items():
 	"""Create continuous/test Items used in local QA. Idempotent."""
 	_ensure_uom("Meter")
+	_ensure_uom("Kg")
+	_ensure_uom("Nos")
 	_ensure_item_group("Sub Assembly", parent="All Item Groups", is_group=0)
 	_ensure_item_group("Quilted Fabric", parent="All Item Groups", is_group=0)
+	_ensure_item_group("Raw Material", parent="All Item Groups", is_group=0)
+	_ensure_item_group("Products", parent="All Item Groups", is_group=0)
 
 	# Rename legacy non-Roll foam sheet names if present
 	renames = {
@@ -78,6 +82,41 @@ def seed_test_items():
 			"custom_height": 1.0,
 			"custom_cbm_value": 0.05419,
 		},
+		# Rebound Foam masters
+		{
+			"item_code": "SCRAP-FOAM",
+			"item_name": "Scrap Foam",
+			"item_group": "Raw Material",
+			"stock_uom": "Kg",
+			"is_stock_item": 1,
+			"has_batch_no": 0,
+			"has_serial_no": 0,
+		},
+		{
+			"item_code": "MDI-BINDER",
+			"item_name": "MDI Binder",
+			"item_group": "Raw Material",
+			"stock_uom": "Kg",
+			"is_stock_item": 1,
+			"has_batch_no": 1,
+			"create_new_batch": 1,
+			"has_serial_no": 0,
+		},
+		{
+			"item_code": "REB-70-BLOCK-84x75x20",
+			"item_name": "Rebound Block 70 - 84x75x20",
+			"item_group": "Products",
+			"stock_uom": "Nos",
+			"is_stock_item": 1,
+			"include_item_in_manufacturing": 1,
+			"has_batch_no": 1,
+			"create_new_batch": 1,
+			"has_serial_no": 0,
+			"custom_length": 84.0,
+			"custom_width": 75.0,
+			"custom_height": 20.0,
+			"custom_cbm_value": (84.0 * 75.0 * 20.0) / 61023.74,
+		},
 	]
 
 	count = 0
@@ -90,6 +129,7 @@ def seed_test_items():
 		doc.insert(ignore_permissions=True)
 		count += 1
 
+	_link_rebound_settings_items()
 	frappe.db.commit()
 	print(f"Successfully generated {count} test items.")
 	return count
@@ -101,7 +141,7 @@ def seed_raw_materials_stock(
 	qty=10000,
 ):
 	"""
-	Material Receipt of Tape Edge + Raw Damask Fabric into a WIP warehouse.
+	Material Receipt of mattress + Rebound raw materials into a WIP warehouse.
 
 	Uses live posting_date / posting_time to avoid Stock Ledger backdate errors.
 	Manual only — not wired into install/migrate hooks.
@@ -121,7 +161,11 @@ def seed_raw_materials_stock(
 			f"Warehouse {target_warehouse} belongs to {wh_company}, not {company}."
 		)
 
+	# Ensure item masters exist first
+	seed_test_items()
+
 	_ensure_uom("Meter")
+	_ensure_uom("Kg")
 	_ensure_item_group("Raw Material", parent="All Item Groups", is_group=0)
 
 	items_to_ensure = [
@@ -173,6 +217,13 @@ def seed_raw_materials_stock(
 		b.item = "Raw Damask Fabric"
 		b.insert(ignore_permissions=True)
 
+	mdi_batch = f"BATCH-MDI-{nowdate().replace('-', '')}"
+	if not frappe.db.exists("Batch", mdi_batch):
+		b = frappe.new_doc("Batch")
+		b.batch_id = mdi_batch
+		b.item = "MDI-BINDER"
+		b.insert(ignore_permissions=True)
+
 	se = frappe.new_doc("Stock Entry")
 	se.stock_entry_type = "Material Receipt"
 	se.purpose = "Material Receipt"
@@ -182,6 +233,7 @@ def seed_raw_materials_stock(
 	se.posting_time = nowtime()
 	se.set_posting_time = 1
 
+	# Mattress consumables
 	se.append(
 		"items",
 		{
@@ -213,13 +265,46 @@ def seed_raw_materials_stock(
 		},
 	)
 
+	# Rebound inputs
+	se.append(
+		"items",
+		{
+			"item_code": "SCRAP-FOAM",
+			"t_warehouse": target_warehouse,
+			"qty": 5000,
+			"uom": "Kg",
+			"stock_uom": "Kg",
+			"conversion_factor": 1,
+			"basic_rate": 80,
+			"valuation_rate": 80,
+			"allow_zero_valuation_rate": 0,
+		},
+	)
+	se.append(
+		"items",
+		{
+			"item_code": "MDI-BINDER",
+			"t_warehouse": target_warehouse,
+			"qty": 1000,
+			"uom": "Kg",
+			"stock_uom": "Kg",
+			"conversion_factor": 1,
+			"basic_rate": 4000,
+			"valuation_rate": 4000,
+			"batch_no": mdi_batch,
+			"use_serial_batch_fields": 1,
+			"allow_zero_valuation_rate": 0,
+		},
+	)
+
 	se.insert(ignore_permissions=True)
 	se.submit()
+	_link_rebound_settings_items()
 	frappe.db.commit()
 
 	msg = (
 		f"Successfully received stock into {target_warehouse}. "
-		f"Stock Entry: {se.name}. Fabric Batch: {fabric_batch}"
+		f"Stock Entry: {se.name}. Fabric Batch: {fabric_batch}. MDI Batch: {mdi_batch}"
 	)
 	print(msg)
 	return {
@@ -227,7 +312,10 @@ def seed_raw_materials_stock(
 		"warehouse": target_warehouse,
 		"company": company,
 		"fabric_batch": fabric_batch,
+		"mdi_batch": mdi_batch,
 		"qty": qty,
+		"scrap_qty": 5000,
+		"mdi_qty": 1000,
 	}
 
 
@@ -260,6 +348,20 @@ def seed_standard_mattress_sizes():
 	frappe.db.commit()
 	print(f"Successfully generated {count} standard mattress sizes.")
 	return count
+
+
+def _link_rebound_settings_items():
+	"""Point Manufacturing Settings at Rebound demo items when blank."""
+	if not frappe.db.exists("DocType", "Pufm Manufacturing Settings"):
+		return
+	if frappe.db.exists("Item", "SCRAP-FOAM") and not frappe.db.get_single_value(
+		"Pufm Manufacturing Settings", "scrap_item"
+	):
+		frappe.db.set_single_value("Pufm Manufacturing Settings", "scrap_item", "SCRAP-FOAM")
+	if frappe.db.exists("Item", "MDI-BINDER") and not frappe.db.get_single_value(
+		"Pufm Manufacturing Settings", "mdi_item"
+	):
+		frappe.db.set_single_value("Pufm Manufacturing Settings", "mdi_item", "MDI-BINDER")
 
 
 def _ensure_raw_item(spec):

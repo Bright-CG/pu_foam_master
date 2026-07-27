@@ -7,9 +7,13 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
+  "company",
   "posting_date",
   "rebound_configuration",
   "target_block_item",
+  "scrap_warehouse",
+  "mdi_warehouse",
+  "target_warehouse",
   "dimensions_section",
   "length_inches",
   "width_inches",
@@ -42,6 +46,14 @@
    "reqd": 1
   },
   {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
    "default": "Today",
    "fieldname": "posting_date",
    "fieldtype": "Date",
@@ -63,6 +75,30 @@
    "in_list_view": 1,
    "label": "Target Block Item",
    "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scrap_warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Scrap Source Warehouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "mdi_warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "MDI Source Warehouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "target_warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Target (FG) Warehouse",
+   "options": "Warehouse",
    "reqd": 1
   },
   {
@@ -183,7 +219,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-28 00:00:00.000000",
+ "modified": "2026-07-27 00:40:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Rebound Production Entry",

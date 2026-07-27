@@ -1,4 +1,26 @@
+// Copyright (c) 2026, Happifoam and contributors
+// For license information, please see license.txt
+
 frappe.ui.form.on("Rebound Production Entry", {
+	setup(frm) {
+		frm.set_query("scrap_warehouse", () => ({
+			filters: { company: frm.doc.company, disabled: 0 },
+		}));
+		frm.set_query("mdi_warehouse", () => ({
+			filters: { company: frm.doc.company, disabled: 0 },
+		}));
+		frm.set_query("target_warehouse", () => ({
+			filters: { company: frm.doc.company, disabled: 0 },
+		}));
+	},
+	onload(frm) {
+		if (frm.is_new() && !frm.doc.company) {
+			const user_company = frappe.defaults.get_user_default("Company");
+			if (user_company) {
+				frm.set_value("company", user_company);
+			}
+		}
+	},
 	rebound_configuration(frm) {
 		recalculate(frm);
 	},

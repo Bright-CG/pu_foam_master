@@ -12,6 +12,9 @@
         "default_brand",
         "default_company",
         "block_item_group",
+        "items_factors_section",
+        "scrap_item",
+        "mdi_item",
         "conversion_overhead_section",
         "conversion_glue_cost_per_cbm",
         "conversion_power_cost_per_cbm",
@@ -100,6 +103,23 @@
             "fieldtype": "Link",
             "label": "Block Item Group",
             "options": "Item Group"
+        },
+        {
+            "fieldname": "items_factors_section",
+            "fieldtype": "Section Break",
+            "label": "Items & Factors"
+        },
+        {
+            "fieldname": "scrap_item",
+            "fieldtype": "Link",
+            "label": "Default Scrap Item",
+            "options": "Item"
+        },
+        {
+            "fieldname": "mdi_item",
+            "fieldtype": "Link",
+            "label": "Default MDI/Binder Item",
+            "options": "Item"
         },
         {
             "fieldname": "conversion_overhead_section",

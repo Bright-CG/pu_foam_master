@@ -1,7 +1,10 @@
+# Copyright (c) 2026, Happifoam and contributors
+# For license information, please see license.txt
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from pu_foam_master.pufm_manufacturing.utils.settings import (
 	calculate_cbm,
@@ -12,6 +15,14 @@ from pu_foam_master.pufm_manufacturing.utils.settings import (
 
 class ReboundProductionEntry(Document):
 	def validate(self):
+		if not self.company:
+			frappe.throw(_("Company is required."))
+		if not self.scrap_warehouse:
+			frappe.throw(_("Scrap Source Warehouse is required."))
+		if not self.mdi_warehouse:
+			frappe.throw(_("MDI Source Warehouse is required."))
+		if not self.target_warehouse:
+			frappe.throw(_("Target (FG) Warehouse is required."))
 		self._calculate_values()
 		self._validate_inputs()
 
@@ -66,55 +77,53 @@ class ReboundProductionEntry(Document):
 		settings = require_absorption_accounts()
 		scrap_item = settings.scrap_item
 		mdi_item = settings.mdi_item
-		scrap_warehouse = settings.default_scrap_warehouse
-		wip_warehouse = settings.default_wip_warehouse
-		fg_warehouse = settings.default_fg_warehouse
 
 		if not scrap_item:
-			frappe.throw(_("Please set Scrap Item in Pufm Manufacturing Settings."))
+			frappe.throw(_("Please set Default Scrap Item in Pufm Manufacturing Settings."))
 		if not mdi_item:
-			frappe.throw(_("Please set MDI Item in Pufm Manufacturing Settings."))
-		if not scrap_warehouse:
-			frappe.throw(_("Please set Default Scrap Warehouse in Pufm Manufacturing Settings."))
-		if not wip_warehouse:
-			frappe.throw(_("Please set Default WIP Warehouse in Pufm Manufacturing Settings."))
-		if not fg_warehouse:
-			frappe.throw(_("Please set Default FG Warehouse in Pufm Manufacturing Settings."))
+			frappe.throw(_("Please set Default MDI/Binder Item in Pufm Manufacturing Settings."))
 
 		entry = frappe.new_doc("Stock Entry")
+		entry.company = self.company
 		entry.stock_entry_type = "Manufacture"
-		entry.company = frappe.defaults.get_user_default("Company")
+		entry.purpose = "Manufacture"
 		entry.posting_date = self.posting_date
 		entry.set_posting_time = 1
 		entry.from_bom = 0
 
-		entry.append(
-			"items",
-			{
-				"item_code": scrap_item,
-				"qty": flt(self.actual_scrap_kg),
-				"s_warehouse": scrap_warehouse,
-				"allow_zero_valuation_rate": 1,
-			},
-		)
-		entry.append(
-			"items",
-			{
-				"item_code": mdi_item,
-				"qty": flt(self.actual_mdi_kg),
-				"s_warehouse": wip_warehouse,
-				"allow_zero_valuation_rate": 1,
-			},
-		)
-		entry.append(
-			"items",
-			{
-				"item_code": self.target_block_item,
-				"qty": flt(self.quantity_produced),
-				"t_warehouse": fg_warehouse,
-				"is_finished_item": 1,
-			},
-		)
+		# Scrap and MDI issue from their own physical warehouses
+		scrap_row = {
+			"item_code": scrap_item,
+			"qty": flt(self.actual_scrap_kg),
+			"s_warehouse": self.scrap_warehouse,
+			"allow_zero_valuation_rate": 1,
+			"use_serial_batch_fields": 1,
+		}
+		mdi_row = {
+			"item_code": mdi_item,
+			"qty": flt(self.actual_mdi_kg),
+			"s_warehouse": self.mdi_warehouse,
+			"allow_zero_valuation_rate": 1,
+			"use_serial_batch_fields": 1,
+		}
+
+		mdi_batch = _pick_batch_with_stock(mdi_item, self.mdi_warehouse, self.actual_mdi_kg)
+		if mdi_batch:
+			mdi_row["batch_no"] = mdi_batch
+
+		fg_row = {
+			"item_code": self.target_block_item,
+			"qty": flt(self.quantity_produced),
+			"t_warehouse": self.target_warehouse,
+			"is_finished_item": 1,
+			"use_serial_batch_fields": 1,
+		}
+		if cint(frappe.db.get_value("Item", self.target_block_item, "has_batch_no")):
+			fg_row["batch_no"] = self._ensure_output_batch(self.target_block_item)
+
+		entry.append("items", scrap_row)
+		entry.append("items", mdi_row)
+		entry.append("items", fg_row)
 
 		for description, amount, account in (
 			("Power Absorption", self.power_cost_ngn, settings.power_absorption_account),
@@ -140,6 +149,47 @@ class ReboundProductionEntry(Document):
 		entry.insert(ignore_permissions=True)
 		entry.submit()
 		self.db_set("stock_entry", entry.name, update_modified=False)
+
+	def _ensure_output_batch(self, item_code):
+		batch_id = f"{self.name}-{item_code}"
+		if not frappe.db.exists("Batch", batch_id):
+			new_batch = frappe.new_doc("Batch")
+			new_batch.batch_id = batch_id
+			new_batch.item = item_code
+			new_batch.reference_doctype = "Rebound Production Entry"
+			new_batch.reference_name = self.name
+			new_batch.insert(ignore_permissions=True)
+		return batch_id
+
+
+def _pick_batch_with_stock(item_code, warehouse, required_qty):
+	"""Pick a batch with available qty when the item is batch-tracked."""
+	if not cint(frappe.db.get_value("Item", item_code, "has_batch_no")):
+		return None
+
+	from erpnext.controllers.queries import get_batch_no
+
+	rows = get_batch_no(
+		"Batch",
+		"",
+		"name",
+		0,
+		20,
+		{"item_code": item_code, "warehouse": warehouse},
+	)
+	if not rows:
+		frappe.throw(
+			_("No batch stock found for {0} in {1}.").format(item_code, warehouse)
+		)
+
+	# Prefer a batch that can cover required qty; else first available
+	required = flt(required_qty)
+	for row in rows:
+		batch_name = row[0]
+		batch_qty = flt(row[1]) if len(row) > 1 else 0
+		if batch_qty >= required:
+			return batch_name
+	return rows[0][0]
 
 
 @frappe.whitelist()
