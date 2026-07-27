@@ -6,14 +6,31 @@
 NOT wired into after_install / after_migrate. Run explicitly, e.g.:
 
     bench --site <site> execute pu_foam_master.utils.demo_data.seed_test_items
+    bench --site <site> execute pu_foam_master.utils.demo_data.seed_e2e_test_stock
     bench --site <site> execute pu_foam_master.utils.demo_data.seed_raw_materials_stock \\
-        --kwargs '{"company":"Solarfoam","target_warehouse":"Work In Progress - SF"}'
+        --kwargs '{"company":null,"target_warehouse":null}'
 """
 
 from __future__ import annotations
 
 import frappe
-from frappe.utils import nowdate, nowtime
+from frappe.utils import cint, flt, nowdate, nowtime
+
+from pu_foam_master.pufm_manufacturing.utils.density_bom import get_preferred_company
+
+# E2E inject quantities / default valuation rates (NGN)
+E2E_CHEMICALS = (
+	{"item_code": "POLYOL", "aliases": ("Polyol",), "qty": 50000, "uom": "Kg", "rate": 1800},
+	{"item_code": "TDI", "aliases": ("TDI",), "qty": 25000, "uom": "Kg", "rate": 4500},
+	{"item_code": "MDI-BINDER", "aliases": ("MDI", "MDI Binder"), "qty": 10000, "uom": "Kg", "rate": 4000},
+)
+E2E_CONSUMABLES = (
+	{"item_code": "Tape Edge", "aliases": ("Tape Edge",), "qty": 10000, "uom": "Meter", "rate": 50, "settings_field": "default_tape_edge_item"},
+	{"item_code": "PVC Nylon", "aliases": ("PVC Nylon", "PVC/Nylon", "PVC-NYLON"), "qty": 5000, "uom": "Sqm", "rate": 350, "settings_field": "default_pvc_nylon_item"},
+	{"item_code": "Thread", "aliases": ("Thread",), "qty": 5000, "uom": "Nos", "rate": 25, "settings_field": "default_thread_item"},
+	{"item_code": "Labels", "aliases": ("Labels", "Label"), "qty": 5000, "uom": "Nos", "rate": 15, "settings_field": "default_label_item"},
+)
+E2E_SCRAP = {"item_code": "SCRAP-FOAM", "aliases": ("SCRAP-FOAM", "Scrap Foam"), "qty": 20000, "uom": "Kg", "rate": 80}
 
 
 def seed_test_items():
@@ -135,9 +152,120 @@ def seed_test_items():
 	return count
 
 
+def seed_e2e_test_stock():
+	"""Inject chemicals, mattress consumables, and scrap for End-to-End testing.
+
+	Creates/ensures stock Items (maintain_stock / is_stock_item = 1), links Settings,
+	and submits Material Receipt Stock Entries into Settings warehouses.
+
+	Manual only — not wired into install/migrate hooks.
+	"""
+	company = get_preferred_company()
+	if not company:
+		frappe.throw("No Company found. Set Default Company in Global Defaults or PUFM Settings.")
+
+	settings = frappe.get_single("Pufm Manufacturing Settings")
+	if not settings.default_company:
+		settings.default_company = company
+
+	rm_wh = settings.default_raw_material_warehouse or _resolve_warehouse(
+		company, ("Stores", "Raw Material", "Work In Progress")
+	)
+	scrap_wh = settings.default_scrap_warehouse or _resolve_warehouse(
+		company, ("Scrap", "Stores")
+	)
+	if not rm_wh:
+		frappe.throw(
+			"Could not resolve Raw Material Warehouse. Set Default Raw Material Warehouse "
+			"in Pufm Manufacturing Settings."
+		)
+	if not scrap_wh:
+		frappe.throw(
+			"Could not resolve Scrap Warehouse. Set Default Scrap Warehouse "
+			"in Pufm Manufacturing Settings."
+		)
+
+	settings.default_raw_material_warehouse = rm_wh
+	settings.default_scrap_warehouse = scrap_wh
+
+	_ensure_uom("Kg")
+	_ensure_uom("Meter")
+	_ensure_uom("Sqm")
+	_ensure_uom("Nos")
+	_ensure_item_group("Raw Material", parent="All Item Groups", is_group=0)
+
+	# Ensure stocked masters + valuation rates (local copies — do not mutate module constants)
+	chemicals = [dict(s) for s in E2E_CHEMICALS]
+	consumables = [dict(s) for s in E2E_CONSUMABLES]
+	scrap = dict(E2E_SCRAP)
+
+	for spec in chemicals + consumables + [scrap]:
+		item_code = _ensure_stock_item(spec)
+		spec["resolved_code"] = item_code
+		# Prefer Item stock UOM for receipt rows
+		spec["uom"] = frappe.db.get_value("Item", item_code, "stock_uom") or spec["uom"]
+
+	for spec in consumables:
+		field = spec.get("settings_field")
+		if field:
+			setattr(settings, field, spec["resolved_code"])
+
+	settings.scrap_item = scrap.get("resolved_code") or "SCRAP-FOAM"
+	settings.mdi_item = next(
+		(s["resolved_code"] for s in chemicals if s["item_code"] == "MDI-BINDER"),
+		settings.mdi_item,
+	)
+	settings.save(ignore_permissions=True)
+
+	# Chemicals + mattress consumables → Raw Material Warehouse
+	rm_rows = []
+	for spec in chemicals + consumables:
+		rm_rows.append(
+			{
+				"item_code": spec["resolved_code"],
+				"qty": spec["qty"],
+				"uom": spec["uom"],
+				"rate": spec["rate"],
+			}
+		)
+	rm_se = _submit_material_receipt(company, rm_wh, rm_rows, remarks="E2E chemicals + consumables")
+
+	# Scrap → Scrap Warehouse
+	scrap_se = _submit_material_receipt(
+		company,
+		scrap_wh,
+		[
+			{
+				"item_code": scrap["resolved_code"],
+				"qty": scrap["qty"],
+				"uom": scrap["uom"],
+				"rate": scrap["rate"],
+			}
+		],
+		remarks="E2E scrap foam",
+	)
+
+	frappe.db.commit()
+	result = {
+		"company": company,
+		"raw_material_warehouse": rm_wh,
+		"scrap_warehouse": scrap_wh,
+		"chemicals_consumables_stock_entry": rm_se.name,
+		"scrap_stock_entry": scrap_se.name,
+		"injected": {
+			**{s["resolved_code"]: s["qty"] for s in chemicals + consumables},
+			scrap["resolved_code"]: scrap["qty"],
+		},
+	}
+	print("E2E stock seeding complete:")
+	for key, value in result.items():
+		print(f"  {key}: {value}")
+	return result
+
+
 def seed_raw_materials_stock(
-	company="Solarfoam",
-	target_warehouse="Work In Progress - SF",
+	company=None,
+	target_warehouse=None,
 	qty=10000,
 ):
 	"""
@@ -146,8 +274,13 @@ def seed_raw_materials_stock(
 	Uses live posting_date / posting_time to avoid Stock Ledger backdate errors.
 	Manual only — not wired into install/migrate hooks.
 	"""
+	company = company or get_preferred_company()
 	if not company:
 		frappe.throw("company is required")
+	if not target_warehouse:
+		target_warehouse = frappe.db.get_single_value(
+			"Pufm Manufacturing Settings", "default_wip_warehouse"
+		) or _resolve_warehouse(company, ("Work In Progress", "Stores"))
 	if not target_warehouse:
 		frappe.throw("target_warehouse is required")
 	if not frappe.db.exists("Company", company):
@@ -364,9 +497,149 @@ def _link_rebound_settings_items():
 		frappe.db.set_single_value("Pufm Manufacturing Settings", "mdi_item", "MDI-BINDER")
 
 
+def _resolve_warehouse(company, name_hints):
+	"""Pick a warehouse for company whose name contains any hint (case-insensitive)."""
+	warehouses = frappe.get_all(
+		"Warehouse",
+		filters={"company": company, "is_group": 0, "disabled": 0},
+		fields=["name"],
+		order_by="name asc",
+	)
+	lower_hints = [h.lower() for h in name_hints]
+	for hint in lower_hints:
+		for wh in warehouses:
+			if hint in (wh.name or "").lower():
+				return wh.name
+	return warehouses[0].name if warehouses else None
+
+
+def _resolve_existing_item(preferred_code, aliases=()):
+	candidates = [preferred_code, *(aliases or ())]
+	for code in candidates:
+		if code and frappe.db.exists("Item", code):
+			return code
+	# Fuzzy: item_name / item_code contains preferred label
+	for code in candidates:
+		if not code:
+			continue
+		match = frappe.db.get_value("Item", {"item_name": code}, "name")
+		if match:
+			return match
+	return None
+
+
+def _ensure_stock_item(spec):
+	"""Ensure Item exists with is_stock_item=1 and a default valuation_rate."""
+	preferred = spec["item_code"]
+	desired_uom = spec.get("uom") or "Nos"
+	rate = flt(spec.get("rate"))
+	_ensure_uom(desired_uom)
+
+	# Prefer exact preferred code
+	item_code = preferred if frappe.db.exists("Item", preferred) else None
+	if not item_code:
+		# Only reuse an alias when stock UOM matches the desired UOM
+		for alias in spec.get("aliases") or ():
+			if alias and frappe.db.exists("Item", alias):
+				alias_uom = frappe.db.get_value("Item", alias, "stock_uom")
+				if not desired_uom or alias_uom == desired_uom:
+					item_code = alias
+					break
+
+	if item_code:
+		doc = frappe.get_doc("Item", item_code)
+		changed = False
+		if not cint(doc.is_stock_item):
+			doc.is_stock_item = 1
+			changed = True
+		if rate > 0 and flt(doc.valuation_rate) <= 0:
+			doc.valuation_rate = rate
+			changed = True
+		if changed:
+			doc.save(ignore_permissions=True)
+		return item_code
+
+	doc = frappe.new_doc("Item")
+	doc.item_code = preferred
+	doc.item_name = preferred
+	doc.item_group = "Raw Material"
+	doc.stock_uom = desired_uom
+	doc.is_stock_item = 1
+	doc.valuation_rate = rate
+	doc.has_batch_no = 0
+	doc.has_serial_no = 0
+	doc.insert(ignore_permissions=True)
+	return doc.name
+
+
+def _submit_material_receipt(company, warehouse, rows, remarks=None):
+	se = frappe.new_doc("Stock Entry")
+	se.stock_entry_type = "Material Receipt"
+	se.purpose = "Material Receipt"
+	se.company = company
+	se.posting_date = nowdate()
+	se.posting_time = nowtime()
+	se.set_posting_time = 1
+	if remarks:
+		se.remarks = remarks
+
+	for row in rows:
+		item_code = row["item_code"]
+		item = frappe.get_cached_doc("Item", item_code)
+		uom = item.stock_uom or row.get("uom") or "Nos"
+		rate = flt(row.get("rate"))
+		line = {
+			"item_code": item_code,
+			"t_warehouse": warehouse,
+			"qty": flt(row["qty"]),
+			"uom": uom,
+			"stock_uom": uom,
+			"conversion_factor": 1,
+			"basic_rate": rate,
+			"valuation_rate": rate,
+			"allow_zero_valuation_rate": 0 if rate > 0 else 1,
+		}
+		if cint(item.has_batch_no):
+			batch_id = _ensure_receipt_batch(item_code)
+			line["batch_no"] = batch_id
+			line["use_serial_batch_fields"] = 1
+		se.append("items", line)
+
+	se.insert(ignore_permissions=True)
+	se.submit()
+	return se
+
+
+def _ensure_receipt_batch(item_code):
+	batch_id = f"E2E-{item_code}-{nowdate().replace('-', '')}"
+	# Batch.name may differ from batch_id depending on naming
+	existing = frappe.db.get_value("Batch", {"batch_id": batch_id, "item": item_code}, "name")
+	if existing:
+		return existing
+	if frappe.db.exists("Batch", batch_id):
+		return batch_id
+	b = frappe.new_doc("Batch")
+	b.batch_id = batch_id
+	b.item = item_code
+	b.insert(ignore_permissions=True)
+	return b.name
+
+
 def _ensure_raw_item(spec):
 	item_code = spec["item_code"]
 	if frappe.db.exists("Item", item_code):
+		# Enforce stocked + valuation when used by seeders
+		doc = frappe.get_doc("Item", item_code)
+		changed = False
+		if not cint(doc.is_stock_item):
+			doc.is_stock_item = 1
+			changed = True
+		rate = flt(spec.get("basic_rate"))
+		if rate > 0 and flt(doc.valuation_rate) <= 0:
+			doc.valuation_rate = rate
+			changed = True
+		if changed:
+			doc.save(ignore_permissions=True)
 		return item_code
 
 	doc = frappe.new_doc("Item")
@@ -375,6 +648,7 @@ def _ensure_raw_item(spec):
 	doc.item_group = "Raw Material"
 	doc.stock_uom = spec.get("stock_uom") or "Meter"
 	doc.is_stock_item = 1
+	doc.valuation_rate = flt(spec.get("basic_rate"))
 	doc.has_batch_no = 1 if spec.get("has_batch_no") else 0
 	doc.create_new_batch = 1 if spec.get("has_batch_no") else 0
 	doc.has_serial_no = 0

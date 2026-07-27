@@ -77,6 +77,7 @@
    "fieldname": "stock_reconciliation",
    "fieldtype": "Link",
    "label": "Stock Reconciliation",
+   "no_copy": 1,
    "options": "Stock Reconciliation",
    "read_only": 1
   },

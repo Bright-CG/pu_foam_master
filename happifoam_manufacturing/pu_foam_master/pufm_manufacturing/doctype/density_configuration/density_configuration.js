@@ -6,13 +6,16 @@ frappe.ui.form.on("Density Configuration", {
     },
     onload: function(frm) {
         if (frm.is_new() && !frm.doc.company) {
-            frappe.db.exists("Company", "Solarfoam").then((exists) => {
-                if (exists) {
-                    frm.set_value("company", "Solarfoam");
-                } else {
-                    frm.set_value("company", frappe.defaults.get_user_default("Company"));
-                }
-            });
+            let company = frappe.defaults.get_user_default("Company");
+            if (company) {
+                frm.set_value("company", company);
+            } else {
+                frappe.db.get_single_value("Global Defaults", "default_company").then((fallback) => {
+                    if (fallback) {
+                        frm.set_value("company", fallback);
+                    }
+                });
+            }
         }
     },
     refresh: function(frm) {

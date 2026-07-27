@@ -70,6 +70,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Credit Note",
+   "no_copy": 1,
    "options": "Sales Invoice",
    "read_only": 1
   }

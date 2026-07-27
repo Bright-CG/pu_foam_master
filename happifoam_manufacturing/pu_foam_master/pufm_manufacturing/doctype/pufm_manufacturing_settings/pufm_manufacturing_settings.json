@@ -8,6 +8,7 @@
         "default_wip_warehouse",
         "default_fg_warehouse",
         "default_scrap_warehouse",
+        "default_raw_material_warehouse",
         "column_break_wh",
         "default_brand",
         "default_company",
@@ -100,6 +101,13 @@
             "fieldname": "default_scrap_warehouse",
             "fieldtype": "Link",
             "label": "Default Scrap Warehouse",
+            "options": "Warehouse"
+        },
+        {
+            "description": "Source warehouse for mattress consumables (Tape Edge, PVC/Nylon, Thread, Labels) backflushed on Mattress Production.",
+            "fieldname": "default_raw_material_warehouse",
+            "fieldtype": "Link",
+            "label": "Default Raw Material Warehouse",
             "options": "Warehouse"
         },
         {
@@ -291,10 +299,10 @@
             "label": "Fabric Waste Factor (%)"
         },
         {
-            "description": "Expense/absorption account used to balance non-stocked mattress consumables (PVC, thread, label, and tape when Tape Edge Item is not stocked) on Mattress Production Stock Entries.",
+            "description": "Legacy absorption account. Mattress Tape Edge / PVC / Thread / Labels are now issued as stock (not absorbed). Kept for historical documents only.",
             "fieldname": "consumables_absorption_account",
             "fieldtype": "Link",
-            "label": "Consumables Absorption Account",
+            "label": "Consumables Absorption Account (Legacy)",
             "options": "Account"
         },
         {

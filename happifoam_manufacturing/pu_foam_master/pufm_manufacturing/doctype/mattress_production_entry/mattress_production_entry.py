@@ -7,6 +7,13 @@ from frappe.utils import cint, flt, nowdate
 
 from pu_foam_master.pufm_manufacturing.utils.settings import get_formula_factor
 
+CONSUMABLE_SETTINGS = (
+	("default_tape_edge_item", "Default Tape Edge Item"),
+	("default_pvc_nylon_item", "Default PVC/Nylon Item"),
+	("default_thread_item", "Default Thread Item"),
+	("default_label_item", "Default Label Item"),
+)
+
 
 class MattressProductionEntry(Document):
 	def validate(self):
@@ -20,9 +27,10 @@ class MattressProductionEntry(Document):
 
 	def before_submit(self):
 		self._calculate_rows()
+		_require_mattress_consumable_settings()
 
 	def on_submit(self):
-		entry = self._create_repack_stock_entry()
+		entry = self._create_manufacture_stock_entry()
 		self.db_set("stock_entry", entry.name, update_modified=False)
 
 	def on_cancel(self):
@@ -33,34 +41,23 @@ class MattressProductionEntry(Document):
 
 	def _calculate_rows(self):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
-		tape_item = _resolve_tape_edge_item(settings)
-		tape_rate = _get_tape_edge_rate(settings)
-
 		for row in self.production_items or []:
-			costs = _row_cost_breakdown(row, settings, tape_item, tape_rate)
+			costs = _row_cost_breakdown(row, settings)
 			row.total_row_cost = costs["total_row_cost"]
 
-	def _create_repack_stock_entry(self):
-		settings = frappe.get_single("Pufm Manufacturing Settings")
-		tape_item = _resolve_tape_edge_item(settings)
-		tape_doc = frappe.get_cached_doc("Item", tape_item) if tape_item else None
-		tape_uom = (tape_doc.stock_uom if tape_doc else None) or "Meter"
-		tape_rate = _get_tape_edge_rate(settings)
-		absorption_account = getattr(settings, "consumables_absorption_account", None)
+	def _create_manufacture_stock_entry(self):
+		settings = _require_mattress_consumable_settings()
+		rm_warehouse = settings.default_raw_material_warehouse
 
 		entry = frappe.new_doc("Stock Entry")
 		entry.company = self.company
-		entry.stock_entry_type = "Repack"
-		entry.purpose = "Repack"
+		entry.stock_entry_type = "Manufacture"
+		entry.purpose = "Manufacture"
 		entry.posting_date = self.posting_date
 		entry.set_posting_time = 1
 
-		total_absorption_cost = 0.0
-
 		for row in self.production_items or []:
-			costs = _row_cost_breakdown(row, settings, tape_item, tape_rate)
-			fabric_meters = costs["fabric_meters"]
-			tape_meters = costs["tape_meters"]
+			costs = _row_cost_breakdown(row, settings)
 			core_item = _get_batch_item(row.core_batch)
 			fabric_item = row.fabric_item or _get_batch_item(row.fabric_batch)
 
@@ -94,7 +91,7 @@ class MattressProductionEntry(Document):
 					"item_code": fabric_item,
 					"s_warehouse": self.source_warehouse,
 					"batch_no": row.fabric_batch,
-					"qty": fabric_meters,
+					"qty": costs["fabric_meters"],
 					"uom": fabric_doc.stock_uom or "Meter",
 					"stock_uom": fabric_doc.stock_uom or "Meter",
 					"conversion_factor": 1,
@@ -106,29 +103,28 @@ class MattressProductionEntry(Document):
 				},
 			)
 
-			# --- Source: Tape Edge (physical stock only when Item exists) ---
-			if tape_item and flt(tape_meters) > 0:
+			# --- Source: Tape / PVC / Thread / Labels (physical stock backflush) ---
+			for consumable in costs["consumables"]:
+				item_doc = frappe.get_cached_doc("Item", consumable["item_code"])
 				entry.append(
 					"items",
 					{
-						"item_code": tape_item,
-						"s_warehouse": self.source_warehouse,
-						"qty": tape_meters,
-						"uom": tape_uom,
-						"stock_uom": tape_uom,
+						"item_code": consumable["item_code"],
+						"s_warehouse": rm_warehouse,
+						"qty": consumable["qty"],
+						"uom": item_doc.stock_uom,
+						"stock_uom": item_doc.stock_uom,
 						"conversion_factor": 1,
-						"basic_rate": tape_rate,
-						"valuation_rate": tape_rate,
+						"basic_rate": consumable["rate"],
+						"valuation_rate": consumable["rate"],
 						"set_basic_rate_manually": 1,
-						"allow_zero_valuation_rate": 1 if tape_rate <= 0 else 0,
+						"allow_zero_valuation_rate": 1 if consumable["rate"] <= 0 else 0,
 					},
 				)
 
-			total_absorption_cost += flt(costs["absorption_cost"])
-
-			# FG rate from stocked materials only; absorption covers non-stocked consumables
-			stocked_cost = flt(costs["stocked_cost"])
-			unit_rate = stocked_cost / flt(row.qty) if flt(row.qty) else 0
+			unit_rate = (
+				flt(costs["stocked_cost"]) / flt(row.qty) if flt(row.qty) else 0
+			)
 
 			qty = flt(row.qty)
 			has_serial = cint(mattress_doc.has_serial_no)
@@ -172,21 +168,6 @@ class MattressProductionEntry(Document):
 
 			entry.append("items", target_row)
 
-		if total_absorption_cost > 0:
-			if not absorption_account:
-				frappe.throw(
-					"Set Consumables Absorption Account in Pufm Manufacturing Settings "
-					"to post non-stocked mattress consumable costs."
-				)
-			entry.append(
-				"additional_costs",
-				{
-					"expense_account": absorption_account,
-					"description": "Mattress consumables for {0}".format(self.name),
-					"amount": total_absorption_cost,
-				},
-			)
-
 		entry.insert(ignore_permissions=True)
 		entry.submit()
 		return entry
@@ -215,8 +196,31 @@ class MattressProductionEntry(Document):
 		return "\n".join(serial_nos)
 
 
-def _row_cost_breakdown(row, settings, tape_item, tape_rate):
-	"""Split stocked material cost vs absorption (non-stocked consumables)."""
+def _require_mattress_consumable_settings(settings=None):
+	"""Ensure Settings Links for stocked mattress consumables + RM warehouse."""
+	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
+	missing = []
+
+	if not settings.default_raw_material_warehouse:
+		missing.append("Default Raw Material Warehouse")
+	elif not frappe.db.exists("Warehouse", settings.default_raw_material_warehouse):
+		missing.append("Default Raw Material Warehouse (invalid)")
+
+	for fieldname, label in CONSUMABLE_SETTINGS:
+		item_code = getattr(settings, fieldname, None)
+		if not item_code or not frappe.db.exists("Item", item_code):
+			missing.append(label)
+
+	if missing:
+		frappe.throw(
+			"Configure the following in Pufm Manufacturing Settings before submitting "
+			"Mattress Production: {0}.".format(", ".join(missing))
+		)
+	return settings
+
+
+def _row_cost_breakdown(row, settings):
+	"""All mattress consumables are physical stock — no absorption path."""
 	if flt(row.qty) <= 0:
 		frappe.throw(f"Row {row.idx}: Quantity must be greater than zero.")
 
@@ -229,19 +233,13 @@ def _row_cost_breakdown(row, settings, tape_item, tape_rate):
 
 	inches_per_meter = get_formula_factor("inches_per_meter", settings)
 	tape_meters = _tape_edge_meters(length, width, row.qty, settings)
-	tape_cost = tape_meters * flt(tape_rate)
 
 	pvc_divisor = get_formula_factor("pvc_nylon_divisor", settings)
 	pvc_faces = get_formula_factor("pvc_nylon_faces", settings)
-	pvc_usage = (length * width * pvc_faces) / pvc_divisor
-	pvc_cost = pvc_usage * flt(row.qty) * flt(settings.pvc_rate_per_sqm)
+	pvc_sqm = ((length * width * pvc_faces) / pvc_divisor) * flt(row.qty)
 
-	thread_qty = get_formula_factor("thread_qty_per_mattress", settings)
-	label_qty = get_formula_factor("label_qty_per_mattress", settings)
-	thread_label_cost = (
-		(thread_qty * flt(settings.thread_rate_per_mat))
-		+ (label_qty * flt(settings.label_rate_per_pc))
-	) * flt(row.qty)
+	thread_qty = get_formula_factor("thread_qty_per_mattress", settings) * flt(row.qty)
+	label_qty = get_formula_factor("label_qty_per_mattress", settings) * flt(row.qty)
 
 	fabric_width_inches = _resolve_fabric_width(row.fabric_item, settings)
 	panel_faces = get_formula_factor("fabric_panel_faces", settings)
@@ -255,12 +253,23 @@ def _row_cost_breakdown(row, settings, tape_item, tape_rate):
 	core_cost = flt(row.qty) * core_rate
 	fabric_cost = fabric_meters * fabric_rate
 
-	# Tape is stocked only when Tape Edge Item exists; otherwise absorb via account
-	stocked_tape = flt(tape_cost) if tape_item else 0.0
-	absorbed_tape = 0.0 if tape_item else flt(tape_cost)
-	absorption_cost = pvc_cost + thread_label_cost + absorbed_tape
-	stocked_cost = core_cost + fabric_cost + stocked_tape
-	total_row_cost = stocked_cost + absorption_cost
+	rm_wh = getattr(settings, "default_raw_material_warehouse", None)
+	consumables = []
+	consumable_specs = (
+		(settings.default_tape_edge_item, tape_meters, settings.tape_rate_per_yard),
+		(settings.default_pvc_nylon_item, pvc_sqm, settings.pvc_rate_per_sqm),
+		(settings.default_thread_item, thread_qty, settings.thread_rate_per_mat),
+		(settings.default_label_item, label_qty, settings.label_rate_per_pc),
+	)
+	consumable_cost = 0.0
+	for item_code, qty, fallback_rate in consumable_specs:
+		if not item_code or flt(qty) <= 0:
+			continue
+		rate = _get_item_valuation_rate(item_code, rm_wh, fallback_rate)
+		consumables.append({"item_code": item_code, "qty": flt(qty), "rate": rate})
+		consumable_cost += flt(qty) * rate
+
+	stocked_cost = core_cost + fabric_cost + consumable_cost
 
 	return {
 		"tape_meters": tape_meters,
@@ -269,12 +278,10 @@ def _row_cost_breakdown(row, settings, tape_item, tape_rate):
 		"fabric_rate": fabric_rate,
 		"core_cost": core_cost,
 		"fabric_cost": fabric_cost,
-		"tape_cost": tape_cost,
-		"pvc_cost": pvc_cost,
-		"thread_label_cost": thread_label_cost,
+		"consumables": consumables,
 		"stocked_cost": stocked_cost,
-		"absorption_cost": absorption_cost,
-		"total_row_cost": total_row_cost,
+		"absorption_cost": 0.0,
+		"total_row_cost": stocked_cost,
 	}
 
 
@@ -295,27 +302,25 @@ def _tape_edge_meters(length_inches, width_inches, qty, settings=None):
 	return meters * (1 + (waste_pct / 100.0))
 
 
-def _resolve_tape_edge_item(settings=None):
-	"""Resolve Tape Edge Item from Manufacturing Settings (no hardcoded item codes)."""
-	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
-	item_code = getattr(settings, "default_tape_edge_item", None)
-	if item_code and frappe.db.exists("Item", item_code):
-		return item_code
-	return None
-
-
-def _get_tape_edge_rate(settings=None):
-	"""Prefer live stock valuation for Tape Edge (NGN/meter); fall back to settings rate."""
-	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
-	item_code = _resolve_tape_edge_item(settings)
-	if item_code:
-		rate = flt(frappe.db.get_value("Bin", {"item_code": item_code}, "valuation_rate"))
-		if rate <= 0:
-			rate = flt(frappe.db.get_value("Item", item_code, "valuation_rate"))
+def _get_item_valuation_rate(item_code, warehouse=None, fallback_rate=0):
+	"""Prefer Bin rate at RM warehouse, then Item valuation_rate, then Settings rate."""
+	if item_code and warehouse:
+		rate = flt(
+			frappe.db.get_value(
+				"Bin",
+				{"item_code": item_code, "warehouse": warehouse},
+				"valuation_rate",
+			)
+		)
 		if rate > 0:
 			return rate
 
-	return flt(settings.tape_rate_per_yard)
+	if item_code:
+		rate = flt(frappe.db.get_value("Item", item_code, "valuation_rate"))
+		if rate > 0:
+			return rate
+
+	return flt(fallback_rate)
 
 
 def _resolve_fabric_width(item_code, settings=None):

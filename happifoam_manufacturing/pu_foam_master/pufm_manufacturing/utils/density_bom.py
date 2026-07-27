@@ -36,18 +36,21 @@ def resolve_density_company(doc):
 
 
 def get_preferred_company():
-	"""Prefer primary Solarfoam (SF) over demo Solarfoam (Demo)/SFD."""
-	if frappe.db.exists("Company", "Solarfoam"):
-		return "Solarfoam"
-	by_abbr = frappe.db.get_value("Company", {"abbr": "SF"}, "name")
-	if by_abbr:
-		return by_abbr
+	"""Resolve company via standard Frappe defaults (no hardcoded company names)."""
+	settings_company = frappe.db.get_single_value(
+		"Pufm Manufacturing Settings", "default_company"
+	)
+	if settings_company and frappe.db.exists("Company", settings_company):
+		return settings_company
+
 	company = frappe.defaults.get_user_default("Company")
-	if company and frappe.db.exists("Company", company) and "Demo" not in company:
+	if company and frappe.db.exists("Company", company):
 		return company
+
 	company = frappe.db.get_single_value("Global Defaults", "default_company")
 	if company and frappe.db.exists("Company", company):
 		return company
+
 	companies = frappe.get_all("Company", pluck="name", order_by="creation asc", limit=1)
 	return companies[0] if companies else None
 
