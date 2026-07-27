@@ -23,6 +23,7 @@ fixtures = [
 					"Customer-custom_rebate_configuration_section",
 					"Customer-custom_is_distributor",
 					"Customer-custom_rebate_tier",
+					"Customer-custom_use_rebate_override",
 					"Customer-custom_rebate_override_percentage",
 					"Customer-custom_freight_rebate_percentage",
 					"Customer-custom_rebate_percentage",
@@ -30,6 +31,7 @@ fixtures = [
 					"Sales Invoice-custom_apply_instant_rebate",
 					"Sales Invoice-custom_instant_rebate_percentage",
 					"Sales Invoice-custom_instant_rebate_amount",
+					"Sales Invoice-custom_rebate_settlement",
 				],
 			]
 		],
@@ -66,6 +68,8 @@ after_migrate = [
 	"pu_foam_master.custom_fields.ensure_item_custom_fields",
 	"pu_foam_master.custom_fields.ensure_sales_invoice_rebate_fields",
 	"pu_foam_master.setup_defaults.ensure_customer_rebate_fields",
+	"pu_foam_master.setup_defaults.ensure_default_rebate_tiers",
+	"pu_foam_master.setup_defaults.migrate_customer_rebate_tier_links",
 	"pu_foam_master.setup_workspace.create_workspace",
 ]
 
@@ -75,6 +79,7 @@ after_install = [
 	"pu_foam_master.custom_fields.ensure_item_custom_fields",
 	"pu_foam_master.custom_fields.ensure_sales_invoice_rebate_fields",
 	"pu_foam_master.setup_defaults.ensure_customer_rebate_fields",
+	"pu_foam_master.setup_defaults.ensure_default_rebate_tiers",
 	"pu_foam_master.setup_defaults.ensure_standard_mattress_sizes",
 	"pu_foam_master.setup_workspace.create_workspace",
 ]

@@ -24,6 +24,12 @@ def create_workspace():
 			"icon": "settings",
 		},
 		{
+			"label": "Rebate Tier",
+			"link_to": "Rebate Tier",
+			"type": "DocType",
+			"icon": "settings",
+		},
+		{
 			"label": "Pufm Production Batch",
 			"link_to": "Pufm Production Batch",
 			"type": "DocType",
@@ -96,15 +102,17 @@ def create_workspace():
 	]
 
 	links = [
-		{"label": "Virgin PU Production", "is_header": 1},
+		{"label": "Configurations / Management", "is_header": 1},
+		{"label": "Pufm Manufacturing Settings", "link_to": "Pufm Manufacturing Settings", "link_type": "DocType", "type": "Link"},
 		{"label": "Density Configuration", "link_to": "Density Configuration", "link_type": "DocType", "type": "Link"},
+		{"label": "Rebate Tier", "link_to": "Rebate Tier", "link_type": "DocType", "type": "Link"},
+		{"label": "Rebound Configuration", "link_to": "Rebound Configuration", "link_type": "DocType", "type": "Link"},
+		{"label": "Virgin PU Production", "is_header": 1},
 		{"label": "Pufm Production Batch", "link_to": "Pufm Production Batch", "link_type": "DocType", "type": "Link"},
 		{"label": "Pufm Density Run", "link_to": "Pufm Density Run", "link_type": "DocType", "type": "Link"},
 		{"label": "Foam Block Conversion", "link_to": "Foam Block Conversion", "link_type": "DocType", "type": "Link"},
 		{"label": "Production Variance Report", "link_to": "Production Variance Report", "link_type": "Report", "is_query_report": 1, "type": "Link"},
 		{"label": "Rebound Production", "is_header": 1},
-		{"label": "Pufm Manufacturing Settings", "link_to": "Pufm Manufacturing Settings", "link_type": "DocType", "type": "Link"},
-		{"label": "Rebound Configuration", "link_to": "Rebound Configuration", "link_type": "DocType", "type": "Link"},
 		{"label": "Rebound Production Entry", "link_to": "Rebound Production Entry", "link_type": "DocType", "type": "Link"},
 		{"label": "Scrap Costing Calculator", "link_to": "Scrap Costing Calculator", "link_type": "DocType", "type": "Link"},
 		{"label": "Manufacturing Logic", "is_header": 1},
@@ -121,15 +129,17 @@ def create_workspace():
 
 	content = (
 		'['
+		'{"id":"hcfg","type":"header","data":{"text":"Configurations / Management","col":12}},'
+		'{"id":"scfg1","type":"shortcut","data":{"shortcut_name":"Pufm Manufacturing Settings","col":3}},'
+		'{"id":"scfg2","type":"shortcut","data":{"shortcut_name":"Density Configuration","col":3}},'
+		'{"id":"scfg3","type":"shortcut","data":{"shortcut_name":"Rebate Tier","col":3}},'
+		'{"id":"scfg4","type":"shortcut","data":{"shortcut_name":"Rebound Configuration","col":3}},'
 		'{"id":"h0","type":"header","data":{"text":"Virgin PU Production","col":12}},'
-		'{"id":"s0","type":"shortcut","data":{"shortcut_name":"Density Configuration","col":3}},'
 		'{"id":"s0b","type":"shortcut","data":{"shortcut_name":"Pufm Production Batch","col":3}},'
 		'{"id":"s0c","type":"shortcut","data":{"shortcut_name":"Pufm Density Run","col":3}},'
 		'{"id":"s0d","type":"shortcut","data":{"shortcut_name":"Foam Block Conversion","col":3}},'
 		'{"id":"s0e","type":"shortcut","data":{"shortcut_name":"Production Variance Report","col":3}},'
 		'{"id":"h1","type":"header","data":{"text":"Rebound Production","col":12}},'
-		'{"id":"s1","type":"shortcut","data":{"shortcut_name":"Pufm Manufacturing Settings","col":3}},'
-		'{"id":"s2","type":"shortcut","data":{"shortcut_name":"Rebound Configuration","col":3}},'
 		'{"id":"s3","type":"shortcut","data":{"shortcut_name":"Rebound Production Entry","col":3}},'
 		'{"id":"s4","type":"shortcut","data":{"shortcut_name":"Scrap Costing Calculator","col":3}},'
 		'{"id":"h2","type":"header","data":{"text":"Financials & Rebates","col":12}},'

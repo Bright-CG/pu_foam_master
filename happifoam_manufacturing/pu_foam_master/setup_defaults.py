@@ -82,6 +82,9 @@ def migrate_rebate_expense_account():
 
 
 def ensure_customer_rebate_fields():
+	# Frappe blocks Select -> Link fieldtype changes; recreate the field when needed.
+	_recreate_customer_rebate_tier_link_field()
+
 	custom_fields = {
 		"Customer": [
 			{
@@ -101,18 +104,24 @@ def ensure_customer_rebate_fields():
 			{
 				"fieldname": "custom_rebate_tier",
 				"label": "Rebate Tier",
-				"fieldtype": "Select",
-				"options": "None\n0-50m (10%)\n50-100m (11%)\nOverride",
-				"default": "None",
+				"fieldtype": "Link",
+				"options": "Rebate Tier",
 				"insert_after": "custom_is_distributor",
+				"permlevel": 1,
+			},
+			{
+				"fieldname": "custom_use_rebate_override",
+				"label": "Use Rebate Override",
+				"fieldtype": "Check",
+				"insert_after": "custom_rebate_tier",
 				"permlevel": 1,
 			},
 			{
 				"fieldname": "custom_rebate_override_percentage",
 				"label": "Rebate Override Percentage",
 				"fieldtype": "Float",
-				"depends_on": "eval:doc.custom_rebate_tier=='Override'",
-				"insert_after": "custom_rebate_tier",
+				"depends_on": "eval:doc.custom_use_rebate_override",
+				"insert_after": "custom_use_rebate_override",
 				"permlevel": 1,
 			},
 			{
@@ -134,6 +143,104 @@ def ensure_customer_rebate_fields():
 	}
 	create_custom_fields(custom_fields, update=True)
 	frappe.db.commit()
+
+
+def _recreate_customer_rebate_tier_link_field():
+	"""Replace legacy Select custom_rebate_tier with a Link to Rebate Tier."""
+	cf_name = frappe.db.get_value(
+		"Custom Field", {"dt": "Customer", "fieldname": "custom_rebate_tier"}, "name"
+	)
+	if not cf_name:
+		return
+
+	fieldtype = frappe.db.get_value("Custom Field", cf_name, "fieldtype")
+	options = frappe.db.get_value("Custom Field", cf_name, "options")
+	if fieldtype == "Link" and options == "Rebate Tier":
+		return
+
+	# Preserve values while rebuilding the Custom Field definition
+	frappe.delete_doc("Custom Field", cf_name, force=1)
+	frappe.db.commit()
+	frappe.clear_cache(doctype="Customer")
+	print(
+		"[setup_defaults] Recreated Customer.custom_rebate_tier as Link -> Rebate Tier "
+		f"(was {fieldtype})."
+	)
+
+DEFAULT_REBATE_TIERS = (
+	{
+		"tier_name": "0-50M (10%)",
+		"min_turnover_ngn": 0,
+		"max_turnover_ngn": 50_000_000,
+		"rebate_percentage": 10,
+		"description": "Baseline distributor tier for turnover up to ₦50M.",
+	},
+	{
+		"tier_name": "50M-100M (11%)",
+		"min_turnover_ngn": 50_000_001,
+		"max_turnover_ngn": 100_000_000,
+		"rebate_percentage": 11,
+		"description": "Baseline distributor tier for turnover from ₦50M to ₦100M.",
+	},
+)
+
+
+def ensure_default_rebate_tiers():
+	"""Seed baseline Rebate Tier masters (idempotent configuration, not Items)."""
+	if not frappe.db.exists("DocType", "Rebate Tier"):
+		return
+
+	created = 0
+	for row in DEFAULT_REBATE_TIERS:
+		if frappe.db.exists("Rebate Tier", row["tier_name"]):
+			continue
+		doc = frappe.get_doc({"doctype": "Rebate Tier", **row})
+		doc.insert(ignore_permissions=True)
+		created += 1
+
+	if created:
+		frappe.db.commit()
+		print(f"[setup_defaults] Created {created} default Rebate Tier(s).")
+
+
+def migrate_customer_rebate_tier_links():
+	"""Map legacy Select values on Customer.custom_rebate_tier to Rebate Tier Links."""
+	if not frappe.db.has_column("Customer", "custom_rebate_tier"):
+		return
+	if not frappe.db.exists("DocType", "Rebate Tier"):
+		return
+
+	ensure_default_rebate_tiers()
+
+	# Old Select option -> new Link name (or clear)
+	legacy_map = {
+		"None": "",
+		"0-50m (10%)": "0-50M (10%)",
+		"50-100m (11%)": "50M-100M (11%)",
+		"Override": "",
+	}
+
+	if frappe.db.has_column("Customer", "custom_use_rebate_override"):
+		frappe.db.sql(
+			"""
+			UPDATE `tabCustomer`
+			SET custom_use_rebate_override = 1
+			WHERE custom_rebate_tier = 'Override'
+			"""
+		)
+
+	for old_value, new_value in legacy_map.items():
+		frappe.db.sql(
+			"""
+			UPDATE `tabCustomer`
+			SET custom_rebate_tier = %s
+			WHERE custom_rebate_tier = %s
+			""",
+			(new_value, old_value),
+		)
+
+	frappe.db.commit()
+	print("[setup_defaults] Migrated Customer custom_rebate_tier Select values to Links.")
 
 
 def ensure_customer_rebate_field():

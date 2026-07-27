@@ -66,6 +66,16 @@ def ensure_sales_invoice_rebate_fields():
 				"insert_after": "custom_instant_rebate_percentage",
 				"read_only": 1,
 			},
+			{
+				"fieldname": "custom_rebate_settlement",
+				"label": "Rebate Settlement",
+				"fieldtype": "Link",
+				"options": "Rebate Settlement Tool",
+				"insert_after": "custom_instant_rebate_amount",
+				"read_only": 1,
+				"no_copy": 1,
+				"description": "Set when this invoice is included in a submitted period rebate settlement.",
+			},
 		]
 	}
 	create_custom_fields(si_fields, update=True)
