@@ -41,6 +41,23 @@
         "thread_rate_per_mat",
         "fabric_waste_factor",
         "consumables_absorption_account",
+        "consumption_formula_factors_section",
+        "cbm_factor",
+        "inches_per_meter",
+        "inches_to_meters_factor",
+        "default_fabric_width_inches",
+        "column_break_formula_1",
+        "fabric_panel_faces",
+        "fabric_side_panels_factor",
+        "tape_edge_perimeter_multiplier",
+        "tape_edge_waste_percentage",
+        "column_break_formula_2",
+        "pvc_nylon_divisor",
+        "pvc_nylon_faces",
+        "thread_qty_per_mattress",
+        "label_qty_per_mattress",
+        "scrap_default_container_capacity_kg",
+        "scrap_default_process_loss_ngn",
         "financial_scrap_defaults_section",
         "rebate_income_account",
         "rebate_expense_account",
@@ -279,6 +296,114 @@
             "fieldtype": "Link",
             "label": "Consumables Absorption Account",
             "options": "Account"
+        },
+        {
+            "fieldname": "consumption_formula_factors_section",
+            "fieldtype": "Section Break",
+            "label": "Consumption Formula Factors"
+        },
+        {
+            "default": "61023.74",
+            "description": "Cubic inches per cubic meter. Used for CBM calculations across production.",
+            "fieldname": "cbm_factor",
+            "fieldtype": "Float",
+            "label": "CBM Divisor Factor",
+            "precision": "5"
+        },
+        {
+            "default": "39.37",
+            "fieldname": "inches_per_meter",
+            "fieldtype": "Float",
+            "label": "Inches Per Meter",
+            "precision": "5"
+        },
+        {
+            "default": "0.0254",
+            "fieldname": "inches_to_meters_factor",
+            "fieldtype": "Float",
+            "label": "Inches to Meters Factor",
+            "precision": "6"
+        },
+        {
+            "default": "84.0",
+            "fieldname": "default_fabric_width_inches",
+            "fieldtype": "Float",
+            "label": "Default Fabric Width (Inches)",
+            "precision": "2"
+        },
+        {
+            "fieldname": "column_break_formula_1",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "2",
+            "fieldname": "fabric_panel_faces",
+            "fieldtype": "Int",
+            "label": "Fabric Panel Faces"
+        },
+        {
+            "default": "2",
+            "fieldname": "fabric_side_panels_factor",
+            "fieldtype": "Int",
+            "label": "Fabric Side Panels Multiplier"
+        },
+        {
+            "default": "4.0",
+            "fieldname": "tape_edge_perimeter_multiplier",
+            "fieldtype": "Float",
+            "label": "Tape Edge Perimeter Multiplier",
+            "precision": "2"
+        },
+        {
+            "default": "0",
+            "fieldname": "tape_edge_waste_percentage",
+            "fieldtype": "Percent",
+            "label": "Tape Edge Waste %"
+        },
+        {
+            "fieldname": "column_break_formula_2",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "1550",
+            "description": "Square inches per square meter used for PVC/Nylon area.",
+            "fieldname": "pvc_nylon_divisor",
+            "fieldtype": "Float",
+            "label": "PVC Nylon Divisor",
+            "precision": "2"
+        },
+        {
+            "default": "1",
+            "fieldname": "pvc_nylon_faces",
+            "fieldtype": "Int",
+            "label": "PVC Wrap Faces"
+        },
+        {
+            "default": "1.0",
+            "fieldname": "thread_qty_per_mattress",
+            "fieldtype": "Float",
+            "label": "Thread Alloc Qty per Mattress",
+            "precision": "2"
+        },
+        {
+            "default": "1.0",
+            "fieldname": "label_qty_per_mattress",
+            "fieldtype": "Float",
+            "label": "Label Alloc Qty per Mattress",
+            "precision": "2"
+        },
+        {
+            "default": "20000",
+            "fieldname": "scrap_default_container_capacity_kg",
+            "fieldtype": "Float",
+            "label": "Scrap Container Capacity (KG)",
+            "precision": "2"
+        },
+        {
+            "default": "3000000",
+            "fieldname": "scrap_default_process_loss_ngn",
+            "fieldtype": "Currency",
+            "label": "Scrap Default Process Loss (NGN)"
         },
         {
             "fieldname": "financial_scrap_defaults_section",

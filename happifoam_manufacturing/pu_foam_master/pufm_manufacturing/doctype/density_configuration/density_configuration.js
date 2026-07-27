@@ -110,21 +110,32 @@ function apply_operation_time(frm, cdt, cdn) {
 }
 
 function calculate_parent(frm) {
-    let wm = round5((frm.doc.width_inches || 0) * 0.0254);
-    let hm = round5((frm.doc.height_inches || 0) * 0.0254);
-    let factor = frm.doc.calibration_factor || 1.0;
-    let rate = round5((frm.doc.conveyor_speed || 0) * factor * wm * hm);
+    get_inches_to_meters_factor().then((inchToM) => {
+        let wm = round5((frm.doc.width_inches || 0) * inchToM);
+        let hm = round5((frm.doc.height_inches || 0) * inchToM);
+        let factor = frm.doc.calibration_factor || 1.0;
+        let rate = round5((frm.doc.conveyor_speed || 0) * factor * wm * hm);
 
-    frm.set_value("width_meters", wm);
-    frm.set_value("height_meters", hm);
-    frm.set_value("output_rate_m3_per_min", rate);
+        frm.set_value("width_meters", wm);
+        frm.set_value("height_meters", hm);
+        frm.set_value("output_rate_m3_per_min", rate);
 
-    if (frm.doc.production_inputs) {
-        frm.doc.production_inputs.forEach((row) => {
-            calculate_production_row(frm, row.doctype, row.name);
+        if (frm.doc.production_inputs) {
+            frm.doc.production_inputs.forEach((row) => {
+                calculate_production_row(frm, row.doctype, row.name);
+            });
+        }
+        recalculate_operations(frm);
+    });
+}
+
+function get_inches_to_meters_factor() {
+    return frappe.db
+        .get_single_value("Pufm Manufacturing Settings", "inches_to_meters_factor")
+        .then((factor) => {
+            const parsed = flt(factor);
+            return parsed > 0 ? parsed : 0.0254;
         });
-    }
-    recalculate_operations(frm);
 }
 
 function calculate_production_row(frm, cdt, cdn) {

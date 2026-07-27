@@ -4,7 +4,6 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 from pu_foam_master.pufm_manufacturing.utils.density_bom import (
-	CBM_DIVISOR,
 	PRECISION,
 	build_block_item_code,
 	cancel_active_bom,
@@ -13,6 +12,7 @@ from pu_foam_master.pufm_manufacturing.utils.density_bom import (
 	sync_bom_for_density_config,
 	sync_related_block_items,
 )
+from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor, get_formula_factor
 
 
 class DensityConfiguration(Document):
@@ -58,8 +58,9 @@ class DensityConfiguration(Document):
 		cancel_active_bom(self)
 
 	def calculate_values(self):
-		self.width_meters = flt(flt(self.width_inches) * 0.0254, PRECISION)
-		self.height_meters = flt(flt(self.height_inches) * 0.0254, PRECISION)
+		inch_to_m = get_formula_factor("inches_to_meters_factor")
+		self.width_meters = flt(flt(self.width_inches) * inch_to_m, PRECISION)
+		self.height_meters = flt(flt(self.height_inches) * inch_to_m, PRECISION)
 
 		self.output_rate_m3_per_min = flt(
 			flt(self.conveyor_speed)
@@ -140,7 +141,7 @@ def generate_block_items(docname, lengths_string=None):
 
 		# SKU: {density}-{L}x{W}x{H} Block using loop length + saved W/H
 		item_code = build_block_item_code(doc.density_name, length, width, height)
-		volume_cbm = flt((length * width * height) / CBM_DIVISOR, PRECISION)
+		volume_cbm = flt((length * width * height) / get_cbm_factor(), PRECISION)
 
 		if frappe.db.exists("Item", item_code):
 			item = frappe.get_doc("Item", item_code)

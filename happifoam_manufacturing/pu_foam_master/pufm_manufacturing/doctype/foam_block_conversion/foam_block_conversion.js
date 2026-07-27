@@ -150,7 +150,7 @@ function set_conversion_rate(frm) {
 function get_cbm_factor() {
 	return frappe.db.get_single_value("Pufm Manufacturing Settings", "cbm_factor").then((factor) => {
 		const parsed = flt(factor);
-		return parsed > 0 ? parsed : 61023.7;
+		return parsed > 0 ? parsed : 61023.74;
 	});
 }
 

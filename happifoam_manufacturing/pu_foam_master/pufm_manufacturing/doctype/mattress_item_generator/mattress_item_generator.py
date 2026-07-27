@@ -2,8 +2,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import cint, flt
 
-
-CBM_FACTOR = 61023.74
+from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor
 
 
 class MattressItemGenerator(Document):
@@ -11,9 +10,10 @@ class MattressItemGenerator(Document):
 		self._recompute_cbm()
 
 	def _recompute_cbm(self):
+		cbm_factor = get_cbm_factor()
 		for row in self.get("sizes") or []:
 			row.unit_cbm = (
-				(flt(row.width) * flt(row.length) * flt(row.height)) / CBM_FACTOR
+				(flt(row.width) * flt(row.length) * flt(row.height)) / cbm_factor
 				if flt(row.width) and flt(row.length) and flt(row.height)
 				else 0
 			)

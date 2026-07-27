@@ -4,6 +4,33 @@
 frappe.ui.form.on("Pufm Manufacturing Settings", {
 	refresh(frm) {
 		calculate_overheads(frm, true);
+		if (frappe.user_roles.includes("System Manager") || frappe.user_roles.includes("PUFM Manager")) {
+			frm.add_custom_button(__("Reset Formulas to Default"), () => {
+				frappe.confirm(
+					__(
+						"Restore consumption formula factors to factory defaults? " +
+							"Item links, warehouses, accounts, and consumable rates are not changed."
+					),
+					() => {
+						frappe.call({
+							method:
+								"pu_foam_master.pufm_manufacturing.doctype.pufm_manufacturing_settings.pufm_manufacturing_settings.reset_formula_defaults",
+							freeze: true,
+							freeze_message: __("Resetting formula defaults..."),
+							callback(r) {
+								if (r.message) {
+									frm.reload_doc();
+									frappe.show_alert({
+										message: __("Formula factors restored to factory defaults."),
+										indicator: "green",
+									});
+								}
+							},
+						});
+					}
+				);
+			});
+		}
 	},
 	conversion_glue_cost_per_cbm(frm) {
 		calculate_overheads(frm);

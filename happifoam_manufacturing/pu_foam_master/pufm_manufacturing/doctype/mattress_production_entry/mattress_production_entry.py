@@ -5,8 +5,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import cint, flt, nowdate
 
-# Inches per meter (divide inches by this to get meters)
-INCH_TO_METER = 39.37
+from pu_foam_master.pufm_manufacturing.utils.settings import get_formula_factor
 
 
 class MattressProductionEntry(Document):
@@ -228,19 +227,28 @@ def _row_cost_breakdown(row, settings, tape_item, tape_rate):
 	if not (length and width and height):
 		frappe.throw(f"Row {row.idx}: Mattress item dimensions are missing.")
 
-	tape_meters = _tape_edge_meters(length, width, row.qty)
+	inches_per_meter = get_formula_factor("inches_per_meter", settings)
+	tape_meters = _tape_edge_meters(length, width, row.qty, settings)
 	tape_cost = tape_meters * flt(tape_rate)
 
-	pvc_usage = (length * width) / 1550
+	pvc_divisor = get_formula_factor("pvc_nylon_divisor", settings)
+	pvc_faces = get_formula_factor("pvc_nylon_faces", settings)
+	pvc_usage = (length * width * pvc_faces) / pvc_divisor
 	pvc_cost = pvc_usage * flt(row.qty) * flt(settings.pvc_rate_per_sqm)
+
+	thread_qty = get_formula_factor("thread_qty_per_mattress", settings)
+	label_qty = get_formula_factor("label_qty_per_mattress", settings)
 	thread_label_cost = (
-		flt(settings.thread_rate_per_mat) + flt(settings.label_rate_per_pc)
+		(thread_qty * flt(settings.thread_rate_per_mat))
+		+ (label_qty * flt(settings.label_rate_per_pc))
 	) * flt(row.qty)
 
-	fabric_width_inches = _resolve_fabric_width(row.fabric_item)
-	total_area = (2 * (length * width)) + ((2 * (length + width)) * height)
+	fabric_width_inches = _resolve_fabric_width(row.fabric_item, settings)
+	panel_faces = get_formula_factor("fabric_panel_faces", settings)
+	side_factor = get_formula_factor("fabric_side_panels_factor", settings)
+	total_area = (panel_faces * (length * width)) + ((side_factor * (length + width)) * height)
 	total_area = total_area * (1 + (flt(settings.fabric_waste_factor) / 100))
-	fabric_meters = (total_area / (fabric_width_inches * INCH_TO_METER)) * flt(row.qty)
+	fabric_meters = (total_area / (fabric_width_inches * inches_per_meter)) * flt(row.qty)
 
 	core_rate = _get_batch_valuation_rate(row.core_batch)
 	fabric_rate = _get_batch_valuation_rate(row.fabric_batch)
@@ -270,13 +278,21 @@ def _row_cost_breakdown(row, settings, tape_item, tape_rate):
 	}
 
 
-def _tape_edge_meters(length_inches, width_inches, qty):
+def _tape_edge_meters(length_inches, width_inches, qty, settings=None):
 	"""
 	Tape edge consumption in meters.
-	Two full perimeters (top + bottom edge): 4 * (L + W) inches -> meters.
+	Default: two full perimeters (top + bottom edge) via perimeter multiplier.
 	"""
-	inches = 4.0 * (flt(length_inches) + flt(width_inches))
-	return (inches / INCH_TO_METER) * flt(qty)
+	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
+	multiplier = get_formula_factor("tape_edge_perimeter_multiplier", settings)
+	inches_per_meter = get_formula_factor("inches_per_meter", settings)
+	waste_pct = flt(getattr(settings, "tape_edge_waste_percentage", None))
+	if waste_pct < 0:
+		waste_pct = 0
+
+	inches = multiplier * (flt(length_inches) + flt(width_inches))
+	meters = (inches / inches_per_meter) * flt(qty)
+	return meters * (1 + (waste_pct / 100.0))
 
 
 def _resolve_tape_edge_item(settings=None):
@@ -302,11 +318,12 @@ def _get_tape_edge_rate(settings=None):
 	return flt(settings.tape_rate_per_yard)
 
 
-def _resolve_fabric_width(item_code):
+def _resolve_fabric_width(item_code, settings=None):
+	fallback = get_formula_factor("default_fabric_width_inches", settings)
 	if not item_code:
-		return 84.0
+		return fallback
 	width = flt(frappe.db.get_value("Item", item_code, "custom_width"))
-	return width or 84.0
+	return width or fallback
 
 
 def _get_batch_valuation_rate(batch_no):

@@ -60,12 +60,16 @@ function recalculate(frm) {
 	if (!frm.doc.rebound_configuration) {
 		return;
 	}
-	frappe.db.get_doc("Rebound Configuration", frm.doc.rebound_configuration).then((config) => {
+	Promise.all([
+		frappe.db.get_doc("Rebound Configuration", frm.doc.rebound_configuration),
+		frappe.db.get_single_value("Pufm Manufacturing Settings", "cbm_factor"),
+	]).then(([config, cbmFactor]) => {
 		const length = flt(frm.doc.length_inches);
 		const width = flt(frm.doc.width_inches);
 		const height = flt(frm.doc.height_inches);
 		const qty = flt(frm.doc.quantity_produced);
-		const total_cbm = (length * width * height * qty) / 61023.74;
+		const divisor = flt(cbmFactor) > 0 ? flt(cbmFactor) : 61023.74;
+		const total_cbm = (length * width * height * qty) / divisor;
 
 		frm.set_value("total_volume_cbm", total_cbm);
 		frm.set_value("expected_scrap_kg", flt(config.scrap_kg_per_cbm) * total_cbm);

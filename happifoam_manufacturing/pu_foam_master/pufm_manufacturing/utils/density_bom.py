@@ -2,9 +2,11 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor
+
 VIRTUAL_ITEM_SUFFIX = "-BASE-FOAM-M3"
 PRECISION = 5
-CBM_DIVISOR = 61023.74
+CBM_DIVISOR = 61023.74  # legacy fallback; prefer get_cbm_factor()
 
 
 def get_virtual_item_code(density_name):
@@ -298,7 +300,7 @@ def sync_related_block_items(doc):
 		if length <= 0:
 			continue
 
-		new_cbm = flt((length * width * height) / CBM_DIVISOR, PRECISION)
+		new_cbm = flt((length * width * height) / get_cbm_factor(), PRECISION)
 		new_code = build_block_item_code(density_name, length, width, height)
 
 		item = frappe.get_doc("Item", row.name)

@@ -3,6 +3,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
+from pu_foam_master.pufm_manufacturing.utils.settings import get_formula_factor
+
 
 class ScrapCostingCalculator(Document):
 	def before_insert(self):
@@ -10,6 +12,10 @@ class ScrapCostingCalculator(Document):
 			self.scrap_item = frappe.db.get_single_value(
 				"Pufm Manufacturing Settings", "scrap_item"
 			)
+		if not flt(self.container_capacity_kg):
+			self.container_capacity_kg = get_formula_factor("scrap_default_container_capacity_kg")
+		if self.process_loss_contingency_ngn in (None, ""):
+			self.process_loss_contingency_ngn = get_formula_factor("scrap_default_process_loss_ngn")
 
 	def validate(self):
 		self._calculate_cost_per_kg()
@@ -26,7 +32,9 @@ class ScrapCostingCalculator(Document):
 				doc.cancel()
 
 	def _calculate_cost_per_kg(self):
-		capacity = flt(self.container_capacity_kg) or 20000
+		capacity = flt(self.container_capacity_kg) or get_formula_factor(
+			"scrap_default_container_capacity_kg"
+		)
 		total_cost = (
 			flt(self.shipping_cost_ngn)
 			+ flt(self.local_logistics_ngn)

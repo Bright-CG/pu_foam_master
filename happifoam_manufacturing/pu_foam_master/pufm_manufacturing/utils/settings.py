@@ -1,10 +1,13 @@
 import frappe
 from frappe import _
-from frappe.utils import flt
-
-CBM_DIVISOR = 61023.74
+from frappe.utils import cint, flt
 
 SETTINGS_DOCTYPE = "Pufm Manufacturing Settings"
+
+# Baseline fallbacks (mirrored by FACTORY_FORMULA_DEFAULTS on Settings DocType)
+CBM_DIVISOR = 61023.74
+INCHES_PER_METER = 39.37
+INCHES_TO_METERS = 0.0254
 
 ABSORPTION_FIELDS = (
 	("power_absorption_account", "Power Absorption Account"),
@@ -23,6 +26,31 @@ REBOUND_USD_FIELDS = (
 
 def get_settings():
 	return frappe.get_single(SETTINGS_DOCTYPE)
+
+
+def get_factory_formula_defaults():
+	from pu_foam_master.pufm_manufacturing.doctype.pufm_manufacturing_settings.pufm_manufacturing_settings import (
+		FACTORY_FORMULA_DEFAULTS,
+	)
+
+	return FACTORY_FORMULA_DEFAULTS
+
+
+def get_formula_factor(fieldname, settings=None):
+	"""Return a Settings formula factor, falling back to factory default if empty/zero."""
+	defaults = get_factory_formula_defaults()
+	baseline = defaults.get(fieldname)
+	settings = settings or get_settings()
+	value = getattr(settings, fieldname, None)
+	if baseline is None:
+		return value
+	if isinstance(baseline, int) and not isinstance(baseline, bool):
+		return cint(value) or cint(baseline)
+	return flt(value) or flt(baseline)
+
+
+def get_cbm_factor(settings=None):
+	return get_formula_factor("cbm_factor", settings)
 
 
 def get_rebound_settings():
@@ -79,5 +107,6 @@ def validate_account_type(account, expected_root_type, label):
 		frappe.throw(_("{0} must be a {1} account.").format(label, expected_root_type))
 
 
-def calculate_cbm(length_inches, width_inches, height_inches, quantity=1):
-	return flt(length_inches) * flt(width_inches) * flt(height_inches) * flt(quantity) / CBM_DIVISOR
+def calculate_cbm(length_inches, width_inches, height_inches, quantity=1, settings=None):
+	divisor = get_cbm_factor(settings)
+	return flt(length_inches) * flt(width_inches) * flt(height_inches) * flt(quantity) / divisor

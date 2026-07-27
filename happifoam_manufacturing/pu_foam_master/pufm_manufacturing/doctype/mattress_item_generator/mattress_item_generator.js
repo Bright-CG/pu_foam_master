@@ -1,5 +1,6 @@
 frappe.ui.form.on("Mattress Item Generator", {
 	refresh(frm) {
+		ensure_cbm_factor(() => {});
 		frm.add_custom_button(__("Generate Items"), () => trigger_item_generation(frm));
 	},
 	fetch_sizes(frm) {
@@ -23,27 +24,29 @@ frappe.ui.form.on("Generator Size", {
 });
 
 function fetch_standard_sizes(frm) {
-	frappe.call({
-		method: "frappe.client.get_list",
-		args: {
-			doctype: "Standard Mattress Size",
-			fields: ["name", "width_inches", "length_inches", "height_inches"],
-			limit_page_length: 500,
-			order_by: "creation asc"
-		},
-		callback: (r) => {
-			const rows = r.message || [];
-			frm.clear_table("sizes");
-			rows.forEach((size) => {
-				const child = frm.add_child("sizes");
-				child.size_template = size.name;
-				child.width = flt(size.width_inches);
-				child.length = flt(size.length_inches);
-				child.height = flt(size.height_inches);
-				child.unit_cbm = compute_cbm(child.width, child.length, child.height);
-			});
-			frm.refresh_field("sizes");
-		}
+	ensure_cbm_factor(() => {
+		frappe.call({
+			method: "frappe.client.get_list",
+			args: {
+				doctype: "Standard Mattress Size",
+				fields: ["name", "width_inches", "length_inches", "height_inches"],
+				limit_page_length: 500,
+				order_by: "creation asc"
+			},
+			callback: (r) => {
+				const rows = r.message || [];
+				frm.clear_table("sizes");
+				rows.forEach((size) => {
+					const child = frm.add_child("sizes");
+					child.size_template = size.name;
+					child.width = flt(size.width_inches);
+					child.length = flt(size.length_inches);
+					child.height = flt(size.height_inches);
+					child.unit_cbm = compute_cbm(child.width, child.length, child.height);
+				});
+				frm.refresh_field("sizes");
+			}
+		});
 	});
 }
 
@@ -70,11 +73,26 @@ function trigger_item_generation(frm) {
 }
 
 function calculate_unit_cbm(frm, cdt, cdn) {
-	const row = locals[cdt][cdn];
-	frappe.model.set_value(cdt, cdn, "unit_cbm", compute_cbm(row.width, row.length, row.height));
-	frm.refresh_field("sizes");
+	ensure_cbm_factor(() => {
+		const row = locals[cdt][cdn];
+		frappe.model.set_value(cdt, cdn, "unit_cbm", compute_cbm(row.width, row.length, row.height));
+		frm.refresh_field("sizes");
+	});
 }
 
 function compute_cbm(width, length, height) {
-	return (flt(width) * flt(length) * flt(height)) / 61023.74;
+	const factor = compute_cbm._factor || 61023.74;
+	return (flt(width) * flt(length) * flt(height)) / factor;
+}
+
+function ensure_cbm_factor(callback) {
+	if (compute_cbm._factor) {
+		callback(compute_cbm._factor);
+		return;
+	}
+	frappe.db.get_single_value("Pufm Manufacturing Settings", "cbm_factor").then((factor) => {
+		const parsed = flt(factor);
+		compute_cbm._factor = parsed > 0 ? parsed : 61023.74;
+		callback(compute_cbm._factor);
+	});
 }
