@@ -33,5 +33,16 @@ frappe.ui.form.on("Pufm Production Batch", {
 				});
 			});
 		}
+
+		// Stock posts only on Submit / reverses on Cancel — not on Draft or workflow status.
+		if (frm.doc.docstatus === 0) {
+			frm.dashboard.set_headline(
+				__("Save as Draft freely. Submit to post the manufacture Stock Entry.")
+			);
+		} else if (frm.doc.docstatus === 1) {
+			frm.dashboard.set_headline(
+				__("Submitted — linked Stock Entry is posted. Cancel to reverse stock.")
+			);
+		}
 	},
 });

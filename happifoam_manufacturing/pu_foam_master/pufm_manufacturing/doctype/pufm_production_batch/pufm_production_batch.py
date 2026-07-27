@@ -15,11 +15,11 @@ from pu_foam_master.pufm_manufacturing.utils.density_bom import (
 )
 
 
-# workflow_state -> roles allowed to enter that state
+# workflow_state -> roles allowed to enter that state (status only; stock uses docstatus)
 WORKFLOW_TRANSITION_ROLES = {
-	"Pending MD Approval": {"Manufacturing Manager", "System Manager"},
-	"Pending Store Confirmation": {"Manufacturing Manager", "CEO/MD", "System Manager"},
-	"Completed": {"Store Manager", "System Manager"},
+	"Pending MD Approval": {"PUFM Manager", "System Manager"},
+	"Pending Store Confirmation": {"PUFM Manager", "System Manager"},
+	"Completed": {"PUFM Block Production", "PUFM Manager", "System Manager"},
 }
 
 
@@ -35,18 +35,41 @@ class PufmProductionBatch(Document):
 		assert_user_can_access_company(self.company, action="save Production Batch for")
 		self._enforce_workflow_transition_security()
 
-	def before_save(self):
-		if self.is_new():
-			return
+	def before_submit(self):
+		"""Validate readiness before docstatus flips — avoids submitted batches with no stock."""
+		self._ensure_company()
+		assert_user_can_access_company(
+			self.company, action="submit Production Batch for"
+		)
+		runs = self._get_linked_runs()
+		if not runs:
+			frappe.throw(_("No Density Runs linked to this Production Batch."))
 
-		previous_state = frappe.db.get_value(self.doctype, self.name, "workflow_state")
-		if previous_state == self.workflow_state:
-			return
+	def on_submit(self):
+		"""Stock posts only on formal Submit — never on Draft save or workflow status change."""
+		self.create_manufacture_cost_entry()
 
-		# Scrap by-product + chemical consumption + FG are booked together on Completed
-		# so cost apportionment balances in a single Stock Entry.
-		if self.workflow_state == "Completed":
-			self.create_manufacture_cost_entry()
+	def on_cancel(self):
+		"""Reverse linked manufacture Stock Entry ledger impact."""
+		for se_name in self._linked_stock_entry_names():
+			if not frappe.db.exists("Stock Entry", se_name):
+				continue
+			se = frappe.get_doc("Stock Entry", se_name)
+			if se.docstatus == 1:
+				se.cancel()
+
+	def _linked_stock_entry_names(self):
+		"""Unique Stock Entry names stored on this batch (scrap/chem/FG may share one SE)."""
+		names = []
+		for fieldname in (
+			"chemical_consumption_entry",
+			"fg_receipt_entry",
+			"scrap_stock_entry",
+		):
+			value = self.get(fieldname)
+			if value and value not in names:
+				names.append(value)
+		return names
 
 	def _ensure_company(self):
 		if not self.company:
@@ -55,7 +78,7 @@ class PufmProductionBatch(Document):
 			frappe.throw(_("Company is required."))
 
 	def _enforce_workflow_transition_security(self):
-		"""Block unauthorized workflow_state transitions (Python state machine)."""
+		"""Block unauthorized workflow_state transitions (status machine only; not stock)."""
 		before = self.get_doc_before_save()
 		old_state = before.workflow_state if before else None
 		new_state = self.workflow_state
@@ -183,7 +206,14 @@ class PufmProductionBatch(Document):
 		"""
 		Single Repack Stock Entry with by-product cost apportionment:
 		  Sum(Source RM) + Sum(Additional Op Costs) = Sum(Scrap) + Sum(Block FG)
+
+		Must only run when the Production Batch is submitted (docstatus == 1).
 		"""
+		if cint(self.docstatus) != 1:
+			frappe.throw(
+				_("Stock Entry can only be created when the Production Batch is submitted.")
+			)
+
 		if self.chemical_consumption_entry or self.fg_receipt_entry:
 			return
 
@@ -374,13 +404,18 @@ class PufmProductionBatch(Document):
 		entry.insert(ignore_permissions=True)
 		entry.submit()
 
-		self.chemical_consumption_entry = entry.name
-		self.fg_receipt_entry = entry.name
-		if scrap_item and any(
-			flt(r.scrap_weight_kg) > 0 for r in runs
-		):
-			self.scrap_stock_entry = entry.name
-
+		self.db_set(
+			{
+				"chemical_consumption_entry": entry.name,
+				"fg_receipt_entry": entry.name,
+				"scrap_stock_entry": (
+					entry.name
+					if scrap_item and any(flt(r.scrap_weight_kg) > 0 for r in runs)
+					else self.scrap_stock_entry
+				),
+			},
+			update_modified=False,
+		)
 	def _ensure_block_item_traceability(self, item_code, default_brand=None):
 		"""Ensure FG block Item accepts batch + serial (and optional brand)."""
 		if not item_code or not frappe.db.exists("Item", item_code):
@@ -481,7 +516,7 @@ class PufmProductionBatch(Document):
 				frappe.throw(
 					_(
 						"Valuation Rate missing for {0} in warehouse {1}. "
-						"Inject WIP stock before completing the batch."
+						"Inject WIP stock before submitting the batch."
 					).format(bom_item.item_code, wip_warehouse)
 				)
 			uom = (
