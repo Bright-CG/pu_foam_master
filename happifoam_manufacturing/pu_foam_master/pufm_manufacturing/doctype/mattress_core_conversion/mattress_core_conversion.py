@@ -4,7 +4,7 @@ from frappe.model.naming import make_autoname
 from frappe.utils import cint, flt
 
 
-class FoamBlockConversion(Document):
+class MattressCoreConversion(Document):
 	def autoname(self):
 		self.name = make_autoname(self.naming_series or "CONV-.YYYY.-.MM.-.#####")
 
@@ -18,6 +18,7 @@ class FoamBlockConversion(Document):
 	def on_submit(self):
 		self._create_repack_stock_entry()
 		self._sync_job_order_on_submit()
+		self._sync_job_order_operator(self.processed_by)
 
 	def on_cancel(self):
 		if self.stock_entry and frappe.db.exists("Stock Entry", self.stock_entry):
@@ -25,6 +26,14 @@ class FoamBlockConversion(Document):
 			if se.docstatus == 1:
 				se.cancel()
 		self._sync_job_order_on_cancel()
+		self._sync_job_order_operator(None)
+
+	def _sync_job_order_operator(self, user):
+		if not self.job_order:
+			return
+		if not frappe.db.exists("Pufm Job Order", self.job_order):
+			return
+		frappe.db.set_value("Pufm Job Order", self.job_order, "sliced_by", user)
 
 	def _sync_job_order_on_submit(self):
 		if not self.job_order:
@@ -38,8 +47,7 @@ class FoamBlockConversion(Document):
 
 		if order_type == "Mattress":
 			sync_job_order_status(self.job_order, "Pending Assembly")
-		elif order_type == "Sheetings":
-			sync_job_order_status(self.job_order, "Completed")
+		# Sheetings Job Orders complete via Pufm Sheeting Conversion (no stock SE).
 
 	def _sync_job_order_on_cancel(self):
 		if not self.job_order:
@@ -330,7 +338,7 @@ class FoamBlockConversion(Document):
 			new_batch = frappe.new_doc("Batch")
 			new_batch.batch_id = batch_id
 			new_batch.item = item_code
-			new_batch.reference_doctype = "Foam Block Conversion"
+			new_batch.reference_doctype = "Mattress Core Conversion"
 			new_batch.reference_name = self.name
 			new_batch.insert(ignore_permissions=True)
 		return batch_id

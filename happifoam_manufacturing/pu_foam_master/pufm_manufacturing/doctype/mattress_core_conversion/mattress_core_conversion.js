@@ -1,4 +1,4 @@
-frappe.ui.form.on("Foam Block Conversion", {
+frappe.ui.form.on("Mattress Core Conversion", {
 	setup(frm) {
 		frm.set_query("source_warehouse", "inputs", () => {
 			return {

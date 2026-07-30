@@ -51,7 +51,7 @@ class PufmJobOrder(Document):
 
 @frappe.whitelist()
 def get_job_order_instructions_html(job_order):
-	"""Return HTML traveler table for factory tools (Conversion / Mattress)."""
+	"""Return HTML traveler table for factory tools (Mattress Core Conversion / Mattress)."""
 	if not job_order:
 		return "<p class='text-muted'>No Job Order selected.</p>"
 

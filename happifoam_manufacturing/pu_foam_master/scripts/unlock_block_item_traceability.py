@@ -29,7 +29,7 @@ from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
 SE_PARENT_LINKS = (
 	("Mattress Production Entry", "stock_entry"),
 	("Quilting Record", "stock_entry"),
-	("Foam Block Conversion", "stock_entry"),
+	("Mattress Core Conversion", "stock_entry"),
 	("Rebound Production Entry", "stock_entry"),
 	("Pufm Production Batch", "chemical_consumption_entry"),
 	("Pufm Production Batch", "fg_receipt_entry"),
@@ -61,7 +61,7 @@ def unlock_block_items():
 	stock_entries = _find_submitted_stock_entries(related_items)
 
 	for name in conversions:
-		se = frappe.db.get_value("Foam Block Conversion", name, "stock_entry")
+		se = frappe.db.get_value("Mattress Core Conversion", name, "stock_entry")
 		if se and frappe.db.get_value("Stock Entry", se, "docstatus") == 1 and se not in stock_entries:
 			stock_entries.append(se)
 
@@ -240,7 +240,7 @@ def _find_parents_for_stock_entries(stock_entries):
 
 
 def _find_submitted_conversions(item_codes):
-	if not item_codes or not frappe.db.exists("DocType", "Foam Block Conversion"):
+	if not item_codes or not frappe.db.exists("DocType", "Mattress Core Conversion"):
 		return []
 	names = set()
 	for child in ("Block Conversion Input", "Block Conversion Output"):
@@ -251,7 +251,7 @@ def _find_submitted_conversions(item_codes):
 			SELECT DISTINCT parent
 			FROM `tab{child}`
 			WHERE item_code IN %(items)s
-				AND parenttype = 'Foam Block Conversion'
+				AND parenttype = 'Mattress Core Conversion'
 			""",
 			{"items": tuple(item_codes)},
 		)
@@ -261,7 +261,7 @@ def _find_submitted_conversions(item_codes):
 	return [
 		n
 		for n in names
-		if frappe.db.get_value("Foam Block Conversion", n, "docstatus") == 1
+		if frappe.db.get_value("Mattress Core Conversion", n, "docstatus") == 1
 	]
 
 
@@ -270,7 +270,7 @@ def _conversion_output_items(conversion_names):
 	for name in conversion_names or []:
 		rows = frappe.get_all(
 			"Block Conversion Output",
-			filters={"parent": name, "parenttype": "Foam Block Conversion"},
+			filters={"parent": name, "parenttype": "Mattress Core Conversion"},
 			pluck="item_code",
 		)
 		items.update([r for r in rows if r])

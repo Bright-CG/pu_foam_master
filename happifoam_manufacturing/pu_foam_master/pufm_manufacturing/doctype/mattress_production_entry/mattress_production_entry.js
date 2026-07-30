@@ -47,6 +47,9 @@ frappe.ui.form.on("Mattress Production Entry", {
 				frm.set_value("company", user_company);
 			}
 		}
+		if (frm.is_new() && !frm.doc.processed_by) {
+			frm.set_value("processed_by", frappe.session.user);
+		}
 		if (frm.doc.job_order) {
 			pufm_fetch_job_instructions(frm);
 		}

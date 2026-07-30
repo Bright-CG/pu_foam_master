@@ -1,0 +1,179 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-07-30 20:40:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "posting_date",
+  "company",
+  "job_order",
+  "processed_by",
+  "column_break_meta",
+  "scrap_weight_kg",
+  "scrap_stock_entry",
+  "instructions_sb",
+  "conversion_instructions_html",
+  "outputs_sb",
+  "sheeting_outputs",
+  "remarks_sb",
+  "remarks",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "SH-CONV-.YYYY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "SH-CONV-.YYYY.-.####",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "job_order",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Job Order",
+   "options": "Pufm Job Order"
+  },
+  {
+   "fieldname": "processed_by",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Processed By",
+   "options": "User"
+  },
+  {
+   "fieldname": "column_break_meta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scrap_weight_kg",
+   "fieldtype": "Float",
+   "label": "Scrap Weight (kg)"
+  },
+  {
+   "fieldname": "scrap_stock_entry",
+   "fieldtype": "Link",
+   "label": "Scrap Stock Entry",
+   "no_copy": 1,
+   "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "instructions_sb",
+   "fieldtype": "Section Break",
+   "label": "Job Order Traveler"
+  },
+  {
+   "fieldname": "conversion_instructions_html",
+   "fieldtype": "HTML",
+   "label": "Conversion Instructions"
+  },
+  {
+   "fieldname": "outputs_sb",
+   "fieldtype": "Section Break",
+   "label": "Sheeting Outputs (Actual Cuts)"
+  },
+  {
+   "fieldname": "sheeting_outputs",
+   "fieldtype": "Table",
+   "label": "Sheeting Outputs",
+   "options": "Pufm Sheeting Output",
+   "reqd": 1
+  },
+  {
+   "fieldname": "remarks_sb",
+   "fieldtype": "Section Break",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Pufm Sheeting Conversion",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-07-30 20:40:00.000000",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "Pufm Sheeting Conversion",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "cancel": 1,
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Conversion",
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

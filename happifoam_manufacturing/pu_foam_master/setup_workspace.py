@@ -42,10 +42,16 @@ def create_workspace():
 			"icon": "list",
 		},
 		{
-			"label": "Foam Block Conversion",
-			"link_to": "Foam Block Conversion",
+			"label": "Mattress Core Conversion",
+			"link_to": "Mattress Core Conversion",
 			"type": "DocType",
 			"icon": "shuffle",
+		},
+		{
+			"label": "Pufm Sheeting Conversion",
+			"link_to": "Pufm Sheeting Conversion",
+			"type": "DocType",
+			"icon": "file",
 		},
 		{
 			"label": "Pufm Job Order",
@@ -116,8 +122,6 @@ def create_workspace():
 		{"label": "Virgin PU Production", "is_header": 1},
 		{"label": "Pufm Production Batch", "link_to": "Pufm Production Batch", "link_type": "DocType", "type": "Link"},
 		{"label": "Pufm Density Run", "link_to": "Pufm Density Run", "link_type": "DocType", "type": "Link"},
-		{"label": "Foam Block Conversion", "link_to": "Foam Block Conversion", "link_type": "DocType", "type": "Link"},
-		{"label": "Pufm Job Order", "link_to": "Pufm Job Order", "link_type": "DocType", "type": "Link"},
 		{"label": "Production Variance Report", "link_to": "Production Variance Report", "link_type": "Report", "is_query_report": 1, "type": "Link"},
 		{"label": "Rebound Production", "is_header": 1},
 		{"label": "Rebound Production Entry", "link_to": "Rebound Production Entry", "link_type": "DocType", "type": "Link"},
@@ -127,6 +131,9 @@ def create_workspace():
 		{"label": "Mattress Item Generator", "link_to": "Mattress Item Generator", "link_type": "DocType", "type": "Link"},
 		{"label": "Mattress Brand Policy", "link_to": "Mattress Brand Policy", "link_type": "DocType", "type": "Link"},
 		{"label": "Mattress Production Operations", "is_header": 1},
+		{"label": "Pufm Job Order", "link_to": "Pufm Job Order", "link_type": "DocType", "type": "Link"},
+		{"label": "Mattress Core Conversion", "link_to": "Mattress Core Conversion", "link_type": "DocType", "type": "Link"},
+		{"label": "Pufm Sheeting Conversion", "link_to": "Pufm Sheeting Conversion", "link_type": "DocType", "type": "Link"},
 		{"label": "Quilting Record", "link_to": "Quilting Record", "link_type": "DocType", "type": "Link"},
 		{"label": "Mattress Production Entry", "link_to": "Mattress Production Entry", "link_type": "DocType", "type": "Link"},
 		{"label": "Financials & Rebates", "is_header": 1},
@@ -144,8 +151,6 @@ def create_workspace():
 		'{"id":"h0","type":"header","data":{"text":"Virgin PU Production","col":12}},'
 		'{"id":"s0b","type":"shortcut","data":{"shortcut_name":"Pufm Production Batch","col":3}},'
 		'{"id":"s0c","type":"shortcut","data":{"shortcut_name":"Pufm Density Run","col":3}},'
-		'{"id":"s0d","type":"shortcut","data":{"shortcut_name":"Foam Block Conversion","col":3}},'
-		'{"id":"s0j","type":"shortcut","data":{"shortcut_name":"Pufm Job Order","col":3}},'
 		'{"id":"s0e","type":"shortcut","data":{"shortcut_name":"Production Variance Report","col":3}},'
 		'{"id":"h1","type":"header","data":{"text":"Rebound Production","col":12}},'
 		'{"id":"s3","type":"shortcut","data":{"shortcut_name":"Rebound Production Entry","col":3}},'
@@ -157,6 +162,9 @@ def create_workspace():
 		'{"id":"s7a","type":"shortcut","data":{"shortcut_name":"Standard Mattress Size","col":3}},'
 		'{"id":"s7b","type":"shortcut","data":{"shortcut_name":"Mattress Item Generator","col":3}},'
 		'{"id":"s7c","type":"shortcut","data":{"shortcut_name":"Mattress Brand Policy","col":3}},'
+		'{"id":"s0j","type":"shortcut","data":{"shortcut_name":"Pufm Job Order","col":3}},'
+		'{"id":"s0d","type":"shortcut","data":{"shortcut_name":"Mattress Core Conversion","col":3}},'
+		'{"id":"s0sh","type":"shortcut","data":{"shortcut_name":"Pufm Sheeting Conversion","col":3}},'
 		'{"id":"s7","type":"shortcut","data":{"shortcut_name":"Quilting Record","col":3}},'
 		'{"id":"s8","type":"shortcut","data":{"shortcut_name":"Mattress Production Entry","col":3}}'
 		']'

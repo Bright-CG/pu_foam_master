@@ -25,22 +25,37 @@ frappe.ui.form.on("Pufm Job Order", {
 	},
 	refresh(frm) {
 		frm.clear_custom_buttons();
-		if (frm.is_new() || frm.doc.docstatus === 2) {
+		// Only route from submitted Job Orders — prevents draft-stage duplicate starts
+		if (frm.is_new() || frm.doc.docstatus !== 1) {
 			return;
 		}
 
 		if (frm.doc.workflow_status === "Pending Slicing") {
-			frm.add_custom_button(__("Start Slicing"), () => {
-				frappe.new_doc("Foam Block Conversion", {
-					job_order: frm.doc.name,
-				});
-			}).addClass("btn-primary");
+			if (frm.doc.order_type === "Sheetings") {
+				frm.add_custom_button(__("Start Sheeting Conversion"), () => {
+					frappe.new_doc("Pufm Sheeting Conversion", {
+						job_order: frm.doc.name,
+						company: frm.doc.company || undefined,
+					});
+				}).addClass("btn-primary");
+			} else if (frm.doc.order_type === "Mattress") {
+				frm.add_custom_button(__("Start Core Slicing"), () => {
+					frappe.new_doc("Mattress Core Conversion", {
+						job_order: frm.doc.name,
+						company: frm.doc.company || undefined,
+					});
+				}).addClass("btn-primary");
+			}
 		}
 
-		if (frm.doc.workflow_status === "Pending Assembly") {
+		if (
+			frm.doc.workflow_status === "Pending Assembly" &&
+			frm.doc.order_type === "Mattress"
+		) {
 			frm.add_custom_button(__("Start Assembly"), () => {
 				frappe.new_doc("Mattress Production Entry", {
 					job_order: frm.doc.name,
+					company: frm.doc.company || undefined,
 				});
 			}).addClass("btn-primary");
 		}

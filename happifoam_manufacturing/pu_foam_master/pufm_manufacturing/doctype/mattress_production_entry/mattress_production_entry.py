@@ -19,6 +19,8 @@ class MattressProductionEntry(Document):
 	def validate(self):
 		if not self.company:
 			frappe.throw("Company is required.")
+		if not self.processed_by:
+			self.processed_by = frappe.session.user
 		if not self.source_warehouse:
 			frappe.throw("Source/WIP Warehouse is required.")
 		if not self.target_warehouse:
@@ -33,6 +35,7 @@ class MattressProductionEntry(Document):
 		entry = self._create_manufacture_stock_entry()
 		self.db_set("stock_entry", entry.name, update_modified=False)
 		self._sync_job_order_on_submit()
+		self._sync_job_order_operator(self.processed_by)
 
 	def on_cancel(self):
 		if self.stock_entry and frappe.db.exists("Stock Entry", self.stock_entry):
@@ -40,6 +43,14 @@ class MattressProductionEntry(Document):
 			if se.docstatus == 1:
 				se.cancel()
 		self._sync_job_order_on_cancel()
+		self._sync_job_order_operator(None)
+
+	def _sync_job_order_operator(self, user):
+		if not self.job_order:
+			return
+		if not frappe.db.exists("Pufm Job Order", self.job_order):
+			return
+		frappe.db.set_value("Pufm Job Order", self.job_order, "assembled_by", user)
 
 	def _sync_job_order_on_submit(self):
 		if not self.job_order:

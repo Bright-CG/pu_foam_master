@@ -168,7 +168,7 @@ def _get_block_conversion_rows(filters):
 		values["to_date"] = filters.to_date
 
 	where_sql = " AND ".join(conditions)
-	has_variance_col = frappe.db.has_column("Foam Block Conversion", "variance_percentage")
+	has_variance_col = frappe.db.has_column("Mattress Core Conversion", "variance_percentage")
 	variance_select = (
 		"COALESCE(variance_percentage, 0) AS variance_percentage"
 		if has_variance_col
@@ -183,7 +183,7 @@ def _get_block_conversion_rows(filters):
 			total_input_cbm,
 			total_output_cbm,
 			{variance_select}
-		FROM `tabFoam Block Conversion`
+		FROM `tabMattress Core Conversion`
 		WHERE {where_sql}
 		""",
 		values,
@@ -194,13 +194,13 @@ def _get_block_conversion_rows(filters):
 	for row in rows:
 		first_input = frappe.db.get_value(
 			"Block Conversion Input",
-			{"parent": row.name, "parenttype": "Foam Block Conversion", "idx": 1},
+			{"parent": row.name, "parenttype": "Mattress Core Conversion", "idx": 1},
 			"item_code",
 		)
 		if not first_input:
 			first_input = frappe.db.get_value(
 				"Block Conversion Input",
-				{"parent": row.name, "parenttype": "Foam Block Conversion"},
+				{"parent": row.name, "parenttype": "Mattress Core Conversion"},
 				"item_code",
 				order_by="idx asc",
 			)
@@ -218,8 +218,8 @@ def _get_block_conversion_rows(filters):
 		out.append(
 			{
 				"posting_date": row.posting_date,
-				"process_type": "Block Conversion (Slicing)",
-				"reference_doctype": "Foam Block Conversion",
+				"process_type": "Mattress Core Conversion (Slicing)",
+				"reference_doctype": "Mattress Core Conversion",
 				"reference_doc": row.name,
 				"density_config": first_input,
 				"expected_cbm": flt(expected, 5),

@@ -16,6 +16,7 @@
   "target_warehouse",
   "shift",
   "supervisor",
+  "processed_by",
   "stock_entry",
   "amended_from",
   "job_instructions_sb",
@@ -95,6 +96,12 @@
    "fieldname": "supervisor",
    "fieldtype": "Link",
    "label": "Supervisor",
+   "options": "User"
+  },
+  {
+   "fieldname": "processed_by",
+   "fieldtype": "Link",
+   "label": "Processed By",
    "options": "User"
   },
   {

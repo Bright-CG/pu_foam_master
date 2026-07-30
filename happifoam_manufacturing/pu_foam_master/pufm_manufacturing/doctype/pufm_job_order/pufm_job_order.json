@@ -14,6 +14,8 @@
   "source_document",
   "assigned_to",
   "workflow_status",
+  "sliced_by",
+  "assembled_by",
   "section_mattress",
   "mattress_instructions",
   "section_sheeting",
@@ -80,6 +82,20 @@
    "in_standard_filter": 1,
    "label": "Workflow Status",
    "options": "Pending Slicing\nPending Assembly\nCompleted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sliced_by",
+   "fieldtype": "Link",
+   "label": "Sliced By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "assembled_by",
+   "fieldtype": "Link",
+   "label": "Assembled By",
+   "options": "User",
    "read_only": 1
   },
   {

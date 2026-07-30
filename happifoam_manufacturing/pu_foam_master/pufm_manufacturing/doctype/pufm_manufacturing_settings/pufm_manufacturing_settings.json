@@ -198,7 +198,7 @@
         },
         {
             "default": "0",
-            "description": "Auto-sum of glue + power + labor. Used by Foam Block Conversion.",
+            "description": "Auto-sum of glue + power + labor. Used by Mattress Core Conversion.",
             "fieldname": "conversion_rate_per_cbm",
             "fieldtype": "Currency",
             "label": "Total Conversion Rate per CBM",
