@@ -47,11 +47,23 @@ frappe.ui.form.on("Mattress Production Entry", {
 				frm.set_value("company", user_company);
 			}
 		}
+		if (frm.doc.job_order) {
+			pufm_fetch_job_instructions(frm);
+		}
 	},
 	refresh(frm) {
 		frm.set_query("mattress_item", "production_items", () => ({
 			filters: { item_group: "Finished Mattresses" },
 		}));
+		if (frm.doc.job_order) {
+			pufm_fetch_job_instructions(frm);
+		}
+	},
+	job_order(frm) {
+		pufm_fetch_job_instructions(frm);
+	},
+	fetch_job_instructions(frm) {
+		pufm_fetch_job_instructions(frm);
 	},
 	company(frm) {
 		clear_warehouse_if_wrong_company(frm, "source_warehouse");
@@ -95,12 +107,19 @@ function clear_warehouse_if_wrong_company(frm, fieldname) {
 }
 
 function guess_core_item(mattress_item) {
-	// MAT-{BRAND}-{size} -> CORE-{BRAND}-{size}
+	// New: 75x42x8-PLAIN / -SQ / -FQ -> 75x42x8-CORE
+	// Legacy: MAT-{BRAND}-{size} -> CORE-{BRAND}-{size}
 	if (!mattress_item) {
 		return null;
 	}
 	const code = String(mattress_item);
-	if (code.toUpperCase().startsWith("MAT-")) {
+	const upper = code.toUpperCase();
+	for (const suffix of ["-PLAIN", "-SQ", "-FQ"]) {
+		if (upper.endsWith(suffix)) {
+			return code.slice(0, code.length - suffix.length) + "-CORE";
+		}
+	}
+	if (upper.startsWith("MAT-")) {
 		return "CORE-" + code.slice(4);
 	}
 	return null;
@@ -118,6 +137,27 @@ function set_fabric_filter(frm, mattressItem) {
 					name: ["in", allowedItems.length ? allowedItems : [""]],
 				},
 			}));
+		},
+	});
+}
+
+function pufm_fetch_job_instructions(frm) {
+	if (!frm.doc.job_order) {
+		if (frm.fields_dict.job_instructions_html) {
+			frm.fields_dict.job_instructions_html.$wrapper.html(
+				"<p class='text-muted'>Select a Job Order to load traveler instructions.</p>"
+			);
+		}
+		return;
+	}
+	frappe.call({
+		method:
+			"pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.get_job_order_instructions_html",
+		args: { job_order: frm.doc.job_order },
+		callback(r) {
+			if (frm.fields_dict.job_instructions_html) {
+				frm.fields_dict.job_instructions_html.$wrapper.html(r.message || "");
+			}
 		},
 	});
 }

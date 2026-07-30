@@ -32,12 +32,36 @@ class MattressProductionEntry(Document):
 	def on_submit(self):
 		entry = self._create_manufacture_stock_entry()
 		self.db_set("stock_entry", entry.name, update_modified=False)
+		self._sync_job_order_on_submit()
 
 	def on_cancel(self):
 		if self.stock_entry and frappe.db.exists("Stock Entry", self.stock_entry):
 			se = frappe.get_doc("Stock Entry", self.stock_entry)
 			if se.docstatus == 1:
 				se.cancel()
+		self._sync_job_order_on_cancel()
+
+	def _sync_job_order_on_submit(self):
+		if not self.job_order:
+			return
+		if not frappe.db.exists("Pufm Job Order", self.job_order):
+			return
+		from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (
+			sync_job_order_status,
+		)
+
+		sync_job_order_status(self.job_order, "Completed")
+
+	def _sync_job_order_on_cancel(self):
+		if not self.job_order:
+			return
+		if not frappe.db.exists("Pufm Job Order", self.job_order):
+			return
+		from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (
+			sync_job_order_status,
+		)
+
+		sync_job_order_status(self.job_order, "Pending Assembly")
 
 	def _calculate_rows(self):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
@@ -256,16 +280,23 @@ def _row_cost_breakdown(row, settings):
 	rm_wh = getattr(settings, "default_raw_material_warehouse", None)
 	consumables = []
 	consumable_specs = (
-		(settings.default_tape_edge_item, tape_meters, settings.tape_rate_per_yard),
-		(settings.default_pvc_nylon_item, pvc_sqm, settings.pvc_rate_per_sqm),
-		(settings.default_thread_item, thread_qty, settings.thread_rate_per_mat),
-		(settings.default_label_item, label_qty, settings.label_rate_per_pc),
+		(settings.default_tape_edge_item, tape_meters),
+		(settings.default_pvc_nylon_item, pvc_sqm),
+		(settings.default_thread_item, thread_qty),
+		(settings.default_label_item, label_qty),
 	)
 	consumable_cost = 0.0
-	for item_code, qty, fallback_rate in consumable_specs:
+	for item_code, qty in consumable_specs:
 		if not item_code or flt(qty) <= 0:
 			continue
-		rate = _get_item_valuation_rate(item_code, rm_wh, fallback_rate)
+		rate = _get_item_valuation_rate(item_code, rm_wh)
+		if rate <= 0:
+			frappe.throw(
+				"Valuation rate missing for mattress consumable {0} in warehouse {1}. "
+				"Receive stock (or set Item valuation rate) before submitting.".format(
+					item_code, rm_wh or "(no Raw Material Warehouse)"
+				)
+			)
 		consumables.append({"item_code": item_code, "qty": flt(qty), "rate": rate})
 		consumable_cost += flt(qty) * rate
 
@@ -302,8 +333,8 @@ def _tape_edge_meters(length_inches, width_inches, qty, settings=None):
 	return meters * (1 + (waste_pct / 100.0))
 
 
-def _get_item_valuation_rate(item_code, warehouse=None, fallback_rate=0):
-	"""Prefer Bin rate at RM warehouse, then Item valuation_rate, then Settings rate."""
+def _get_item_valuation_rate(item_code, warehouse=None):
+	"""Prefer Bin rate at RM warehouse, then Item valuation_rate."""
 	if item_code and warehouse:
 		rate = flt(
 			frappe.db.get_value(
@@ -320,7 +351,7 @@ def _get_item_valuation_rate(item_code, warehouse=None, fallback_rate=0):
 		if rate > 0:
 			return rate
 
-	return flt(fallback_rate)
+	return 0.0
 
 
 def _resolve_fabric_width(item_code, settings=None):

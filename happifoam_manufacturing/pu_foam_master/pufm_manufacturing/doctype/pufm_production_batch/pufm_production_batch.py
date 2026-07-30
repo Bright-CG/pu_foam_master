@@ -417,26 +417,14 @@ class PufmProductionBatch(Document):
 			update_modified=False,
 		)
 	def _ensure_block_item_traceability(self, item_code, default_brand=None):
-		"""Ensure FG block Item accepts batch + serial (and optional brand)."""
-		if not item_code or not frappe.db.exists("Item", item_code):
-			frappe.throw(_("Block Item {0} does not exist.").format(item_code))
+		"""Require Batch + Serial on FG block Items before pouring posts stock."""
+		from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
+			ensure_item_finished_good_traceability,
+		)
 
-		item = frappe.get_doc("Item", item_code)
-		changed = False
-		for fieldname, value in (
-			("has_batch_no", 1),
-			("create_new_batch", 1),
-			("has_serial_no", 1),
-			("serial_no_series", ""),
-		):
-			if item.get(fieldname) != value:
-				item.set(fieldname, value)
-				changed = True
-		if default_brand and item.brand != default_brand:
-			item.brand = default_brand
-			changed = True
-		if changed:
-			item.save(ignore_permissions=True)
+		ensure_item_finished_good_traceability(
+			item_code, brand=default_brand, throw_if_locked=True
+		)
 
 	def _ensure_block_batch(self, item_code):
 		"""

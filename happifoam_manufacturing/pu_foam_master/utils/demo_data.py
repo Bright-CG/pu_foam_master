@@ -169,7 +169,10 @@ def seed_e2e_test_stock():
 		settings.default_company = company
 
 	rm_wh = settings.default_raw_material_warehouse or _resolve_warehouse(
-		company, ("Stores", "Raw Material", "Work In Progress")
+		company, ("Stores", "Raw Material")
+	)
+	wip_wh = settings.default_wip_warehouse or _resolve_warehouse(
+		company, ("Goods In Transit", "Work In Progress", "WIP")
 	)
 	scrap_wh = settings.default_scrap_warehouse or _resolve_warehouse(
 		company, ("Scrap", "Stores")
@@ -179,6 +182,11 @@ def seed_e2e_test_stock():
 			"Could not resolve Raw Material Warehouse. Set Default Raw Material Warehouse "
 			"in Pufm Manufacturing Settings."
 		)
+	if not wip_wh:
+		frappe.throw(
+			"Could not resolve WIP warehouse. Set Default WIP Warehouse "
+			"in Pufm Manufacturing Settings (typically Goods In Transit)."
+		)
 	if not scrap_wh:
 		frappe.throw(
 			"Could not resolve Scrap Warehouse. Set Default Scrap Warehouse "
@@ -186,6 +194,7 @@ def seed_e2e_test_stock():
 		)
 
 	settings.default_raw_material_warehouse = rm_wh
+	settings.default_wip_warehouse = wip_wh
 	settings.default_scrap_warehouse = scrap_wh
 
 	_ensure_uom("Kg")
@@ -215,20 +224,36 @@ def seed_e2e_test_stock():
 		(s["resolved_code"] for s in chemicals if s["item_code"] == "MDI-BINDER"),
 		settings.mdi_item,
 	)
+	settings.flags.ignore_validate = True
 	settings.save(ignore_permissions=True)
 
-	# Chemicals + mattress consumables → Raw Material Warehouse
-	rm_rows = []
-	for spec in chemicals + consumables:
-		rm_rows.append(
-			{
-				"item_code": spec["resolved_code"],
-				"qty": spec["qty"],
-				"uom": spec["uom"],
-				"rate": spec["rate"],
-			}
-		)
-	rm_se = _submit_material_receipt(company, rm_wh, rm_rows, remarks="E2E chemicals + consumables")
+	# Pouring chemicals → WIP / Goods In Transit (Production Batch source warehouse)
+	chem_rows = [
+		{
+			"item_code": spec["resolved_code"],
+			"qty": spec["qty"],
+			"uom": spec["uom"],
+			"rate": spec["rate"],
+		}
+		for spec in chemicals
+	]
+	chem_se = _submit_material_receipt(
+		company, wip_wh, chem_rows, remarks="E2E pouring chemicals into WIP"
+	)
+
+	# Mattress consumables → Raw Material Warehouse (Mattress Production backflush)
+	rm_rows = [
+		{
+			"item_code": spec["resolved_code"],
+			"qty": spec["qty"],
+			"uom": spec["uom"],
+			"rate": spec["rate"],
+		}
+		for spec in consumables
+	]
+	rm_se = _submit_material_receipt(
+		company, rm_wh, rm_rows, remarks="E2E mattress consumables"
+	)
 
 	# Scrap → Scrap Warehouse
 	scrap_se = _submit_material_receipt(
@@ -248,9 +273,11 @@ def seed_e2e_test_stock():
 	frappe.db.commit()
 	result = {
 		"company": company,
+		"wip_warehouse": wip_wh,
 		"raw_material_warehouse": rm_wh,
 		"scrap_warehouse": scrap_wh,
-		"chemicals_consumables_stock_entry": rm_se.name,
+		"chemicals_stock_entry": chem_se.name,
+		"consumables_stock_entry": rm_se.name,
 		"scrap_stock_entry": scrap_se.name,
 		"injected": {
 			**{s["resolved_code"]: s["qty"] for s in chemicals + consumables},

@@ -218,6 +218,7 @@
    "fieldname": "stock_entry",
    "fieldtype": "Link",
    "label": "Stock Entry",
+   "no_copy": 1,
    "options": "Stock Entry",
    "read_only": 1
   },

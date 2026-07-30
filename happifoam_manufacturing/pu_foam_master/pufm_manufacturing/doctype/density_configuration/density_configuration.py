@@ -12,6 +12,10 @@ from pu_foam_master.pufm_manufacturing.utils.density_bom import (
 	sync_bom_for_density_config,
 	sync_related_block_items,
 )
+from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
+	apply_finished_good_traceability,
+	finished_good_traceability_defaults,
+)
 from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor, get_formula_factor
 
 
@@ -149,7 +153,7 @@ def generate_block_items(docname, lengths_string=None):
 			item.custom_width = width
 			item.custom_height = height
 			item.custom_cbm_value = volume_cbm
-			_apply_block_item_traceability(item, default_brand)
+			apply_finished_good_traceability(item, brand=default_brand)
 			item.save(ignore_permissions=True)
 			updated.append(item_code)
 			continue
@@ -163,18 +167,13 @@ def generate_block_items(docname, lengths_string=None):
 				"stock_uom": "Nos",
 				"is_stock_item": 1,
 				"include_item_in_manufacturing": 1,
-				"has_batch_no": 1,
-				"create_new_batch": 1,
-				"has_serial_no": 1,
-				"serial_no_series": "",
 				"custom_length": length,
 				"custom_width": width,
 				"custom_height": height,
 				"custom_cbm_value": volume_cbm,
+				**finished_good_traceability_defaults(brand=default_brand),
 			}
 		)
-		if default_brand:
-			item.brand = default_brand
 		item.insert(ignore_permissions=True)
 		created.append(item_code)
 
@@ -198,16 +197,6 @@ def generate_block_items(docname, lengths_string=None):
 		"updated": updated,
 		"invalid": invalid,
 	}
-
-
-def _apply_block_item_traceability(item, default_brand=None):
-	"""Enable batch + serial tracking (and optional brand) on foam block Items."""
-	item.has_batch_no = 1
-	item.create_new_batch = 1
-	item.has_serial_no = 1
-	item.serial_no_series = ""
-	if default_brand:
-		item.brand = default_brand
 
 
 def _sync_block_item_brands(doc):

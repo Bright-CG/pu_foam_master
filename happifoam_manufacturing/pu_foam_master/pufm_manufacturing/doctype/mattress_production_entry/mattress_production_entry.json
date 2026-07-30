@@ -9,6 +9,7 @@
   "naming_series",
   "company",
   "posting_date",
+  "job_order",
   "sales_order",
   "material_request",
   "source_warehouse",
@@ -17,6 +18,9 @@
   "supervisor",
   "stock_entry",
   "amended_from",
+  "job_instructions_sb",
+  "fetch_job_instructions",
+  "job_instructions_html",
   "production_items"
  ],
  "fields": [
@@ -44,6 +48,13 @@
    "in_list_view": 1,
    "label": "Posting Date",
    "reqd": 1
+  },
+  {
+   "fieldname": "job_order",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Job Order",
+   "options": "Pufm Job Order"
   },
   {
    "fieldname": "sales_order",
@@ -90,6 +101,7 @@
    "fieldname": "stock_entry",
    "fieldtype": "Link",
    "label": "Stock Entry",
+   "no_copy": 1,
    "options": "Stock Entry",
    "read_only": 1
   },
@@ -100,6 +112,23 @@
    "no_copy": 1,
    "options": "Mattress Production Entry",
    "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "job_instructions_sb",
+   "fieldtype": "Section Break",
+   "label": "Job Order Traveler"
+  },
+  {
+   "fieldname": "fetch_job_instructions",
+   "fieldtype": "Button",
+   "label": "Fetch Instructions"
+  },
+  {
+   "fieldname": "job_instructions_html",
+   "fieldtype": "HTML",
+   "label": "Job Instructions",
    "read_only": 1
   },
   {

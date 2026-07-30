@@ -17,12 +17,40 @@ class FoamBlockConversion(Document):
 
 	def on_submit(self):
 		self._create_repack_stock_entry()
+		self._sync_job_order_on_submit()
 
 	def on_cancel(self):
 		if self.stock_entry and frappe.db.exists("Stock Entry", self.stock_entry):
 			se = frappe.get_doc("Stock Entry", self.stock_entry)
 			if se.docstatus == 1:
 				se.cancel()
+		self._sync_job_order_on_cancel()
+
+	def _sync_job_order_on_submit(self):
+		if not self.job_order:
+			return
+		if not frappe.db.exists("Pufm Job Order", self.job_order):
+			return
+		order_type = frappe.db.get_value("Pufm Job Order", self.job_order, "order_type")
+		from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (
+			sync_job_order_status,
+		)
+
+		if order_type == "Mattress":
+			sync_job_order_status(self.job_order, "Pending Assembly")
+		elif order_type == "Sheetings":
+			sync_job_order_status(self.job_order, "Completed")
+
+	def _sync_job_order_on_cancel(self):
+		if not self.job_order:
+			return
+		if not frappe.db.exists("Pufm Job Order", self.job_order):
+			return
+		from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (
+			sync_job_order_status,
+		)
+
+		sync_job_order_status(self.job_order, "Pending Slicing")
 
 	def _set_conversion_rate(self):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
@@ -62,6 +90,24 @@ class FoamBlockConversion(Document):
 				frappe.throw(f"Item Code is required in input row {row.idx}.")
 			if flt(row.qty) <= 0:
 				frappe.throw(f"Qty must be greater than zero in input row {row.idx}.")
+
+			has_batch = cint(frappe.db.get_value("Item", row.item_code, "has_batch_no"))
+			has_serial = cint(frappe.db.get_value("Item", row.item_code, "has_serial_no"))
+			if has_batch and not row.batch_no:
+				frappe.throw(
+					f"Batch No is required in input row {row.idx} "
+					f"(Item {row.item_code} is batch-tracked)."
+				)
+			if has_serial and not row.serial_no:
+				frappe.throw(
+					f"Serial No is required in input row {row.idx} "
+					f"(Item {row.item_code} is serial-tracked)."
+				)
+			if has_serial and flt(row.qty) != 1:
+				frappe.throw(
+					f"Input row {row.idx}: serial-tracked blocks must have Qty = 1 "
+					"(one row per serial)."
+				)
 
 			# Allow multi-size / gumming; block multi-density cost pooling
 			prefix = (
@@ -104,6 +150,15 @@ class FoamBlockConversion(Document):
 		scrap_warehouse = getattr(settings, "default_scrap_warehouse", None)
 		conversion_absorption_account = getattr(settings, "conversion_absorption_account", None)
 		conversion_cost = flt(self.conversion_cost)
+
+		if scrap_warehouse:
+			scrap_wh_company = frappe.db.get_value("Warehouse", scrap_warehouse, "company")
+			if scrap_wh_company and scrap_wh_company != self.company:
+				frappe.throw(
+					"Default Scrap Warehouse {0} belongs to {1}, not {2}.".format(
+						scrap_warehouse, scrap_wh_company, self.company
+					)
+				)
 
 		if conversion_cost > 0 and not conversion_absorption_account:
 			frappe.throw(
@@ -151,25 +206,30 @@ class FoamBlockConversion(Document):
 				},
 			)
 
-		# --- Step 3A: Source rows (blocks) ---
+		# --- Step 3A: Source rows (blocks) — map batch/serial from input table ---
 		for row in input_rows:
 			item_doc = frappe.get_cached_doc("Item", row.item_code)
 			source_rate = flt(source_rates.get(row.idx), PRECISION)
-			entry.append(
-				"items",
-				{
-					"item_code": row.item_code,
-					"qty": flt(row.qty),
-					"s_warehouse": row.source_warehouse,
-					"uom": item_doc.stock_uom,
-					"stock_uom": item_doc.stock_uom,
-					"conversion_factor": 1,
-					"basic_rate": source_rate,
-					"valuation_rate": source_rate,
-					"set_basic_rate_manually": 1,
-					"allow_zero_valuation_rate": 1 if source_rate <= 0 else 0,
-				},
-			)
+			source_row = {
+				"item_code": row.item_code,
+				"qty": flt(row.qty),
+				"s_warehouse": row.source_warehouse,
+				"uom": item_doc.stock_uom,
+				"stock_uom": item_doc.stock_uom,
+				"conversion_factor": 1,
+				"basic_rate": source_rate,
+				"valuation_rate": source_rate,
+				"set_basic_rate_manually": 1,
+				"allow_zero_valuation_rate": 1 if source_rate <= 0 else 0,
+			}
+			if row.batch_no or row.serial_no:
+				source_row["use_serial_batch_fields"] = 1
+			if row.batch_no:
+				source_row["batch_no"] = row.batch_no
+			if row.serial_no:
+				# Stock Entry Detail.serial_no is Text; Link value is the Serial No name
+				source_row["serial_no"] = row.serial_no
+			entry.append("items", source_row)
 
 		# --- Step 3B: Target scrap ---
 		if flt(self.scrap_weight) > 0:

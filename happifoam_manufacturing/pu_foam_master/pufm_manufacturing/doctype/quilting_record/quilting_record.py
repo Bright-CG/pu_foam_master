@@ -127,6 +127,7 @@ class QuiltingRecord(Document):
 					"valuation_rate": valuation_rate,
 					"set_basic_rate_manually": 1,
 					"allow_zero_valuation_rate": 1 if valuation_rate <= 0 else 0,
+					"use_serial_batch_fields": 1,
 				},
 			)
 

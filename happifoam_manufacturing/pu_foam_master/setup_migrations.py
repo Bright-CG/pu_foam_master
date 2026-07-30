@@ -70,8 +70,11 @@ def cleanup_output_item_variant():
 
 def backfill_density_configuration_company():
 	"""
-	Set Company on Density Configurations (prefer Solarfoam / SF) and rebuild
+	Set Company on Density Configurations (from get_preferred_company) and rebuild
 	active BOMs when they belong to a different company.
+
+	BOM cancel/rebuild is gated behind developer_mode so live customer migrates
+	never destroy Active BOMs unexpectedly.
 	"""
 	if not frappe.db.has_column("Density Configuration", "company"):
 		return
@@ -95,6 +98,13 @@ def backfill_density_configuration_company():
 		(company,),
 	)
 	frappe.db.commit()
+
+	if not frappe.conf.get("developer_mode"):
+		print(
+			f"[setup_migrations] Density company backfill -> {company}. "
+			"BOM rebuild skipped (developer_mode is off)."
+		)
+		return
 
 	rebuilt = []
 	for name in frappe.get_all(
@@ -134,7 +144,7 @@ def backfill_density_configuration_company():
 
 
 def backfill_production_batch_company():
-	"""Set Company on existing Production Batches to preferred Solarfoam / SF."""
+	"""Set Company on existing Production Batches via get_preferred_company()."""
 	if not frappe.db.has_column("Pufm Production Batch", "company"):
 		return
 

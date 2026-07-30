@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
+  "company",
   "from_date",
   "to_date",
   "customer_group",
@@ -21,6 +22,14 @@
    "hidden": 1,
    "label": "Naming Series",
    "options": "REB-SETTLE-.YYYY.-.MM.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
    "reqd": 1
   },
   {
@@ -58,13 +67,15 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-28 00:00:00.000000",
+ "modified": "2026-07-30 16:45:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Rebate Settlement Tool",
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -73,6 +84,21 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Manager",
    "share": 1,
    "submit": 1,
    "write": 1

@@ -9,10 +9,14 @@
   "naming_series",
   "posting_date",
   "company",
+  "job_order",
   "sales_order",
   "material_request",
   "target_warehouse",
   "processed_by",
+  "job_instructions_sb",
+  "fetch_job_instructions",
+  "job_instructions_html",
   "vol_summary_sb",
   "total_input_cbm",
   "total_output_cbm",
@@ -56,6 +60,13 @@
    "reqd": 1
   },
   {
+   "fieldname": "job_order",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Job Order",
+   "options": "Pufm Job Order"
+  },
+  {
    "fieldname": "sales_order",
    "fieldtype": "Link",
    "label": "Sales Order",
@@ -80,6 +91,23 @@
    "fieldtype": "Link",
    "label": "Processed By",
    "options": "User"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "job_instructions_sb",
+   "fieldtype": "Section Break",
+   "label": "Job Order Traveler"
+  },
+  {
+   "fieldname": "fetch_job_instructions",
+   "fieldtype": "Button",
+   "label": "Fetch Instructions"
+  },
+  {
+   "fieldname": "job_instructions_html",
+   "fieldtype": "HTML",
+   "label": "Job Instructions",
+   "read_only": 1
   },
   {
    "fieldname": "vol_summary_sb",
@@ -138,6 +166,7 @@
    "fieldname": "stock_entry",
    "fieldtype": "Link",
    "label": "Stock Entry",
+   "no_copy": 1,
    "options": "Stock Entry",
    "read_only": 1
   },

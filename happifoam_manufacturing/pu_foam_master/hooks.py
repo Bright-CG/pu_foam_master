@@ -1,8 +1,8 @@
 app_name = "pu_foam_master"
 app_title = "PU Foam Master"
-app_publisher = "Bright"
+app_publisher = "PU Foam Master"
 app_description = "Foam Manufacturing Management"
-app_email = "bright@example.com"
+app_email = "support@example.com"
 app_license = "mit"
 
 app_include_css = []
@@ -86,6 +86,7 @@ after_install = [
 
 doctype_js = {
 	"Sales Invoice": "public/js/sales_invoice.js",
+	"Sales Order": "public/js/sales_order.js",
 }
 
 doc_events = {

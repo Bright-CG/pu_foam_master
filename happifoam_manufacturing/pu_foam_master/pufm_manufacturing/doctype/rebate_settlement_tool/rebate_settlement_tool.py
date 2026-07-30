@@ -9,6 +9,12 @@ from pu_foam_master.rebate.customer import get_customer_rebate_rate
 
 class RebateSettlementTool(Document):
 	def validate(self):
+		if not self.company:
+			from pu_foam_master.pufm_manufacturing.utils.density_bom import get_preferred_company
+
+			self.company = get_preferred_company()
+		if not self.company:
+			frappe.throw(_("Company is required."))
 		if self.from_date and self.to_date and self.from_date > self.to_date:
 			frappe.throw(_("From Date cannot be after To Date."))
 
@@ -27,7 +33,9 @@ class RebateSettlementTool(Document):
 
 	def _create_credit_notes(self):
 		expense_account = get_rebate_expense_account()
-		company = frappe.defaults.get_user_default("Company")
+		company = self.company
+		if not company:
+			frappe.throw(_("Company is required on Rebate Settlement Tool."))
 
 		for row in self.entries or []:
 			if not row.customer or flt(row.final_rebate_amount) <= 0:
@@ -186,7 +194,8 @@ def _get_settlement_item(company):
 
 def _get_customer_receivable_account(customer, company):
 	customer_doc = frappe.get_cached_doc("Customer", customer)
-	company = company or frappe.defaults.get_user_default("Company")
+	if not company:
+		frappe.throw(_("Company is required to resolve receivable account."))
 	for row in customer_doc.get("accounts") or []:
 		if row.company == company and row.account:
 			return row.account

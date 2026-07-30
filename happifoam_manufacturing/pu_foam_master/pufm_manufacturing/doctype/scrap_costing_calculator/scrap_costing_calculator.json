@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
+  "company",
   "posting_date",
   "scrap_item",
   "container_capacity_kg",
@@ -25,6 +26,14 @@
    "hidden": 1,
    "label": "Naming Series",
    "options": "SCRAP-COST-.YYYY.-.MM.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
    "reqd": 1
   },
   {

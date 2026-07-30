@@ -210,6 +210,7 @@ def setup_foundation_and_scrap_test():
 	settings.rebate_expense_account = accounts["rebate"]
 	settings.primary_volume_uom = settings.primary_volume_uom or "CBM"
 	settings.default_vat_rate = flt(settings.default_vat_rate) or 7.5
+	settings.flags.ignore_validate = True
 	settings.save(ignore_permissions=True)
 
 	_ensure_scrap_stock(scrap_item, warehouses["scrap"], qty=500)

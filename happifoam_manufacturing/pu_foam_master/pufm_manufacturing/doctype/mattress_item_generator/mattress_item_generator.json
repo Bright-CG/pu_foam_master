@@ -9,6 +9,11 @@
   "brand_name",
   "core_item_group",
   "mattress_item_group",
+  "naming_suffixes_section",
+  "core_suffix",
+  "plain_suffix",
+  "side_quilted_suffix",
+  "fully_quilted_suffix",
   "fetch_sizes",
   "generate_core_only",
   "generate_items",
@@ -24,7 +29,7 @@
    "reqd": 1
   },
   {
-   "fetch_from": "density_configuration.density_name",
+   "fetch_from": "density_configuration.brand",
    "fieldname": "brand_name",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -47,13 +52,46 @@
    "mandatory_depends_on": "eval:!doc.generate_core_only"
   },
   {
+   "fieldname": "naming_suffixes_section",
+   "fieldtype": "Section Break",
+   "label": "Item Naming Suffixes"
+  },
+  {
+   "default": "-CORE",
+   "description": "Naked sliced core. Example: Galaxy-75x42x8-CORE",
+   "fieldname": "core_suffix",
+   "fieldtype": "Data",
+   "label": "Core Suffix"
+  },
+  {
+   "default": "-PLAIN",
+   "description": "Unquilted tape-edge mattress. Example: Galaxy-75x42x8-PLAIN",
+   "fieldname": "plain_suffix",
+   "fieldtype": "Data",
+   "label": "Plain Suffix"
+  },
+  {
+   "default": "-SQ",
+   "description": "Side-quilted mattress. Example: Galaxy-75x42x8-SQ",
+   "fieldname": "side_quilted_suffix",
+   "fieldtype": "Data",
+   "label": "Side Quilted Suffix"
+  },
+  {
+   "default": "-FQ",
+   "description": "Fully quilted mattress. Example: Galaxy-75x42x8-FQ",
+   "fieldname": "fully_quilted_suffix",
+   "fieldtype": "Data",
+   "label": "Fully Quilted Suffix"
+  },
+  {
    "fieldname": "fetch_sizes",
    "fieldtype": "Button",
    "label": "Fetch Standard Sizes"
   },
   {
    "default": "0",
-   "description": "For furniture/upholstery foams: create CORE items only (skip MAT finished mattresses).",
+   "description": "For furniture/upholstery foams: create CORE items only (skip finished mattress variants).",
    "fieldname": "generate_core_only",
    "fieldtype": "Check",
    "label": "Generate Core Only (No Finished Mattress)"
@@ -72,7 +110,7 @@
  ],
  "index_pages": [],
  "links": [],
- "modified": "2026-07-25 17:00:00.000000",
+ "modified": "2026-07-30 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Mattress Item Generator",
@@ -87,6 +125,18 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Manager",
    "share": 1,
    "write": 1
   }

@@ -36,12 +36,7 @@
         "total_quilting_rate_per_m",
         "quilting_absorption_account",
         "mattress_consumable_rates",
-        "tape_rate_per_yard",
-        "pvc_rate_per_sqm",
-        "label_rate_per_pc",
-        "thread_rate_per_mat",
         "fabric_waste_factor",
-        "consumables_absorption_account",
         "consumption_formula_factors_section",
         "cbm_factor",
         "inches_per_meter",
@@ -266,44 +261,13 @@
         {
             "fieldname": "mattress_consumable_rates",
             "fieldtype": "Section Break",
-            "label": "Mattress Consumable Rates"
-        },
-        {
-            "default": "0",
-            "fieldname": "tape_rate_per_yard",
-            "fieldtype": "Currency",
-            "label": "Tape Rate (per Meter)"
-        },
-        {
-            "default": "0",
-            "fieldname": "pvc_rate_per_sqm",
-            "fieldtype": "Currency",
-            "label": "PVC/Nylon Rate (per Sqm)"
-        },
-        {
-            "default": "0",
-            "fieldname": "label_rate_per_pc",
-            "fieldtype": "Currency",
-            "label": "Label Rate (per Pc)"
-        },
-        {
-            "default": "0",
-            "fieldname": "thread_rate_per_mat",
-            "fieldtype": "Currency",
-            "label": "Thread Rate (per Mat)"
+            "label": "Mattress Fabric Factors"
         },
         {
             "default": "0",
             "fieldname": "fabric_waste_factor",
             "fieldtype": "Percent",
             "label": "Fabric Waste Factor (%)"
-        },
-        {
-            "description": "Legacy absorption account. Mattress Tape Edge / PVC / Thread / Labels are now issued as stock (not absorbed). Kept for historical documents only.",
-            "fieldname": "consumables_absorption_account",
-            "fieldtype": "Link",
-            "label": "Consumables Absorption Account (Legacy)",
-            "options": "Account"
         },
         {
             "fieldname": "consumption_formula_factors_section",

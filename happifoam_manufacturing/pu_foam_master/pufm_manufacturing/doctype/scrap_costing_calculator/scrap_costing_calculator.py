@@ -3,11 +3,14 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
+from pu_foam_master.pufm_manufacturing.utils.density_bom import get_preferred_company
 from pu_foam_master.pufm_manufacturing.utils.settings import get_formula_factor
 
 
 class ScrapCostingCalculator(Document):
 	def before_insert(self):
+		if not self.company:
+			self.company = get_preferred_company()
 		if not self.scrap_item:
 			self.scrap_item = frappe.db.get_single_value(
 				"Pufm Manufacturing Settings", "scrap_item"
@@ -18,6 +21,10 @@ class ScrapCostingCalculator(Document):
 			self.process_loss_contingency_ngn = get_formula_factor("scrap_default_process_loss_ngn")
 
 	def validate(self):
+		if not self.company:
+			self.company = get_preferred_company()
+		if not self.company:
+			frappe.throw(_("Company is required."))
 		self._calculate_cost_per_kg()
 
 	def on_submit(self):
@@ -47,12 +54,22 @@ class ScrapCostingCalculator(Document):
 	def _create_stock_reconciliation(self):
 		if not self.scrap_item:
 			frappe.throw(_("Scrap Item is required."))
+		if not self.company:
+			frappe.throw(_("Company is required."))
 
 		warehouse = frappe.db.get_single_value(
 			"Pufm Manufacturing Settings", "default_scrap_warehouse"
 		)
 		if not warehouse:
 			frappe.throw(_("Please set Default Scrap Warehouse in Pufm Manufacturing Settings."))
+
+		wh_company = frappe.db.get_value("Warehouse", warehouse, "company")
+		if wh_company and wh_company != self.company:
+			frappe.throw(
+				_("Scrap Warehouse {0} belongs to {1}, not {2}.").format(
+					warehouse, wh_company, self.company
+				)
+			)
 
 		qty = flt(
 			frappe.db.get_value(
@@ -64,7 +81,7 @@ class ScrapCostingCalculator(Document):
 
 		reconciliation = frappe.new_doc("Stock Reconciliation")
 		reconciliation.purpose = "Stock Reconciliation"
-		reconciliation.company = frappe.defaults.get_user_default("Company")
+		reconciliation.company = self.company
 		reconciliation.posting_date = self.posting_date
 		reconciliation.set_posting_time = 1
 		reconciliation.append(

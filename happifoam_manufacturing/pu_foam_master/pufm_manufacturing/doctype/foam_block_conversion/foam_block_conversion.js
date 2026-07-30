@@ -8,6 +8,26 @@ frappe.ui.form.on("Foam Block Conversion", {
 				},
 			};
 		});
+		frm.set_query("batch_no", "inputs", (doc, cdt, cdn) => {
+			const row = locals[cdt][cdn];
+			return {
+				filters: {
+					item: row.item_code || "",
+					disabled: 0,
+				},
+			};
+		});
+		frm.set_query("serial_no", "inputs", (doc, cdt, cdn) => {
+			const row = locals[cdt][cdn];
+			const filters = {
+				item_code: row.item_code || "",
+				status: "Active",
+			};
+			if (row.source_warehouse) {
+				filters.warehouse = row.source_warehouse;
+			}
+			return { filters };
+		});
 		frm.set_query("target_warehouse", () => {
 			return {
 				filters: {
@@ -23,6 +43,15 @@ frappe.ui.form.on("Foam Block Conversion", {
 	refresh(frm) {
 		// Sync read-only totals without dirtying (keeps Submit visible)
 		sync_summary_fields(frm, { silent: true });
+		if (frm.doc.job_order) {
+			pufm_fetch_job_instructions(frm);
+		}
+	},
+	job_order(frm) {
+		pufm_fetch_job_instructions(frm);
+	},
+	fetch_job_instructions(frm) {
+		pufm_fetch_job_instructions(frm);
 	},
 	onload(frm) {
 		if (frm.is_new() && !frm.doc.company) {
@@ -208,4 +237,25 @@ function sync_summary_fields(frm, opts) {
 
 function nearly_equal(a, b, eps) {
 	return Math.abs(flt(a) - flt(b)) < (eps || 0.0000001);
+}
+
+function pufm_fetch_job_instructions(frm) {
+	if (!frm.doc.job_order) {
+		if (frm.fields_dict.job_instructions_html) {
+			frm.fields_dict.job_instructions_html.$wrapper.html(
+				"<p class='text-muted'>Select a Job Order to load traveler instructions.</p>"
+			);
+		}
+		return;
+	}
+	frappe.call({
+		method:
+			"pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.get_job_order_instructions_html",
+		args: { job_order: frm.doc.job_order },
+		callback(r) {
+			if (frm.fields_dict.job_instructions_html) {
+				frm.fields_dict.job_instructions_html.$wrapper.html(r.message || "");
+			}
+		},
+	});
 }

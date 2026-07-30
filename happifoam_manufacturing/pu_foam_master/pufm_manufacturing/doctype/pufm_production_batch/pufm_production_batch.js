@@ -1,16 +1,4 @@
 frappe.ui.form.on("Pufm Production Batch", {
-	setup(frm) {
-		// Density Runs are linked docs (not a child table); warehouse filter lives on
-		// Pufm Density Run. Keep company scoped via User Permissions on Company Link.
-		frm.set_query("target_warehouse", "density_runs", () => {
-			return {
-				filters: {
-					company: frm.doc.company,
-					disabled: 0,
-				},
-			};
-		});
-	},
 	onload(frm) {
 		if (frm.is_new() && !frm.doc.company) {
 			const user_company = frappe.defaults.get_user_default("Company");
@@ -35,14 +23,16 @@ frappe.ui.form.on("Pufm Production Batch", {
 		}
 
 		// Stock posts only on Submit / reverses on Cancel — not on Draft or workflow status.
-		if (frm.doc.docstatus === 0) {
-			frm.dashboard.set_headline(
-				__("Save as Draft freely. Submit to post the manufacture Stock Entry.")
-			);
-		} else if (frm.doc.docstatus === 1) {
-			frm.dashboard.set_headline(
-				__("Submitted — linked Stock Entry is posted. Cancel to reverse stock.")
-			);
+		if (frm.dashboard && frm.dashboard.set_headline) {
+			if (frm.doc.docstatus === 0) {
+				frm.dashboard.set_headline(
+					__("Save as Draft freely. Submit to post the manufacture Stock Entry.")
+				);
+			} else if (frm.doc.docstatus === 1) {
+				frm.dashboard.set_headline(
+					__("Submitted — linked Stock Entry is posted. Cancel to reverse stock.")
+				);
+			}
 		}
 	},
 });

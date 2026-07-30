@@ -48,6 +48,12 @@ def create_workspace():
 			"icon": "shuffle",
 		},
 		{
+			"label": "Pufm Job Order",
+			"link_to": "Pufm Job Order",
+			"type": "DocType",
+			"icon": "file",
+		},
+		{
 			"label": "Production Variance Report",
 			"link_to": "Production Variance Report",
 			"type": "Report",
@@ -111,6 +117,7 @@ def create_workspace():
 		{"label": "Pufm Production Batch", "link_to": "Pufm Production Batch", "link_type": "DocType", "type": "Link"},
 		{"label": "Pufm Density Run", "link_to": "Pufm Density Run", "link_type": "DocType", "type": "Link"},
 		{"label": "Foam Block Conversion", "link_to": "Foam Block Conversion", "link_type": "DocType", "type": "Link"},
+		{"label": "Pufm Job Order", "link_to": "Pufm Job Order", "link_type": "DocType", "type": "Link"},
 		{"label": "Production Variance Report", "link_to": "Production Variance Report", "link_type": "Report", "is_query_report": 1, "type": "Link"},
 		{"label": "Rebound Production", "is_header": 1},
 		{"label": "Rebound Production Entry", "link_to": "Rebound Production Entry", "link_type": "DocType", "type": "Link"},
@@ -138,6 +145,7 @@ def create_workspace():
 		'{"id":"s0b","type":"shortcut","data":{"shortcut_name":"Pufm Production Batch","col":3}},'
 		'{"id":"s0c","type":"shortcut","data":{"shortcut_name":"Pufm Density Run","col":3}},'
 		'{"id":"s0d","type":"shortcut","data":{"shortcut_name":"Foam Block Conversion","col":3}},'
+		'{"id":"s0j","type":"shortcut","data":{"shortcut_name":"Pufm Job Order","col":3}},'
 		'{"id":"s0e","type":"shortcut","data":{"shortcut_name":"Production Variance Report","col":3}},'
 		'{"id":"h1","type":"header","data":{"text":"Rebound Production","col":12}},'
 		'{"id":"s3","type":"shortcut","data":{"shortcut_name":"Rebound Production Entry","col":3}},'
