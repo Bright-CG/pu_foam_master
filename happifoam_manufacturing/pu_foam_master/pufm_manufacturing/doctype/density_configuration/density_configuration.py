@@ -99,6 +99,68 @@ class DensityConfiguration(Document):
 
 
 @frappe.whitelist()
+def get_clone_recipe(source_name, new_density_name=None):
+	"""Return recipe fields for a new Density Configuration draft (no BOM / virtual item)."""
+	if not source_name:
+		frappe.throw(_("Source Density Configuration is required."))
+
+	source = frappe.get_doc("Density Configuration", source_name)
+	if source.docstatus == 2:
+		frappe.throw(_("Cannot clone a cancelled Density Configuration."))
+
+	new_name = (new_density_name or "").strip()
+	if new_name and frappe.db.exists("Density Configuration", new_name):
+		frappe.throw(_("Density Configuration {0} already exists.").format(new_name))
+
+	# copy_doc respects no_copy on virtual_item / active_bom
+	target = frappe.copy_doc(source)
+	if new_name:
+		target.density_name = new_name
+	target.virtual_item = None
+	target.active_bom = None
+
+	data = target.as_dict()
+	for key in (
+		"name",
+		"creation",
+		"modified",
+		"modified_by",
+		"owner",
+		"docstatus",
+		"amended_from",
+		"_user_tags",
+		"_comments",
+		"_assign",
+		"_liked_by",
+	):
+		data.pop(key, None)
+
+	data["virtual_item"] = None
+	data["active_bom"] = None
+
+	for table in ("production_inputs", "bom_operations"):
+		cleaned = []
+		for row in data.get(table) or []:
+			row = frappe._dict(row)
+			for key in (
+				"name",
+				"owner",
+				"creation",
+				"modified",
+				"modified_by",
+				"parent",
+				"parentfield",
+				"parenttype",
+				"docstatus",
+			):
+				row.pop(key, None)
+			cleaned.append(row)
+		data[table] = cleaned
+
+	return data
+
+
+@frappe.whitelist()
 def generate_block_items(docname, lengths_string=None):
 	"""Create or update stock Items for each target block length on a Density Configuration."""
 	if not docname:

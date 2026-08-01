@@ -1,7 +1,8 @@
 frappe.ui.form.on("Density Configuration", {
     setup: function(frm) {
+        // Company has no `disabled` column in ERPNext — do not filter on it.
         frm.set_query("company", function() {
-            return { filters: { disabled: 0 } };
+            return {};
         });
     },
     onload: function(frm) {
@@ -21,6 +22,12 @@ frappe.ui.form.on("Density Configuration", {
     refresh: function(frm) {
         calculate_parent(frm);
         recalculate_operations(frm);
+        frm.clear_custom_buttons();
+        if (!frm.is_new() && frm.doc.docstatus !== 2) {
+            frm.add_custom_button(__("Clone Recipe"), () => {
+                clone_density_recipe(frm);
+            });
+        }
     },
     width_inches: function(frm) {
         calculate_parent(frm);
@@ -167,4 +174,127 @@ function recalculate_operations(frm) {
         calculate_operation_row(frm, row.doctype, row.name);
         frm.refresh_field("bom_operations");
     });
+}
+
+function clone_density_recipe(frm) {
+    frappe.prompt(
+        [
+            {
+                fieldname: "density_name",
+                fieldtype: "Data",
+                label: __("New Density Name"),
+                reqd: 1,
+                description: __(
+                    "Recipe fields are copied. Virtual Item and Active BOM are left blank so a new BOM is created on submit."
+                ),
+            },
+        ],
+        (values) => {
+            const new_name = (values.density_name || "").trim();
+            if (!new_name) {
+                frappe.msgprint(__("New Density Name is required."));
+                return;
+            }
+            frappe.call({
+                method:
+                    "pu_foam_master.pufm_manufacturing.doctype.density_configuration.density_configuration.get_clone_recipe",
+                args: {
+                    source_name: frm.doc.name,
+                    new_density_name: new_name,
+                },
+                freeze: true,
+                freeze_message: __("Preparing clone..."),
+                callback(r) {
+                    const data = r.message;
+                    if (!data) {
+                        return;
+                    }
+                    frappe.model.with_doctype("Density Configuration", () => {
+                        const doc = frappe.model.get_new_doc("Density Configuration");
+                        const skip = new Set([
+                            "name",
+                            "creation",
+                            "modified",
+                            "modified_by",
+                            "owner",
+                            "docstatus",
+                            "idx",
+                            "production_inputs",
+                            "bom_operations",
+                            "virtual_item",
+                            "active_bom",
+                            "amended_from",
+                        ]);
+                        Object.keys(data).forEach((key) => {
+                            if (skip.has(key)) {
+                                return;
+                            }
+                            if (data[key] !== undefined && data[key] !== null) {
+                                doc[key] = data[key];
+                            }
+                        });
+                        doc.density_name = new_name;
+                        doc.virtual_item = null;
+                        doc.active_bom = null;
+
+                        (data.production_inputs || []).forEach((row) => {
+                            const child = frappe.model.add_child(
+                                doc,
+                                "Production Inputs",
+                                "production_inputs"
+                            );
+                            Object.keys(row).forEach((key) => {
+                                if (
+                                    [
+                                        "name",
+                                        "owner",
+                                        "creation",
+                                        "modified",
+                                        "modified_by",
+                                        "parent",
+                                        "parentfield",
+                                        "parenttype",
+                                        "docstatus",
+                                    ].includes(key)
+                                ) {
+                                    return;
+                                }
+                                child[key] = row[key];
+                            });
+                        });
+
+                        (data.bom_operations || []).forEach((row) => {
+                            const child = frappe.model.add_child(
+                                doc,
+                                "BOM Operation",
+                                "bom_operations"
+                            );
+                            Object.keys(row).forEach((key) => {
+                                if (
+                                    [
+                                        "name",
+                                        "owner",
+                                        "creation",
+                                        "modified",
+                                        "modified_by",
+                                        "parent",
+                                        "parentfield",
+                                        "parenttype",
+                                        "docstatus",
+                                    ].includes(key)
+                                ) {
+                                    return;
+                                }
+                                child[key] = row[key];
+                            });
+                        });
+
+                        frappe.set_route("Form", doc.doctype, doc.name);
+                    });
+                },
+            });
+        },
+        __("Clone Recipe"),
+        __("Create Draft")
+    );
 }
