@@ -1,0 +1,209 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-08-05 01:05:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "item_code",
+  "price_list",
+  "column_break_meta",
+  "posting_date",
+  "current_cost",
+  "margins_sb",
+  "freight_percent",
+  "advert_percent",
+  "vat_percent",
+  "column_break_margins",
+  "rebate_percent",
+  "profit_margin_percent",
+  "results_sb",
+  "total_deduction_percent",
+  "proposed_selling_price",
+  "gross_profit_amount",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "PRICE-.YYYY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "PRICE-.YYYY.-.####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "price_list",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Price List",
+   "options": "Price List",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_meta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "description": "Fetched from Item valuation rate (fallback: standard rate).",
+   "fieldname": "current_cost",
+   "fieldtype": "Currency",
+   "label": "Current Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "margins_sb",
+   "fieldtype": "Section Break",
+   "label": "Target Margins & Deductions (%)"
+  },
+  {
+   "default": "0",
+   "fieldname": "freight_percent",
+   "fieldtype": "Float",
+   "label": "Freight %",
+   "precision": "2"
+  },
+  {
+   "default": "0",
+   "fieldname": "advert_percent",
+   "fieldtype": "Float",
+   "label": "Advert %",
+   "precision": "2"
+  },
+  {
+   "default": "0",
+   "fieldname": "vat_percent",
+   "fieldtype": "Float",
+   "label": "VAT %",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_margins",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "rebate_percent",
+   "fieldtype": "Float",
+   "label": "Rebate %",
+   "precision": "2"
+  },
+  {
+   "default": "0",
+   "fieldname": "profit_margin_percent",
+   "fieldtype": "Float",
+   "label": "Profit Margin %",
+   "precision": "2"
+  },
+  {
+   "fieldname": "results_sb",
+   "fieldtype": "Section Break",
+   "label": "Calculated Results"
+  },
+  {
+   "default": "0",
+   "fieldname": "total_deduction_percent",
+   "fieldtype": "Float",
+   "label": "Total Deduction %",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "proposed_selling_price",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Proposed Selling Price",
+   "read_only": 1
+  },
+  {
+   "fieldname": "gross_profit_amount",
+   "fieldtype": "Currency",
+   "label": "Gross Profit Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Pufm Price Engine",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-08-05 01:05:00.000000",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "Pufm Price Engine",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

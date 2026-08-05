@@ -67,6 +67,19 @@ def create_workspace():
 			"is_query_report": 1,
 		},
 		{
+			"label": "Pufm Stock Matrix",
+			"link_to": "Pufm Stock Matrix",
+			"type": "Report",
+			"icon": "stock",
+			"is_query_report": 1,
+		},
+		{
+			"label": "Pufm Price Engine",
+			"link_to": "Pufm Price Engine",
+			"type": "DocType",
+			"icon": "money",
+		},
+		{
 			"label": "Rebound Configuration",
 			"link_to": "Rebound Configuration",
 			"type": "DocType",
@@ -129,6 +142,7 @@ def create_workspace():
 		{"label": "Pufm Production Batch", "link_to": "Pufm Production Batch", "link_type": "DocType", "type": "Link"},
 		{"label": "Pufm Density Run", "link_to": "Pufm Density Run", "link_type": "DocType", "type": "Link"},
 		{"label": "Production Variance Report", "link_to": "Production Variance Report", "link_type": "Report", "is_query_report": 1, "type": "Link"},
+		{"label": "Pufm Stock Matrix", "link_to": "Pufm Stock Matrix", "link_type": "Report", "is_query_report": 1, "type": "Link"},
 		{"label": "Rebound Production", "is_header": 1},
 		{"label": "Rebound Configuration", "link_to": "Rebound Configuration", "link_type": "DocType", "type": "Link"},
 		{"label": "Pufm Rebond Item Generator", "link_to": "Pufm Rebond Item Generator", "link_type": "DocType", "type": "Link"},
@@ -145,6 +159,7 @@ def create_workspace():
 		{"label": "Quilting Record", "link_to": "Quilting Record", "link_type": "DocType", "type": "Link"},
 		{"label": "Mattress Production Entry", "link_to": "Mattress Production Entry", "link_type": "DocType", "type": "Link"},
 		{"label": "Financials & Rebates", "is_header": 1},
+		{"label": "Pufm Price Engine", "link_to": "Pufm Price Engine", "link_type": "DocType", "type": "Link"},
 		{"label": "Rebate Settlement Tool", "link_to": "Rebate Settlement Tool", "link_type": "DocType", "type": "Link"},
 		{"label": "Sales Invoice", "link_to": "Sales Invoice", "link_type": "DocType", "type": "Link"},
 	]
@@ -160,14 +175,16 @@ def create_workspace():
 		'{"id":"s0b","type":"shortcut","data":{"shortcut_name":"Pufm Production Batch","col":3}},'
 		'{"id":"s0c","type":"shortcut","data":{"shortcut_name":"Pufm Density Run","col":3}},'
 		'{"id":"s0e","type":"shortcut","data":{"shortcut_name":"Production Variance Report","col":3}},'
+		'{"id":"s0m","type":"shortcut","data":{"shortcut_name":"Pufm Stock Matrix","col":3}},'
 		'{"id":"h1","type":"header","data":{"text":"Rebound Production","col":12}},'
 		'{"id":"s2","type":"shortcut","data":{"shortcut_name":"Rebound Configuration","col":3}},'
 		'{"id":"s2b","type":"shortcut","data":{"shortcut_name":"Pufm Rebond Item Generator","col":3}},'
 		'{"id":"s3","type":"shortcut","data":{"shortcut_name":"Rebound Production Entry","col":3}},'
 		'{"id":"s4","type":"shortcut","data":{"shortcut_name":"Scrap Costing Calculator","col":3}},'
 		'{"id":"h2","type":"header","data":{"text":"Financials & Rebates","col":12}},'
-		'{"id":"s5","type":"shortcut","data":{"shortcut_name":"Rebate Settlement Tool","col":6}},'
-		'{"id":"s6","type":"shortcut","data":{"shortcut_name":"Sales Invoice","col":6}},'
+		'{"id":"spe","type":"shortcut","data":{"shortcut_name":"Pufm Price Engine","col":4}},'
+		'{"id":"s5","type":"shortcut","data":{"shortcut_name":"Rebate Settlement Tool","col":4}},'
+		'{"id":"s6","type":"shortcut","data":{"shortcut_name":"Sales Invoice","col":4}},'
 		'{"id":"h3","type":"header","data":{"text":"Mattress Production","col":12}},'
 		'{"id":"s7a","type":"shortcut","data":{"shortcut_name":"Standard Mattress Size","col":3}},'
 		'{"id":"s7b","type":"shortcut","data":{"shortcut_name":"Mattress Item Generator","col":3}},'
