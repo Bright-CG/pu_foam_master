@@ -203,9 +203,34 @@ class MattressProductionEntry(Document):
 
 			entry.append("items", target_row)
 
+		self._append_mattress_depreciation_cost(entry, settings)
+
 		entry.insert(ignore_permissions=True)
 		entry.submit()
 		return entry
+
+	def _append_mattress_depreciation_cost(self, entry, settings):
+		rate = flt(getattr(settings, "mattress_depreciation_per_pc", 0) or 0)
+		if rate <= 0:
+			return
+		total_pcs = sum(flt(row.qty) for row in self.production_items or [])
+		amount = rate * total_pcs
+		if amount <= 0:
+			return
+		account = getattr(settings, "depreciation_absorption_account", None)
+		if not account:
+			frappe.throw(
+				"Set Depreciation Absorption Account in Pufm Manufacturing Settings "
+				"to post mattress depreciation."
+			)
+		entry.append(
+			"additional_costs",
+			{
+				"expense_account": account,
+				"description": "Mattress Depreciation for {0}".format(self.name),
+				"amount": amount,
+			},
+		)
 
 	def _ensure_output_batch(self, item_code, row_idx):
 		batch_id = f"{self.name}-{item_code}-{row_idx}"

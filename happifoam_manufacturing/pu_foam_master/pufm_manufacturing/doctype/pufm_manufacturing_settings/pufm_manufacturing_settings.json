@@ -32,11 +32,16 @@
         "thread_cost_per_m_quilt",
         "non_woven_cost_per_m",
         "quilting_labor_per_m",
+        "quilting_depreciation_per_m",
         "column_break_quilting",
         "total_quilting_rate_per_m",
         "quilting_absorption_account",
         "mattress_consumable_rates",
         "fabric_waste_factor",
+        "mattress_depreciation_per_pc",
+        "sales_to_production_routing_section",
+        "route_to_job_order_group",
+        "route_to_material_request_group",
         "consumption_formula_factors_section",
         "cbm_factor",
         "inches_per_meter",
@@ -241,12 +246,19 @@
             "label": "Quilting Labor per Meter"
         },
         {
+            "default": "0",
+            "description": "Machine/plant depreciation absorbed per meter of quilted output.",
+            "fieldname": "quilting_depreciation_per_m",
+            "fieldtype": "Currency",
+            "label": "Quilting Depreciation per Meter"
+        },
+        {
             "fieldname": "column_break_quilting",
             "fieldtype": "Column Break"
         },
         {
             "default": "0",
-            "description": "Auto-sum of gum + thread + non-woven + labor.",
+            "description": "Auto-sum of gum + thread + non-woven + labor (excludes depreciation).",
             "fieldname": "total_quilting_rate_per_m",
             "fieldtype": "Currency",
             "label": "Total Quilting Rate per Meter",
@@ -261,13 +273,39 @@
         {
             "fieldname": "mattress_consumable_rates",
             "fieldtype": "Section Break",
-            "label": "Mattress Fabric Factors"
+            "label": "Mattress Consumable Rates"
         },
         {
             "default": "0",
             "fieldname": "fabric_waste_factor",
             "fieldtype": "Percent",
             "label": "Fabric Waste Factor (%)"
+        },
+        {
+            "default": "0",
+            "description": "Plant depreciation absorbed per finished mattress piece.",
+            "fieldname": "mattress_depreciation_per_pc",
+            "fieldtype": "Currency",
+            "label": "Mattress Depreciation per Piece"
+        },
+        {
+            "fieldname": "sales_to_production_routing_section",
+            "fieldtype": "Section Break",
+            "label": "Sales to Production Routing"
+        },
+        {
+            "description": "Items in this group or its children will generate a Pufm Job Order",
+            "fieldname": "route_to_job_order_group",
+            "fieldtype": "Link",
+            "label": "Route to Job Order Group",
+            "options": "Item Group"
+        },
+        {
+            "description": "Items in this group or its children will generate a Material Request",
+            "fieldname": "route_to_material_request_group",
+            "fieldtype": "Link",
+            "label": "Route to Material Request Group",
+            "options": "Item Group"
         },
         {
             "fieldname": "consumption_formula_factors_section",
@@ -487,7 +525,7 @@
     "index_pages": [],
     "issingle": 1,
     "links": [],
-    "modified": "2026-07-25 14:30:00.000000",
+    "modified": "2026-08-05 00:40:00.000000",
     "modified_by": "Administrator",
     "module": "pufm_manufacturing",
     "name": "Pufm Manufacturing Settings",

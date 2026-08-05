@@ -61,21 +61,23 @@ class QuiltingRecord(Document):
 				+ flt(settings.non_woven_cost_per_m)
 				+ flt(settings.quilting_labor_per_m)
 			)
-		overhead_cost = rate * flt(self.output_qty_meters)
+		meters = flt(self.output_qty_meters)
+		overhead_cost = rate * meters
+		depreciation_cost = flt(getattr(settings, "quilting_depreciation_per_m", 0) or 0) * meters
 		absorption_account = getattr(settings, "quilting_absorption_account", None)
-		return overhead_cost, absorption_account
+		return overhead_cost, depreciation_cost, absorption_account
 
 	def _calculate_total_cost(self):
-		overhead_cost, _ = self._get_quilting_overhead()
+		overhead_cost, depreciation_cost, _ = self._get_quilting_overhead()
 		input_cost = 0
 		for row in self.inputs:
 			valuation_rate = _get_batch_valuation_rate(row.batch_no)
 			input_cost += flt(row.qty) * valuation_rate
-		return input_cost + overhead_cost
+		return input_cost + overhead_cost + depreciation_cost
 
 	def _create_manufacture_stock_entry(self):
-		overhead_cost, absorption_account = self._get_quilting_overhead()
-		if overhead_cost > 0 and not absorption_account:
+		overhead_cost, depreciation_cost, absorption_account = self._get_quilting_overhead()
+		if (overhead_cost > 0 or depreciation_cost > 0) and not absorption_account:
 			frappe.throw(
 				"Set Quilting Absorption Account in Pufm Manufacturing Settings "
 				"to post quilting overhead."
@@ -107,6 +109,15 @@ class QuiltingRecord(Document):
 					"expense_account": absorption_account,
 					"description": "Quilting Operations for {0}".format(self.name),
 					"amount": overhead_cost,
+				},
+			)
+		if depreciation_cost > 0 and absorption_account:
+			entry.append(
+				"additional_costs",
+				{
+					"expense_account": absorption_account,
+					"description": "Quilting Depreciation for {0}".format(self.name),
+					"amount": depreciation_cost,
 				},
 			)
 

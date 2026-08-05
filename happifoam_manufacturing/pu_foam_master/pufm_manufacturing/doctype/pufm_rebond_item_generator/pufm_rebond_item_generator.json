@@ -1,0 +1,75 @@
+{
+ "actions": [],
+ "creation": "2026-08-05 00:40:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "rebond_density",
+  "block_sizes",
+  "generate_button"
+ ],
+ "fields": [
+  {
+   "description": "Select the Rebound / Rebond density Item used as the naming prefix.",
+   "fieldname": "rebond_density",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Rebond Density",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "description": "Enter sizes separated by comma. e.g., 75x72x10, 75x84x8",
+   "fieldname": "block_sizes",
+   "fieldtype": "Small Text",
+   "label": "Block Sizes",
+   "reqd": 1
+  },
+  {
+   "fieldname": "generate_button",
+   "fieldtype": "Button",
+   "label": "Generate Items"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-05 00:40:00.000000",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "Pufm Rebond Item Generator",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "PUFM Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "PUFM Rebound",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

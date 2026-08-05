@@ -73,6 +73,12 @@ def create_workspace():
 			"icon": "settings",
 		},
 		{
+			"label": "Pufm Rebond Item Generator",
+			"link_to": "Pufm Rebond Item Generator",
+			"type": "DocType",
+			"icon": "manufacturing",
+		},
+		{
 			"label": "Rebound Production Entry",
 			"link_to": "Rebound Production Entry",
 			"type": "DocType",
@@ -124,6 +130,8 @@ def create_workspace():
 		{"label": "Pufm Density Run", "link_to": "Pufm Density Run", "link_type": "DocType", "type": "Link"},
 		{"label": "Production Variance Report", "link_to": "Production Variance Report", "link_type": "Report", "is_query_report": 1, "type": "Link"},
 		{"label": "Rebound Production", "is_header": 1},
+		{"label": "Rebound Configuration", "link_to": "Rebound Configuration", "link_type": "DocType", "type": "Link"},
+		{"label": "Pufm Rebond Item Generator", "link_to": "Pufm Rebond Item Generator", "link_type": "DocType", "type": "Link"},
 		{"label": "Rebound Production Entry", "link_to": "Rebound Production Entry", "link_type": "DocType", "type": "Link"},
 		{"label": "Scrap Costing Calculator", "link_to": "Scrap Costing Calculator", "link_type": "DocType", "type": "Link"},
 		{"label": "Manufacturing Logic", "is_header": 1},
@@ -153,6 +161,8 @@ def create_workspace():
 		'{"id":"s0c","type":"shortcut","data":{"shortcut_name":"Pufm Density Run","col":3}},'
 		'{"id":"s0e","type":"shortcut","data":{"shortcut_name":"Production Variance Report","col":3}},'
 		'{"id":"h1","type":"header","data":{"text":"Rebound Production","col":12}},'
+		'{"id":"s2","type":"shortcut","data":{"shortcut_name":"Rebound Configuration","col":3}},'
+		'{"id":"s2b","type":"shortcut","data":{"shortcut_name":"Pufm Rebond Item Generator","col":3}},'
 		'{"id":"s3","type":"shortcut","data":{"shortcut_name":"Rebound Production Entry","col":3}},'
 		'{"id":"s4","type":"shortcut","data":{"shortcut_name":"Scrap Costing Calculator","col":3}},'
 		'{"id":"h2","type":"header","data":{"text":"Financials & Rebates","col":12}},'
