@@ -1,6 +1,8 @@
 import frappe
 
 
+# Legacy Desk workspace label from pre-white-label builds.
+# Kept only so migrate can delete the old sidebar entry if it still exists.
 OLD_WORKSPACE_NAME = "Happifoam Manufacturing"
 
 

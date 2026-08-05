@@ -1,1 +1,1 @@
-# Copyright (c) 2026, Happifoam and contributors
+# Copyright (c) 2026, PU Foam Master and contributors

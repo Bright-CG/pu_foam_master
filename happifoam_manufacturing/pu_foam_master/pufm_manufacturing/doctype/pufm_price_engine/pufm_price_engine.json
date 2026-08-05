@@ -7,11 +7,11 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
-  "item_code",
+  "item_group",
   "price_list",
   "column_break_meta",
-  "posting_date",
-  "current_cost",
+  "valid_from",
+  "valid_upto",
   "margins_sb",
   "freight_percent",
   "advert_percent",
@@ -19,29 +19,29 @@
   "column_break_margins",
   "rebate_percent",
   "profit_margin_percent",
-  "results_sb",
   "total_deduction_percent",
-  "proposed_selling_price",
-  "gross_profit_amount",
+  "matrix_sb",
+  "fetch_items_button",
+  "items",
   "amended_from"
  ],
  "fields": [
   {
-   "default": "PRICE-.YYYY.-.####",
+   "default": "PUFM-PRC-.YYYY.-.MM.-.DD.-.####",
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "hidden": 1,
    "label": "Naming Series",
-   "options": "PRICE-.YYYY.-.####",
+   "options": "PUFM-PRC-.YYYY.-.MM.-.DD.-.####",
    "reqd": 1
   },
   {
-   "fieldname": "item_code",
+   "fieldname": "item_group",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Item Code",
-   "options": "Item",
+   "label": "Item Group",
+   "options": "Item Group",
    "reqd": 1
   },
   {
@@ -59,22 +59,21 @@
   },
   {
    "default": "Today",
-   "fieldname": "posting_date",
+   "fieldname": "valid_from",
    "fieldtype": "Date",
-   "label": "Posting Date",
+   "in_list_view": 1,
+   "label": "Valid From",
    "reqd": 1
   },
   {
-   "description": "Fetched from Item valuation rate (fallback: standard rate).",
-   "fieldname": "current_cost",
-   "fieldtype": "Currency",
-   "label": "Current Cost",
-   "read_only": 1
+   "fieldname": "valid_upto",
+   "fieldtype": "Date",
+   "label": "Valid Upto"
   },
   {
    "fieldname": "margins_sb",
    "fieldtype": "Section Break",
-   "label": "Target Margins & Deductions (%)"
+   "label": "Global Target Margins (%)"
   },
   {
    "default": "0",
@@ -116,11 +115,7 @@
    "precision": "2"
   },
   {
-   "fieldname": "results_sb",
-   "fieldtype": "Section Break",
-   "label": "Calculated Results"
-  },
-  {
+   "bold": 1,
    "default": "0",
    "fieldname": "total_deduction_percent",
    "fieldtype": "Float",
@@ -129,17 +124,20 @@
    "read_only": 1
   },
   {
-   "fieldname": "proposed_selling_price",
-   "fieldtype": "Currency",
-   "in_list_view": 1,
-   "label": "Proposed Selling Price",
-   "read_only": 1
+   "fieldname": "matrix_sb",
+   "fieldtype": "Section Break",
+   "label": "Price Matrix"
   },
   {
-   "fieldname": "gross_profit_amount",
-   "fieldtype": "Currency",
-   "label": "Gross Profit Amount",
-   "read_only": 1
+   "fieldname": "fetch_items_button",
+   "fieldtype": "Button",
+   "label": "Fetch Items"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Pufm Price Engine Item"
   },
   {
    "fieldname": "amended_from",
@@ -153,7 +151,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-08-05 01:05:00.000000",
+ "modified": "2026-08-05 02:55:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Pufm Price Engine",

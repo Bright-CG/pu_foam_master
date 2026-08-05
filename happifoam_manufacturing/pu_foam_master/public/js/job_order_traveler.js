@@ -1,4 +1,4 @@
-// Copyright (c) 2026, Happifoam and contributors
+// Copyright (c) 2026, PU Foam Master and contributors
 // Shared Job Order traveler HTML helper for factory DocTypes.
 
 window.pufm_fetch_job_instructions = function (frm) {

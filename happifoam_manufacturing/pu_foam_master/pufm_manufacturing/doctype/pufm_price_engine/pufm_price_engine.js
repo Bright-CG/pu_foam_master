@@ -3,48 +3,71 @@
 
 frappe.ui.form.on("Pufm Price Engine", {
 	refresh(frm) {
-		recalculate_price(frm);
+		recalculate_matrix(frm, { silent: true });
 	},
-	item_code(frm) {
-		fetch_current_cost(frm);
+	fetch_items_button(frm) {
+		fetch_item_matrix(frm);
 	},
 	freight_percent(frm) {
-		recalculate_price(frm);
+		recalculate_matrix(frm, { field: "freight_percent" });
 	},
 	advert_percent(frm) {
-		recalculate_price(frm);
+		recalculate_matrix(frm, { field: "advert_percent" });
 	},
 	vat_percent(frm) {
-		recalculate_price(frm);
+		recalculate_matrix(frm, { field: "vat_percent" });
 	},
 	rebate_percent(frm) {
-		recalculate_price(frm);
+		recalculate_matrix(frm, { field: "rebate_percent" });
 	},
 	profit_margin_percent(frm) {
-		recalculate_price(frm);
-	},
-	current_cost(frm) {
-		recalculate_price(frm);
+		recalculate_matrix(frm, { field: "profit_margin_percent" });
 	},
 });
 
-function fetch_current_cost(frm) {
-	if (!frm.doc.item_code) {
-		frm.set_value("current_cost", 0);
+function fetch_item_matrix(frm) {
+	if (frm.doc.docstatus === 1) {
 		return;
 	}
+	if (!frm.doc.item_group) {
+		frappe.msgprint({
+			title: __("Missing Item Group"),
+			indicator: "orange",
+			message: __("Select an Item Group before fetching items."),
+		});
+		return;
+	}
+
 	frappe.call({
 		method:
-			"pu_foam_master.pufm_manufacturing.doctype.pufm_price_engine.pufm_price_engine.get_item_current_cost",
-		args: { item_code: frm.doc.item_code },
+			"pu_foam_master.pufm_manufacturing.doctype.pufm_price_engine.pufm_price_engine.fetch_item_matrix",
+		args: { item_group: frm.doc.item_group },
+		freeze: true,
+		freeze_message: __("Exploding BOMs and building price matrix..."),
 		callback(r) {
-			frm.set_value("current_cost", flt(r.message) || 0);
-			recalculate_price(frm);
+			frm.clear_table("items");
+			(r.message || []).forEach((row) => {
+				const child = frm.add_child("items");
+				child.item_code = row.item_code;
+				child.item_name = row.item_name;
+				child.bom_reference = row.bom_reference;
+				child.material_breakdown = row.material_breakdown;
+				child.current_cost = flt(row.current_cost);
+				child.proposed_selling_price = 0;
+				child.gross_profit_amount = 0;
+			});
+			recalculate_matrix(frm, { silent: true });
+			frm.refresh_field("items");
+			frappe.show_alert({
+				message: __("Loaded {0} items into the price matrix.", [(r.message || []).length]),
+				indicator: "green",
+			});
 		},
 	});
 }
 
-function recalculate_price(frm) {
+function recalculate_matrix(frm, opts) {
+	opts = opts || {};
 	if (frm.doc.docstatus === 1) {
 		return;
 	}
@@ -57,33 +80,34 @@ function recalculate_price(frm) {
 		flt(frm.doc.profit_margin_percent);
 
 	if (total >= 100) {
-		frappe.msgprint({
-			title: __("Invalid Margin"),
-			indicator: "red",
-			message: __("Margin cannot be 100% or greater"),
-		});
-		frm.set_value("freight_percent", 0);
-		frm.set_value("advert_percent", 0);
-		frm.set_value("vat_percent", 0);
-		frm.set_value("rebate_percent", 0);
-		frm.set_value("profit_margin_percent", 0);
-		frm.set_value("total_deduction_percent", 0);
-		frm.set_value("proposed_selling_price", 0);
-		frm.set_value("gross_profit_amount", 0);
+		if (!opts.silent) {
+			frappe.msgprint({
+				title: __("Invalid Margin"),
+				indicator: "red",
+				message: __("Margin cannot be 100% or greater"),
+			});
+		}
+		if (opts.field) {
+			frm.set_value(opts.field, 0);
+		}
+		frm.doc.total_deduction_percent = 0;
+		frm.refresh_field("total_deduction_percent");
 		return;
 	}
 
-	frm.set_value("total_deduction_percent", flt(total, 2));
+	frm.doc.total_deduction_percent = flt(total, 2);
+	frm.refresh_field("total_deduction_percent");
 
-	const cost = flt(frm.doc.current_cost);
-	if (cost <= 0) {
-		frm.set_value("proposed_selling_price", 0);
-		frm.set_value("gross_profit_amount", 0);
-		return;
-	}
-
-	// MD formula: Cost / (1 - Margin%)
-	const proposed = cost / (1 - total / 100);
-	frm.set_value("proposed_selling_price", flt(proposed, 2));
-	frm.set_value("gross_profit_amount", flt(proposed - cost, 2));
+	const denominator = 1 - total / 100;
+	(frm.doc.items || []).forEach((row) => {
+		const cost = flt(row.current_cost);
+		if (cost <= 0 || denominator <= 0) {
+			row.proposed_selling_price = 0;
+			row.gross_profit_amount = 0;
+			return;
+		}
+		row.proposed_selling_price = flt(cost / denominator, 2);
+		row.gross_profit_amount = flt(row.proposed_selling_price - cost, 2);
+	});
+	frm.refresh_field("items");
 }
