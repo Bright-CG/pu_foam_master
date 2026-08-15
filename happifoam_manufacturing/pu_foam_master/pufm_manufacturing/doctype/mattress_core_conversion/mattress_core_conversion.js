@@ -17,17 +17,6 @@ frappe.ui.form.on("Mattress Core Conversion", {
 				},
 			};
 		});
-		frm.set_query("serial_no", "inputs", (doc, cdt, cdn) => {
-			const row = locals[cdt][cdn];
-			const filters = {
-				item_code: row.item_code || "",
-				status: "Active",
-			};
-			if (row.source_warehouse) {
-				filters.warehouse = row.source_warehouse;
-			}
-			return { filters };
-		});
 		frm.set_query("target_warehouse", () => {
 			return {
 				filters: {

@@ -347,19 +347,16 @@ class PufmProductionBatch(Document):
 				qty = flt(block["quantity"], PRECISION)
 				if qty <= 0:
 					continue
-				serial_qty = cint(qty)
-				if serial_qty <= 0 or abs(qty - serial_qty) > 0.0001:
+				if abs(qty - cint(qty)) > 0.0001:
 					frappe.throw(
 						_(
-							"Finished block quantity for {0} must be a whole number "
-							"to generate serial numbers (got {1})."
+							"Finished block quantity for {0} must be a whole number (got {1})."
 						).format(block["block_item"], qty)
 					)
 
 				item_code = block["block_item"]
 				self._ensure_block_item_traceability(item_code, default_brand)
 				batch_no = self._ensure_block_batch(item_code)
-				serial_string = self._build_block_serials(item_code, batch_no, serial_qty)
 
 				unit_cbm = flt(block["unit_cbm"], PRECISION)
 				block_unit_cost = flt(cost_per_cbm * unit_cbm, PRECISION)
@@ -373,10 +370,8 @@ class PufmProductionBatch(Document):
 					"amount": block_amount,
 					"allow_zero_valuation_rate": 1 if block_unit_cost <= 0 else 0,
 					"set_basic_rate_manually": 1,
-					# v15: required so batch_no / serial_no are applied on submit
 					"use_serial_batch_fields": 1,
 					"batch_no": batch_no,
-					"serial_no": serial_string,
 				}
 				entry.append("items", row)
 				total_target_amount = flt(total_target_amount + block_amount, PRECISION)
@@ -419,12 +414,12 @@ class PufmProductionBatch(Document):
 			update_modified=False,
 		)
 	def _ensure_block_item_traceability(self, item_code, default_brand=None):
-		"""Require Batch + Serial on FG block Items before pouring posts stock."""
+		"""Require Batch-only tracking on FG block Items before pouring posts stock."""
 		from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
-			ensure_item_finished_good_traceability,
+			ensure_block_item_traceability,
 		)
 
-		ensure_item_finished_good_traceability(
+		ensure_block_item_traceability(
 			item_code, brand=default_brand, throw_if_locked=True
 		)
 
@@ -463,7 +458,7 @@ class PufmProductionBatch(Document):
 
 	@staticmethod
 	def _build_block_serials(item_code, batch_id, qty):
-		"""Newline-separated serials: {item_code}-{batch_id}-{n}."""
+		"""Deprecated: foam blocks are batch-only. Kept for older call sites."""
 		serial_nos = [f"{item_code}-{batch_id}-{i}" for i in range(1, cint(qty) + 1)]
 		return "\n".join(serial_nos)
 

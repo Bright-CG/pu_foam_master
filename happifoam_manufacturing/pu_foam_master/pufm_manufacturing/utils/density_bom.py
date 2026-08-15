@@ -314,14 +314,18 @@ def sync_related_block_items(doc):
 		if item.item_name == row.name or not item.item_name:
 			item.item_name = new_code if new_code else item.item_name
 		from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
-			apply_finished_good_traceability,
+			apply_block_traceability,
+			ensure_block_item_traceability,
 			item_has_stock_ledger,
 		)
 
-		# Enforce Batch/Serial on FG blocks whenever ERPNext still allows it
-		if not item_has_stock_ledger(item.name):
-			apply_finished_good_traceability(item)
-		item.save(ignore_permissions=True)
+		# Enforce Batch-only on FG blocks whenever ERPNext still allows a save
+		if item_has_stock_ledger(item.name):
+			item.save(ignore_permissions=True)
+			ensure_block_item_traceability(item.name, throw_if_locked=False)
+		else:
+			apply_block_traceability(item)
+			item.save(ignore_permissions=True)
 		current_name = item.name
 		updated.append(current_name)
 

@@ -100,21 +100,10 @@ class MattressCoreConversion(Document):
 				frappe.throw(f"Qty must be greater than zero in input row {row.idx}.")
 
 			has_batch = cint(frappe.db.get_value("Item", row.item_code, "has_batch_no"))
-			has_serial = cint(frappe.db.get_value("Item", row.item_code, "has_serial_no"))
 			if has_batch and not row.batch_no:
 				frappe.throw(
 					f"Batch No is required in input row {row.idx} "
 					f"(Item {row.item_code} is batch-tracked)."
-				)
-			if has_serial and not row.serial_no:
-				frappe.throw(
-					f"Serial No is required in input row {row.idx} "
-					f"(Item {row.item_code} is serial-tracked)."
-				)
-			if has_serial and flt(row.qty) != 1:
-				frappe.throw(
-					f"Input row {row.idx}: serial-tracked blocks must have Qty = 1 "
-					"(one row per serial)."
 				)
 
 			# Allow multi-size / gumming; block multi-density cost pooling
@@ -214,7 +203,7 @@ class MattressCoreConversion(Document):
 				},
 			)
 
-		# --- Step 3A: Source rows (blocks) — map batch/serial from input table ---
+		# --- Step 3A: Source rows (blocks) — map batch from input table ---
 		for row in input_rows:
 			item_doc = frappe.get_cached_doc("Item", row.item_code)
 			source_rate = flt(source_rates.get(row.idx), PRECISION)
@@ -229,14 +218,9 @@ class MattressCoreConversion(Document):
 				"valuation_rate": source_rate,
 				"set_basic_rate_manually": 1,
 				"allow_zero_valuation_rate": 1 if source_rate <= 0 else 0,
+				"use_serial_batch_fields": 1,
+				"batch_no": row.batch_no,
 			}
-			if row.batch_no or row.serial_no:
-				source_row["use_serial_batch_fields"] = 1
-			if row.batch_no:
-				source_row["batch_no"] = row.batch_no
-			if row.serial_no:
-				# Stock Entry Detail.serial_no is Text; Link value is the Serial No name
-				source_row["serial_no"] = row.serial_no
 			entry.append("items", source_row)
 
 		# --- Step 3B: Target scrap ---

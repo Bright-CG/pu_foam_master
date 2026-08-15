@@ -64,7 +64,6 @@
   {
    "fieldname": "source_document",
    "fieldtype": "Dynamic Link",
-   "in_list_view": 1,
    "label": "Source Document",
    "options": "source_doctype"
   },
@@ -75,6 +74,7 @@
    "options": "User"
   },
   {
+   "bold": 1,
    "default": "Pending Slicing",
    "fieldname": "workflow_status",
    "fieldtype": "Select",
@@ -146,7 +146,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-07-30 10:00:00.000000",
+ "modified": "2026-08-15 18:35:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Pufm Job Order",
@@ -207,6 +207,19 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
+ "states": [
+  {
+   "color": "Orange",
+   "title": "Pending Slicing"
+  },
+  {
+   "color": "Blue",
+   "title": "Pending Assembly"
+  },
+  {
+   "color": "Green",
+   "title": "Completed"
+  }
+ ],
  "track_changes": 1
 }

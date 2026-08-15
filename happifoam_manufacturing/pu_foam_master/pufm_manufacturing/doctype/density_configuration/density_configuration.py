@@ -13,8 +13,10 @@ from pu_foam_master.pufm_manufacturing.utils.density_bom import (
 	sync_related_block_items,
 )
 from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
-	apply_finished_good_traceability,
-	finished_good_traceability_defaults,
+	apply_block_traceability,
+	block_traceability_defaults,
+	ensure_block_item_traceability,
+	item_has_stock_ledger,
 )
 from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor, get_formula_factor
 
@@ -215,8 +217,12 @@ def generate_block_items(docname, lengths_string=None):
 			item.custom_width = width
 			item.custom_height = height
 			item.custom_cbm_value = volume_cbm
-			apply_finished_good_traceability(item, brand=default_brand)
-			item.save(ignore_permissions=True)
+			if item_has_stock_ledger(item_code):
+				item.save(ignore_permissions=True)
+				ensure_block_item_traceability(item_code, brand=default_brand, throw_if_locked=False)
+			else:
+				apply_block_traceability(item, brand=default_brand)
+				item.save(ignore_permissions=True)
 			updated.append(item_code)
 			continue
 
@@ -233,7 +239,7 @@ def generate_block_items(docname, lengths_string=None):
 				"custom_width": width,
 				"custom_height": height,
 				"custom_cbm_value": volume_cbm,
-				**finished_good_traceability_defaults(brand=default_brand),
+				**block_traceability_defaults(brand=default_brand),
 			}
 		)
 		item.insert(ignore_permissions=True)

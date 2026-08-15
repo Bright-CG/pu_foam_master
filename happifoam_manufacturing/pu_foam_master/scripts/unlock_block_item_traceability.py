@@ -1,10 +1,10 @@
 # Copyright (c) 2026, PU Foam Master and contributors
 # For license information, please see license.txt
 
-"""One-off: unlock foam block Items so Batch + Serial can be enabled.
+"""One-off: unlock foam block Items so Batch tracking can be enabled.
 
 Cancels the production-doc → Stock Entry chain that locks block Items missing
-Has Batch No / Has Serial No, then enables those flags.
+Has Batch No, then enables Batch-only flags (has_serial_no = 0).
 
 Order: cancel parent production docs first (they own the SE links), then any
 leftover Stock Entries. Negative-stock / batch validators are relaxed for this
@@ -21,7 +21,7 @@ import frappe
 from frappe.utils import cint
 
 from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
-	apply_finished_good_traceability,
+	apply_block_traceability,
 	item_has_stock_ledger,
 )
 
@@ -38,10 +38,10 @@ SE_PARENT_LINKS = (
 
 
 def unlock_block_items():
-	"""Cancel locking vouchers and enable Batch/Serial on foam block Items."""
+	"""Cancel locking vouchers and enable Batch-only tracking on foam block Items."""
 	broken_items = _find_broken_block_items()
 	if not broken_items:
-		msg = "No foam block Items missing Batch/Serial flags."
+		msg = "No foam block Items missing Batch flags or still serial-tracked."
 		print(msg)
 		return {
 			"cancelled_parents": [],
@@ -51,7 +51,7 @@ def unlock_block_items():
 		}
 
 	print(
-		f"Found {len(broken_items)} block Item(s) missing Batch/Serial: "
+		f"Found {len(broken_items)} block Item(s) needing Batch-only flags: "
 		f"{', '.join(broken_items)}"
 	)
 
@@ -116,11 +116,11 @@ def unlock_block_items():
 			print(f"  SKIP {item_code}: still has active SLE after cancel.")
 			continue
 		item = frappe.get_doc("Item", item_code)
-		apply_finished_good_traceability(item)
+		apply_block_traceability(item)
 		item.save(ignore_permissions=True)
 		updated_items.append(item_code)
 		print(
-			f"  Updated Item {item_code}: has_batch_no=1, has_serial_no=1, create_new_batch=1"
+			f"  Updated Item {item_code}: has_batch_no=1, has_serial_no=0, create_new_batch=1"
 		)
 
 	frappe.db.commit()
@@ -159,13 +159,13 @@ def _find_broken_block_items():
 	broken_items = frappe.get_all(
 		"Item",
 		filters={"disabled": 0, "name": ["like", "% Block"]},
-		or_filters={"has_batch_no": 0, "has_serial_no": 0},
+		or_filters={"has_batch_no": 0, "has_serial_no": 1},
 		pluck="name",
 	)
 	legacy = frappe.get_all(
 		"Item",
 		filters={"disabled": 0, "name": ["like", "% by % Block"]},
-		or_filters={"has_batch_no": 0, "has_serial_no": 0},
+		or_filters={"has_batch_no": 0, "has_serial_no": 1},
 		pluck="name",
 	)
 	broken_items = sorted(set(broken_items) | set(legacy))
