@@ -12,6 +12,7 @@ __pycache__/
 .idea/
 *.egg-info/
 .cursor/
+.coa_venv/
 
 # User requested exclusions
 *.docx
@@ -20,6 +21,8 @@ __pycache__/
 *.jpeg
 *.rtf
 command.txt
+Account.csv
+Clean_Account.csv
 
 # Backups
 *_backup*
