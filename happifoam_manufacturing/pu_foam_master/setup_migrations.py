@@ -202,3 +202,172 @@ def disable_foam_block_serials():
 		)
 	else:
 		print("[setup_migrations] Foam block Items already Batch-only.")
+
+
+def disable_foam_core_serials():
+	"""Mattress cores are Batch-only WIP. Clear Has Serial No; keep finished mattress serials."""
+	from frappe.utils import cint
+
+	from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
+		DEFAULT_BATCH_NUMBER_SERIES,
+		list_foam_core_item_codes,
+	)
+
+	updated = []
+	for item_code in list_foam_core_item_codes():
+		has_serial = cint(frappe.db.get_value("Item", item_code, "has_serial_no"))
+		has_batch = cint(frappe.db.get_value("Item", item_code, "has_batch_no"))
+		create_new = cint(frappe.db.get_value("Item", item_code, "create_new_batch"))
+		series = frappe.db.get_value("Item", item_code, "batch_number_series") or ""
+		if not has_serial and has_batch and create_new and series.strip():
+			continue
+		values = {
+			"has_serial_no": 0,
+			"has_batch_no": 1,
+			"create_new_batch": 1,
+		}
+		if not str(series).strip():
+			values["batch_number_series"] = DEFAULT_BATCH_NUMBER_SERIES
+		frappe.db.set_value("Item", item_code, values, update_modified=False)
+		updated.append(item_code)
+
+	if updated:
+		# Orphan Serial No masters from earlier conversion tests; stock stays on the batch.
+		for item_code in updated:
+			frappe.db.sql(
+				"""
+				UPDATE `tabSerial No`
+				SET status = 'Inactive'
+				WHERE item_code = %s
+					AND IFNULL(status, '') != 'Inactive'
+				""",
+				(item_code,),
+			)
+		frappe.db.commit()
+		print(
+			f"[setup_migrations] Disabled serials on {len(updated)} mattress core Item(s): "
+			+ ", ".join(updated)
+		)
+	else:
+		print("[setup_migrations] Mattress core Items already Batch-only.")
+
+
+def backfill_mattress_item_brand_and_finish():
+	"""Stamp Item.brand and custom_finish_type from current names (one-time / idempotent)."""
+	import re
+
+	from pu_foam_master.custom_fields import ensure_item_custom_fields
+
+	ensure_item_custom_fields()
+	frappe.clear_cache()
+
+	size_re = re.compile(
+		r"^(.+?)-(\d+(?:\.\d+)?x\d+(?:\.\d+)?x\d+(?:\.\d+)?)(.*)$",
+		re.IGNORECASE,
+	)
+	suffix_map = (
+		("-PLAIN", "Plain"),
+		("-SQ", "Side Quilted"),
+		("-FQ", "Fully Quilted"),
+	)
+
+	def infer_finish(name):
+		upper = (name or "").upper()
+		for suffix, label in suffix_map:
+			if upper.endswith(suffix):
+				return label
+		return None
+
+	def infer_brand(name):
+		match = size_re.match(name or "")
+		token = match.group(1) if match else None
+		if not token and (name or "").upper().startswith("MAT-"):
+			parts = name.split("-")
+			token = parts[1] if len(parts) >= 3 else None
+		if not token:
+			return None
+		if frappe.db.exists("Brand", token):
+			return token
+		spaced = token.replace("-", " ")
+		if frappe.db.exists("Brand", spaced):
+			return spaced
+		return None
+
+	updated = 0
+	items = frappe.get_all(
+		"Item",
+		filters={"disabled": 0},
+		fields=["name", "brand", "custom_finish_type", "item_group"],
+	)
+	for item in items:
+		values = {}
+		finish = infer_finish(item.name)
+		if finish and not (item.custom_finish_type or "").strip():
+			values["custom_finish_type"] = finish
+		if not item.brand:
+			brand = infer_brand(item.name)
+			if brand:
+				values["brand"] = brand
+		if not values:
+			continue
+		frappe.db.set_value("Item", item.name, values, update_modified=False)
+		updated += 1
+
+	if updated:
+		frappe.db.commit()
+		print(
+			f"[setup_migrations] Stamped brand/finish type on {updated} Item(s)."
+		)
+	else:
+		print("[setup_migrations] Mattress Item brand/finish type already populated.")
+
+
+def ensure_labels_item_group():
+	"""Ensure Item Group 'Labels' exists; move Settings default label Item into it if set."""
+	parent = "All Item Groups"
+	if not frappe.db.exists("Item Group", parent):
+		frappe.get_doc(
+			{
+				"doctype": "Item Group",
+				"item_group_name": parent,
+				"is_group": 1,
+			}
+		).insert(ignore_permissions=True)
+
+	if not frappe.db.exists("Item Group", "Labels"):
+		frappe.get_doc(
+			{
+				"doctype": "Item Group",
+				"item_group_name": "Labels",
+				"parent_item_group": parent,
+				"is_group": 0,
+			}
+		).insert(ignore_permissions=True)
+		print("[setup_migrations] Created Item Group 'Labels'.")
+	else:
+		print("[setup_migrations] Item Group 'Labels' already exists.")
+
+	default_label = frappe.db.get_single_value(
+		"Pufm Manufacturing Settings", "default_label_item"
+	)
+	if default_label and frappe.db.exists("Item", default_label):
+		current_group = frappe.db.get_value("Item", default_label, "item_group")
+		if current_group != "Labels":
+			frappe.db.set_value(
+				"Item", default_label, "item_group", "Labels", update_modified=False
+			)
+			print(
+				f"[setup_migrations] Moved default label Item '{default_label}' "
+				f"from '{current_group}' to 'Labels'."
+			)
+
+	frappe.db.commit()
+
+
+def repair_job_order_workflow_statuses():
+	"""Recompute Job Order workflow_status from linked conversion/assembly docs."""
+	from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (
+		repair_job_order_workflow_status,
+	)
+
+	repair_job_order_workflow_status()

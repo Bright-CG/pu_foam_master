@@ -30,6 +30,14 @@ def ensure_item_custom_fields():
 				"read_only": 1,
 				"insert_after": "custom_length",
 			},
+			{
+				"fieldname": "custom_finish_type",
+				"label": "Finish Type",
+				"fieldtype": "Select",
+				"options": "\nPlain\nFully Quilted\nSide Quilted",
+				"insert_after": "custom_cbm_value",
+				"description": "Mattress cover style. Used by assembly; do not infer from the Item name.",
+			},
 		]
 	}
 	create_custom_fields(item_fields, update=True)

@@ -5,6 +5,12 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import cint, flt
 
+from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
+	apply_manual_rate,
+	balance_stock_entry_targets,
+	get_stock_valuation_rate,
+)
+
 
 class QuiltingRecord(Document):
 	def validate(self):
@@ -54,7 +60,6 @@ class QuiltingRecord(Document):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
 		rate = flt(getattr(settings, "total_quilting_rate_per_m", 0) or 0)
 		if not rate:
-			# Fallback if total not yet saved: sum components
 			rate = (
 				flt(settings.gum_cost_per_m)
 				+ flt(settings.thread_cost_per_m_quilt)
@@ -67,12 +72,35 @@ class QuiltingRecord(Document):
 		absorption_account = getattr(settings, "quilting_absorption_account", None)
 		return overhead_cost, depreciation_cost, absorption_account
 
+	def _input_rates(self):
+		"""Outgoing rates from the warehouse each input actually issues from."""
+		rates = {}
+		for row in self.inputs:
+			rate = get_stock_valuation_rate(
+				row.item_code,
+				warehouse=row.source_warehouse,
+				batch_no=row.batch_no,
+			)
+			if rate <= 0:
+				frappe.throw(
+					"Valuation rate missing for quilting input {0} in warehouse {1} "
+					"(batch {2}). Receive / revalue stock before submitting.".format(
+						row.item_code, row.source_warehouse, row.batch_no or "—"
+					)
+				)
+			rates[row.idx] = rate
+		return rates
+
 	def _calculate_total_cost(self):
 		overhead_cost, depreciation_cost, _ = self._get_quilting_overhead()
-		input_cost = 0
+		input_cost = 0.0
 		for row in self.inputs:
-			valuation_rate = _get_batch_valuation_rate(row.batch_no)
-			input_cost += flt(row.qty) * valuation_rate
+			rate = get_stock_valuation_rate(
+				row.item_code,
+				warehouse=row.source_warehouse,
+				batch_no=row.batch_no,
+			)
+			input_cost += flt(row.qty) * rate
 		return input_cost + overhead_cost + depreciation_cost
 
 	def _create_manufacture_stock_entry(self):
@@ -83,15 +111,11 @@ class QuiltingRecord(Document):
 				"to post quilting overhead."
 			)
 
-		input_cost = 0.0
-		source_rates = {}
-		for row in self.inputs:
-			rate = _get_batch_valuation_rate(row.batch_no)
-			source_rates[row.idx] = rate
-			input_cost += flt(row.qty) * rate
-
+		source_rates = self._input_rates()
+		input_cost = sum(flt(row.qty) * flt(source_rates[row.idx]) for row in self.inputs)
 		output_qty = flt(self.output_qty_meters)
-		unit_rate = (input_cost / output_qty) if output_qty else 0
+		# Materials only in basic rate; overhead via additional_costs then balance absorbs both.
+		material_unit_rate = (input_cost / output_qty) if output_qty else 0
 
 		fg_batch = self._ensure_output_batch(self.finished_item)
 
@@ -124,23 +148,18 @@ class QuiltingRecord(Document):
 		for row in self.inputs:
 			item_doc = frappe.get_cached_doc("Item", row.item_code)
 			valuation_rate = flt(source_rates.get(row.idx))
-			entry.append(
-				"items",
-				{
-					"item_code": row.item_code,
-					"s_warehouse": row.source_warehouse,
-					"qty": flt(row.qty),
-					"batch_no": row.batch_no,
-					"uom": item_doc.stock_uom,
-					"stock_uom": item_doc.stock_uom,
-					"conversion_factor": 1,
-					"basic_rate": valuation_rate,
-					"valuation_rate": valuation_rate,
-					"set_basic_rate_manually": 1,
-					"allow_zero_valuation_rate": 1 if valuation_rate <= 0 else 0,
-					"use_serial_batch_fields": 1,
-				},
-			)
+			se_row = {
+				"item_code": row.item_code,
+				"s_warehouse": row.source_warehouse,
+				"qty": flt(row.qty),
+				"batch_no": row.batch_no,
+				"uom": item_doc.stock_uom,
+				"stock_uom": item_doc.stock_uom,
+				"conversion_factor": 1,
+				"use_serial_batch_fields": 1,
+			}
+			apply_manual_rate(se_row, valuation_rate)
+			entry.append("items", se_row)
 
 		finished_doc = frappe.get_cached_doc("Item", self.finished_item)
 		fg_row = {
@@ -150,15 +169,14 @@ class QuiltingRecord(Document):
 			"uom": finished_doc.stock_uom or "Meter",
 			"stock_uom": finished_doc.stock_uom or "Meter",
 			"conversion_factor": 1,
-			"basic_rate": unit_rate,
-			"valuation_rate": unit_rate,
-			"set_basic_rate_manually": 1,
-			"allow_zero_valuation_rate": 1 if unit_rate <= 0 else 0,
 			"is_finished_item": 1,
 		}
+		apply_manual_rate(fg_row, material_unit_rate)
 		if cint(finished_doc.has_batch_no):
 			fg_row["batch_no"] = fg_batch
 		entry.append("items", fg_row)
+
+		balance_stock_entry_targets(entry, context="Quilting Record {0}".format(self.name))
 
 		entry.insert(ignore_permissions=True)
 		entry.submit()
@@ -175,25 +193,3 @@ class QuiltingRecord(Document):
 			new_batch.reference_name = self.name
 			new_batch.insert(ignore_permissions=True)
 		return batch_id
-
-
-def _get_batch_valuation_rate(batch_no):
-	if not batch_no:
-		return 0
-
-	meta = frappe.get_meta("Batch")
-	if meta.has_field("valuation_rate"):
-		return flt(frappe.db.get_value("Batch", batch_no, "valuation_rate"))
-
-	row = frappe.db.sql(
-		"""
-		SELECT valuation_rate
-		FROM `tabStock Ledger Entry`
-		WHERE batch_no = %s
-		ORDER BY posting_date DESC, posting_time DESC, creation DESC
-		LIMIT 1
-		""",
-		(batch_no,),
-		as_dict=True,
-	)
-	return flt(row[0].valuation_rate) if row else 0

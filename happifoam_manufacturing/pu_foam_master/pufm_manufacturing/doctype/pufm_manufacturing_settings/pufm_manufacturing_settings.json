@@ -39,6 +39,9 @@
         "mattress_consumable_rates",
         "fabric_waste_factor",
         "mattress_depreciation_per_pc",
+        "column_break_mattress",
+        "mattress_labour_per_pc",
+        "mattress_labour_absorption_account",
         "sales_to_production_routing_section",
         "route_to_job_order_group",
         "route_to_material_request_group",
@@ -169,6 +172,7 @@
             "options": "Item"
         },
         {
+            "description": "Optional. Prefills Label Item on new Mattress Production rows. Operators can change it per row (size / substitute). Actual consumption uses the row Label Item.",
             "fieldname": "default_label_item",
             "fieldtype": "Link",
             "label": "Default Label Item",
@@ -287,6 +291,24 @@
             "fieldname": "mattress_depreciation_per_pc",
             "fieldtype": "Currency",
             "label": "Mattress Depreciation per Piece"
+        },
+        {
+            "fieldname": "column_break_mattress",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "0",
+            "description": "Assembly labour absorbed per finished mattress piece. Multiplied by quantity on each production row.",
+            "fieldname": "mattress_labour_per_pc",
+            "fieldtype": "Currency",
+            "label": "Labor per Mattress"
+        },
+        {
+            "description": "Expense/absorption account posted as Stock Entry additional cost for assembly labour. Required when Labor per Mattress is greater than zero.",
+            "fieldname": "mattress_labour_absorption_account",
+            "fieldtype": "Link",
+            "label": "Mattress Labour Absorption Account",
+            "options": "Account"
         },
         {
             "fieldname": "sales_to_production_routing_section",
@@ -525,7 +547,7 @@
     "index_pages": [],
     "issingle": 1,
     "links": [],
-    "modified": "2026-08-05 00:40:00.000000",
+    "modified": "2026-08-16 20:15:00.000000",
     "modified_by": "Administrator",
     "module": "pufm_manufacturing",
     "name": "Pufm Manufacturing Settings",

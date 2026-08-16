@@ -8,13 +8,34 @@ from frappe.utils import cint, flt
 
 from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor
 
+WORKFLOW_PENDING_SLICING = "Pending Slicing"
+WORKFLOW_PENDING_ASSEMBLY = "Pending Assembly"
+WORKFLOW_COMPLETED = "Completed"
+ALLOWED_WORKFLOW_STATUSES = {
+	WORKFLOW_PENDING_SLICING,
+	WORKFLOW_PENDING_ASSEMBLY,
+	WORKFLOW_COMPLETED,
+}
+
 
 class PufmJobOrder(Document):
+	def before_insert(self):
+		# Always start at slicing. Duplicate/Amend must not carry advanced status.
+		self._reset_to_pending_slicing()
+
 	def validate(self):
 		if not self.order_type:
 			frappe.throw(_("Order Type is required."))
-		if not self.workflow_status:
-			self.workflow_status = "Pending Slicing"
+
+		# Draft / new: system state only — ignore list-filter or duplicate prefill.
+		if self.is_new() or self.docstatus == 0:
+			self._reset_to_pending_slicing()
+		elif not self.workflow_status:
+			self.workflow_status = WORKFLOW_PENDING_SLICING
+
+		# Sheetings never sit on Pending Assembly.
+		if self.order_type == "Sheetings" and self.workflow_status == WORKFLOW_PENDING_ASSEMBLY:
+			self.workflow_status = WORKFLOW_PENDING_SLICING
 
 		if self.order_type == "Mattress":
 			if not self.mattress_instructions:
@@ -26,6 +47,22 @@ class PufmJobOrder(Document):
 				frappe.throw(_("Add at least one Sheeting Instruction row."))
 			self.mattress_instructions = []
 			self._recalculate_sheeting_cbm()
+		else:
+			frappe.throw(_("Order Type must be Mattress or Sheetings."))
+
+	def on_submit(self):
+		# Submitted traveler always begins at Pending Slicing unless linked work already exists.
+		expected = expected_workflow_status(self.name, self.order_type)
+		if self.workflow_status != expected:
+			self.db_set("workflow_status", expected, update_modified=False)
+		if expected == WORKFLOW_PENDING_SLICING:
+			self.db_set("sliced_by", None, update_modified=False)
+			self.db_set("assembled_by", None, update_modified=False)
+
+	def _reset_to_pending_slicing(self):
+		self.workflow_status = WORKFLOW_PENDING_SLICING
+		self.sliced_by = None
+		self.assembled_by = None
 
 	def _validate_mattress_rows(self):
 		for row in self.get("mattress_instructions") or []:
@@ -124,15 +161,129 @@ def get_job_order_instructions_html(job_order):
 
 @frappe.whitelist()
 def sync_job_order_status(job_order, status):
-	"""Set workflow_status on a Job Order (used by production document hooks)."""
+	"""Set workflow_status from production document hooks (conversion / assembly)."""
 	if not job_order or not status:
 		return
 	if not frappe.db.exists("Pufm Job Order", job_order):
 		return
-	allowed = {"Pending Slicing", "Pending Assembly", "Completed"}
-	if status not in allowed:
+	if status not in ALLOWED_WORKFLOW_STATUSES:
 		frappe.throw(_("Invalid Job Order status: {0}").format(status))
+
+	order_type = frappe.db.get_value("Pufm Job Order", job_order, "order_type")
+
+	if status == WORKFLOW_PENDING_ASSEMBLY:
+		if order_type != "Mattress":
+			frappe.throw(
+				_("Pending Assembly is only valid for Mattress Job Orders (got {0}).").format(
+					order_type or _("blank")
+				)
+			)
+		if not _job_has_submitted_core_conversion(job_order):
+			frappe.throw(
+				_(
+					"Cannot set Job Order {0} to Pending Assembly without a submitted "
+					"Mattress Core Conversion."
+				).format(job_order)
+			)
+
+	if status == WORKFLOW_COMPLETED:
+		if order_type == "Mattress":
+			if not _job_has_submitted_assembly(job_order):
+				frappe.throw(
+					_(
+						"Cannot set Job Order {0} to Completed without a submitted "
+						"Mattress Production Entry."
+					).format(job_order)
+				)
+		elif order_type == "Sheetings":
+			if not _job_has_submitted_sheeting_conversion(job_order):
+				frappe.throw(
+					_(
+						"Cannot set Job Order {0} to Completed without a submitted "
+						"Pufm Sheeting Conversion."
+					).format(job_order)
+				)
+		else:
+			frappe.throw(_("Unknown Order Type on Job Order {0}.").format(job_order))
+
 	frappe.db.set_value("Pufm Job Order", job_order, "workflow_status", status, update_modified=True)
+
+
+def expected_workflow_status(job_order, order_type=None):
+	"""Derive status from submitted linked production docs (source of truth)."""
+	order_type = order_type or frappe.db.get_value("Pufm Job Order", job_order, "order_type")
+	if order_type == "Sheetings":
+		if _job_has_submitted_sheeting_conversion(job_order):
+			return WORKFLOW_COMPLETED
+		return WORKFLOW_PENDING_SLICING
+
+	# Mattress
+	if _job_has_submitted_assembly(job_order):
+		return WORKFLOW_COMPLETED
+	if _job_has_submitted_core_conversion(job_order):
+		return WORKFLOW_PENDING_ASSEMBLY
+	return WORKFLOW_PENDING_SLICING
+
+
+def _job_has_submitted_core_conversion(job_order):
+	return bool(
+		frappe.db.exists(
+			"Mattress Core Conversion",
+			{"job_order": job_order, "docstatus": 1},
+		)
+	)
+
+
+def _job_has_submitted_assembly(job_order):
+	return bool(
+		frappe.db.exists(
+			"Mattress Production Entry",
+			{"job_order": job_order, "docstatus": 1},
+		)
+	)
+
+
+def _job_has_submitted_sheeting_conversion(job_order):
+	return bool(
+		frappe.db.exists(
+			"Pufm Sheeting Conversion",
+			{"job_order": job_order, "docstatus": 1},
+		)
+	)
+
+
+def repair_job_order_workflow_status(job_order=None):
+	"""
+	Recompute workflow_status from linked production docs.
+	Mattress: slicing → assembly → completed.
+	Sheetings: slicing → completed (no assembly step).
+	"""
+	filters = {}
+	if job_order:
+		filters["name"] = job_order
+	names = frappe.get_all("Pufm Job Order", filters=filters, pluck="name")
+	fixed = []
+	for name in names:
+		doc = frappe.get_doc("Pufm Job Order", name)
+		expected = expected_workflow_status(name, doc.order_type)
+		if doc.workflow_status == expected:
+			continue
+
+		values = {"workflow_status": expected}
+		if expected == WORKFLOW_PENDING_SLICING:
+			values["sliced_by"] = None
+			values["assembled_by"] = None
+		elif expected == WORKFLOW_PENDING_ASSEMBLY:
+			values["assembled_by"] = None
+		frappe.db.set_value("Pufm Job Order", name, values, update_modified=True)
+		fixed.append("{0}: {1} -> {2}".format(name, doc.workflow_status, expected))
+
+	if fixed:
+		frappe.db.commit()
+		print("[pufm_job_order] Repaired workflow status:\n- " + "\n- ".join(fixed))
+	else:
+		print("[pufm_job_order] No Job Order workflow status repairs needed.")
+	return fixed
 
 
 @frappe.whitelist()

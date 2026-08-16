@@ -53,11 +53,14 @@ def generate_mattress_items(docname):
 
 	created_or_verified = []
 	brand_token = _resolve_brand_token(doc)
+	brand_link = _resolve_brand_link(doc)
 	for row in doc.sizes:
 		size = _format_size(row.width, row.length, row.height)
 		core_code = _branded_item_code(brand_token, size, core_suffix)
 
-		_ensure_item(core_code, safe_core_group, row)
+		_ensure_item(
+			core_code, safe_core_group, row, brand=brand_link, serial_tracked=False
+		)
 		row.core_item = core_code
 		created_or_verified.append(core_code)
 
@@ -65,8 +68,19 @@ def generate_mattress_items(docname):
 			plain_code = _branded_item_code(brand_token, size, plain_suffix)
 			sq_code = _branded_item_code(brand_token, size, sq_suffix)
 			fq_code = _branded_item_code(brand_token, size, fq_suffix)
-			for code in (plain_code, sq_code, fq_code):
-				_ensure_item(code, safe_mattress_group, row)
+			for code, finish_type in (
+				(plain_code, "Plain"),
+				(sq_code, "Side Quilted"),
+				(fq_code, "Fully Quilted"),
+			):
+				_ensure_item(
+					code,
+					safe_mattress_group,
+					row,
+					brand=brand_link,
+					finish_type=finish_type,
+					serial_tracked=True,
+				)
 				created_or_verified.append(code)
 			# Primary finished SKU shown on the size row is the Plain mattress
 			row.mattress_item = plain_code
@@ -81,6 +95,20 @@ def generate_mattress_items(docname):
 		"items": created_or_verified,
 		"brand": brand_token,
 	}
+
+
+def _resolve_brand_link(doc):
+	"""ERPNext Brand linked on generated Items (must exist as Brand)."""
+	if doc.density_configuration:
+		density_brand = frappe.db.get_value(
+			"Density Configuration", doc.density_configuration, "brand"
+		)
+		if density_brand and frappe.db.exists("Brand", density_brand):
+			return density_brand
+	brand = (doc.get("brand_name") or "").strip()
+	if brand and frappe.db.exists("Brand", brand):
+		return brand
+	return None
 
 
 def _resolve_brand_token(doc):
@@ -143,10 +171,14 @@ def get_or_create_item_group(group_name):
 	return group_name
 
 
-def _ensure_item(item_code, item_group, row):
+def _ensure_item(item_code, item_group, row, brand=None, finish_type=None, serial_tracked=True):
 	from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
+		apply_core_traceability,
 		apply_finished_good_traceability,
+		core_traceability_defaults,
+		ensure_core_item_traceability,
 		finished_good_traceability_defaults,
+		item_has_stock_ledger,
 	)
 
 	if frappe.db.exists("Item", item_code):
@@ -155,24 +187,44 @@ def _ensure_item(item_code, item_group, row):
 		item.custom_length = flt(row.length)
 		item.custom_height = flt(row.height)
 		item.custom_cbm_value = flt(row.unit_cbm)
-		apply_finished_good_traceability(item)
-		item.save(ignore_permissions=True)
+		if brand:
+			item.brand = brand
+		if finish_type:
+			item.custom_finish_type = finish_type
+		if serial_tracked:
+			if item_has_stock_ledger(item_code):
+				item.save(ignore_permissions=True)
+			else:
+				apply_finished_good_traceability(item, brand=brand)
+				item.save(ignore_permissions=True)
+		elif item_has_stock_ledger(item_code):
+			item.save(ignore_permissions=True)
+			ensure_core_item_traceability(item_code, brand=brand, throw_if_locked=False)
+		else:
+			apply_core_traceability(item, brand=brand)
+			item.save(ignore_permissions=True)
 		return
 
-	item = frappe.get_doc(
-		{
-			"doctype": "Item",
-			"item_code": item_code,
-			"item_name": item_code,
-			"item_group": item_group,
-			"stock_uom": "Nos",
-			"is_stock_item": 1,
-			"include_item_in_manufacturing": 1,
-			"custom_width": flt(row.width),
-			"custom_length": flt(row.length),
-			"custom_height": flt(row.height),
-			"custom_cbm_value": flt(row.unit_cbm),
-			**finished_good_traceability_defaults(),
-		}
+	defaults = (
+		finished_good_traceability_defaults(brand=brand)
+		if serial_tracked
+		else core_traceability_defaults(brand=brand)
 	)
+	payload = {
+		"doctype": "Item",
+		"item_code": item_code,
+		"item_name": item_code,
+		"item_group": item_group,
+		"stock_uom": "Nos",
+		"is_stock_item": 1,
+		"include_item_in_manufacturing": 1,
+		"custom_width": flt(row.width),
+		"custom_length": flt(row.length),
+		"custom_height": flt(row.height),
+		"custom_cbm_value": flt(row.unit_cbm),
+		**defaults,
+	}
+	if finish_type:
+		payload["custom_finish_type"] = finish_type
+	item = frappe.get_doc(payload)
 	item.insert(ignore_permissions=True)

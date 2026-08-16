@@ -6,14 +6,19 @@
  "engine": "InnoDB",
  "field_order": [
   "mattress_item",
+  "finish_type",
   "qty",
   "core_batch",
   "fabric_item",
   "fabric_batch",
+  "side_fabric_item",
+  "side_fabric_batch",
+  "label_item",
   "total_row_cost"
  ],
  "fields": [
   {
+   "columns": 2,
    "fieldname": "mattress_item",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -22,6 +27,15 @@
    "reqd": 1
   },
   {
+   "fetch_from": "mattress_item.custom_finish_type",
+   "fieldname": "finish_type",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Finish Type",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
    "fieldname": "qty",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -29,6 +43,7 @@
    "reqd": 1
   },
   {
+   "columns": 1,
    "fieldname": "core_batch",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -37,6 +52,8 @@
    "reqd": 1
   },
   {
+   "columns": 1,
+   "description": "Face cover. For Side Quilted this is the top/bottom fabric; for Plain and Fully Quilted it covers the whole mattress.",
    "fieldname": "fabric_item",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -45,6 +62,7 @@
    "reqd": 1
   },
   {
+   "columns": 1,
    "fieldname": "fabric_batch",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -53,16 +71,44 @@
    "reqd": 1
   },
   {
+   "columns": 1,
+   "depends_on": "eval:doc.finish_type==\"Side Quilted\"",
+   "description": "Quilted fabric for Side Quilted mattress sides. Leave empty for Plain and Fully Quilted.",
+   "fieldname": "side_fabric_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Side Fabric Item",
+   "options": "Item"
+  },
+  {
+   "columns": 1,
+   "depends_on": "eval:doc.finish_type==\"Side Quilted\"",
+   "fieldname": "side_fabric_batch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Side Fabric Batch",
+   "options": "Batch"
+  },
+  {
+   "columns": 2,
+   "description": "Physical label SKU used on this row (by size). Qty comes from Settings; stock is consumed FIFO from Raw Material Warehouse (no batch).",
+   "fieldname": "label_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Label Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
    "fieldname": "total_row_cost",
    "fieldtype": "Currency",
-   "in_list_view": 1,
    "label": "Total Row Cost",
    "read_only": 1
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-04-21 00:00:00.000000",
+ "modified": "2026-08-16 20:15:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Mattress Production Item",

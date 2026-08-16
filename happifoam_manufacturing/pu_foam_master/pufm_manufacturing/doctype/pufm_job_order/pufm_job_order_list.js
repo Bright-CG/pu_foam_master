@@ -5,10 +5,11 @@ frappe.listview_settings["Pufm Job Order"] = {
 	add_fields: ["workflow_status", "order_type"],
 	get_indicator(doc) {
 		if (cint(doc.docstatus) === 0) {
-			return [__("Draft"), "red", "docstatus,=,0"];
+			// No third-arg filter: values with spaces break list filters when clicked.
+			return [__("Draft"), "red"];
 		}
 		if (cint(doc.docstatus) === 2) {
-			return [__("Cancelled"), "red", "docstatus,=,2"];
+			return [__("Cancelled"), "gray"];
 		}
 
 		const colors = {
@@ -18,6 +19,7 @@ frappe.listview_settings["Pufm Job Order"] = {
 		};
 		const status = doc.workflow_status || "Pending Slicing";
 		const color = colors[status] || "gray";
-		return [__(status), color, "workflow_status,=," + status];
+		// Color only — use the standard filter bar for workflow_status (avoids empty lists).
+		return [__(status), color];
 	},
 };

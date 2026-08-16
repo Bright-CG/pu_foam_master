@@ -18,10 +18,12 @@
   "supervisor",
   "processed_by",
   "stock_entry",
+  "stock_entries",
   "amended_from",
   "job_instructions_sb",
   "fetch_job_instructions",
   "job_instructions_html",
+  "production_items_sb",
   "production_items"
  ],
  "fields": [
@@ -113,6 +115,14 @@
    "read_only": 1
   },
   {
+   "fieldname": "stock_entries",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Stock Entries",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
@@ -139,6 +149,11 @@
    "read_only": 1
   },
   {
+   "fieldname": "production_items_sb",
+   "fieldtype": "Section Break",
+   "label": "Production Items"
+  },
+  {
    "fieldname": "production_items",
    "fieldtype": "Table",
    "label": "Production Items",
@@ -148,7 +163,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-07-25 19:45:00.000000",
+ "modified": "2026-08-16 18:10:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Mattress Production Entry",

@@ -9,6 +9,7 @@ PUFM_ROLES = (
 	"PUFM Quilting",
 	"PUFM Assembly",
 	"PUFM Rebound",
+	"PUFM Brand Policy",
 )
 
 
@@ -56,6 +57,13 @@ def ensure_default_item_groups():
 		item_group.insert(ignore_permissions=True, ignore_if_duplicate=True)
 
 	frappe.db.commit()
+
+
+def ensure_labels_item_group():
+	"""Create the Labels Item Group used by mattress assembly label selection."""
+	from pu_foam_master.setup_migrations import ensure_labels_item_group as _ensure
+
+	_ensure()
 
 
 def ensure_standard_mattress_sizes():

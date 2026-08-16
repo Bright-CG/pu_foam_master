@@ -13,6 +13,11 @@ from pu_foam_master.pufm_manufacturing.utils.density_bom import (
 	resolve_warehouse_for_company,
 	warehouse_belongs_to_company,
 )
+from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
+	apply_manual_rate,
+	balance_stock_entry_targets,
+	get_stock_valuation_rate,
+)
 
 
 # workflow_state -> roles allowed to enter that state (status only; stock uses docstatus)
@@ -260,29 +265,23 @@ class PufmProductionBatch(Document):
 				scrap_output_rate=scrap_output_rate,
 			)
 
-			# --- Source chemicals ---
+			# --- Source chemicals (qty = Expected CBM × BOM; rate from issue warehouse) ---
 			for chem in costing["chemicals"]:
 				qty = flt(chem["qty"], PRECISION)
 				rate = flt(chem["rate"], PRECISION)
-				amount = flt(qty * rate, PRECISION)
 				if qty <= 0:
 					continue
-				entry.append(
-					"items",
-					{
-						"item_code": chem["item_code"],
-						"qty": qty,
-						"s_warehouse": wip_warehouse,
-						"uom": chem["uom"],
-						"stock_uom": chem["uom"],
-						"conversion_factor": 1,
-						"basic_rate": rate,
-						"valuation_rate": rate,
-						"allow_zero_valuation_rate": 0,
-						"set_basic_rate_manually": 1,
-					},
-				)
-				total_source_amount = flt(total_source_amount + amount, PRECISION)
+				chem_row = {
+					"item_code": chem["item_code"],
+					"qty": qty,
+					"s_warehouse": wip_warehouse,
+					"uom": chem["uom"],
+					"stock_uom": chem["uom"],
+					"conversion_factor": 1,
+				}
+				apply_manual_rate(chem_row, rate, precision=PRECISION)
+				entry.append("items", chem_row)
+				total_source_amount = flt(total_source_amount + chem_row["amount"], PRECISION)
 
 			# --- Additional operating cost ---
 			run_op_cost = flt(costing["run_op_cost"], PRECISION)
@@ -311,20 +310,14 @@ class PufmProductionBatch(Document):
 					frappe.throw(
 						_("Set Scrap Item in Pufm Manufacturing Settings to receive scrap by-product.")
 					)
-				scrap_amount = flt(scrap_qty * scrap_output_rate, PRECISION)
-				entry.append(
-					"items",
-					{
-						"item_code": scrap_item,
-						"qty": scrap_qty,
-						"t_warehouse": scrap_warehouse,
-						"basic_rate": scrap_output_rate,
-						"valuation_rate": scrap_output_rate,
-						"allow_zero_valuation_rate": 1 if scrap_output_rate <= 0 else 0,
-						"set_basic_rate_manually": 1,
-					},
-				)
-				total_target_amount = flt(total_target_amount + scrap_amount, PRECISION)
+				scrap_row = {
+					"item_code": scrap_item,
+					"qty": scrap_qty,
+					"t_warehouse": scrap_warehouse,
+				}
+				apply_manual_rate(scrap_row, scrap_output_rate, precision=PRECISION)
+				entry.append("items", scrap_row)
+				total_target_amount = flt(total_target_amount + scrap_row["amount"], PRECISION)
 
 			# --- Target finished blocks ---
 			target_wh = (run.target_warehouse or default_fg or "").strip()
@@ -360,43 +353,25 @@ class PufmProductionBatch(Document):
 
 				unit_cbm = flt(block["unit_cbm"], PRECISION)
 				block_unit_cost = flt(cost_per_cbm * unit_cbm, PRECISION)
-				block_amount = flt(block_unit_cost * qty, PRECISION)
-				row = {
+				block_row = {
 					"item_code": item_code,
 					"qty": qty,
 					"t_warehouse": target_wh,
-					"basic_rate": block_unit_cost,
-					"valuation_rate": block_unit_cost,
-					"amount": block_amount,
-					"allow_zero_valuation_rate": 1 if block_unit_cost <= 0 else 0,
-					"set_basic_rate_manually": 1,
 					"use_serial_batch_fields": 1,
 					"batch_no": batch_no,
 				}
-				entry.append("items", row)
-				total_target_amount = flt(total_target_amount + block_amount, PRECISION)
+				apply_manual_rate(block_row, block_unit_cost, precision=PRECISION)
+				entry.append("items", block_row)
+				total_target_amount = flt(total_target_amount + block_row["amount"], PRECISION)
 
 		if not entry.get("items"):
 			frappe.throw(_("Nothing to post — no chemicals or finished blocks found on Density Runs."))
 
-		# Enforce double-entry balance (within rounding tolerance)
-		left = flt(total_source_amount + total_additional, PRECISION)
-		right = flt(total_target_amount, PRECISION)
-		if abs(left - right) > 0.05:
-			# Absorb residual into last FG target row so ERPNext accepts the voucher
-			residual = flt(left - right, PRECISION)
-			for row in reversed(entry.items):
-				if row.t_warehouse and row.qty:
-					# Prefer block rows over scrap for residual
-					if scrap_item and row.item_code == scrap_item:
-						continue
-					new_amount = flt(flt(row.basic_rate) * flt(row.qty) + residual, PRECISION)
-					new_rate = flt(new_amount / flt(row.qty), PRECISION) if flt(row.qty) else 0
-					row.basic_rate = new_rate
-					row.valuation_rate = new_rate
-					row.amount = new_amount
-					total_target_amount = flt(total_target_amount + residual, PRECISION)
-					break
+		balance_stock_entry_targets(
+			entry,
+			scrap_item=scrap_item,
+			context="Production Batch {0}".format(self.name),
+		)
 
 		entry.insert(ignore_permissions=True)
 		entry.submit()
@@ -413,6 +388,7 @@ class PufmProductionBatch(Document):
 			},
 			update_modified=False,
 		)
+
 	def _ensure_block_item_traceability(self, item_code, default_brand=None):
 		"""Require Batch-only tracking on FG block Items before pouring posts stock."""
 		from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
@@ -497,7 +473,7 @@ class PufmProductionBatch(Document):
 			qty = flt(flt(bom_item.qty) * expected_cbm, PRECISION)
 			if qty <= 0:
 				continue
-			rate = _get_warehouse_valuation_rate(bom_item.item_code, wip_warehouse)
+			rate = get_stock_valuation_rate(bom_item.item_code, warehouse=wip_warehouse)
 			if rate <= 0:
 				frappe.throw(
 					_(
@@ -601,14 +577,7 @@ class PufmProductionBatch(Document):
 
 
 def _get_warehouse_valuation_rate(item_code, warehouse):
-	rate = flt(
-		frappe.db.get_value(
-			"Bin", {"item_code": item_code, "warehouse": warehouse}, "valuation_rate"
-		)
-	)
-	if rate > 0:
-		return rate
-	return flt(frappe.db.get_value("Item", item_code, "valuation_rate"))
+	return get_stock_valuation_rate(item_code, warehouse=warehouse)
 
 
 @frappe.whitelist()

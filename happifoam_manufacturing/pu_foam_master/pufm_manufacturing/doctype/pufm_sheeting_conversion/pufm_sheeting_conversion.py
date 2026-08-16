@@ -31,9 +31,21 @@ class PufmSheetingConversion(Document):
 			frappe.throw(_("Company is required."))
 		if not self.processed_by:
 			self.processed_by = frappe.session.user
+		self._validate_job_order_type()
 		if not self.sheeting_outputs:
 			frappe.throw(_("Add at least one Sheeting Output row."))
 		self._recalculate_output_cbm()
+
+	def _validate_job_order_type(self):
+		if not self.job_order:
+			return
+		order_type = frappe.db.get_value("Pufm Job Order", self.job_order, "order_type")
+		if order_type and order_type != "Sheetings":
+			frappe.throw(
+				_("Job Order {0} is type {1}. Sheeting Conversion only accepts Sheetings Job Orders.").format(
+					self.job_order, order_type
+				)
+			)
 
 	def on_submit(self):
 		self._create_scrap_material_receipt()

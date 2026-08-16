@@ -23,7 +23,14 @@ frappe.ui.form.on("Pufm Job Order", {
 			};
 		});
 	},
+	onload(frm) {
+		ensure_draft_pending_slicing(frm);
+	},
+	onload_post_render(frm) {
+		ensure_draft_pending_slicing(frm);
+	},
 	refresh(frm) {
+		ensure_draft_pending_slicing(frm);
 		frm.clear_custom_buttons();
 		// Only route from submitted Job Orders — prevents draft-stage duplicate starts
 		if (frm.is_new() || frm.doc.docstatus !== 1) {
@@ -61,6 +68,9 @@ frappe.ui.form.on("Pufm Job Order", {
 		}
 	},
 	order_type(frm) {
+		if (frm.doc.docstatus === 0) {
+			ensure_draft_pending_slicing(frm);
+		}
 		frm.refresh_fields();
 	},
 });
@@ -79,6 +89,22 @@ frappe.ui.form.on("Pufm Sheeting Instruction", {
 		recalc_sheeting_cbm(frm, cdt, cdn);
 	},
 });
+
+function ensure_draft_pending_slicing(frm) {
+	// Ignore list-filter / duplicate prefill of Pending Assembly or Completed on drafts.
+	if (frm.doc.docstatus !== 0) {
+		return;
+	}
+	if (frm.doc.workflow_status !== "Pending Slicing") {
+		frm.set_value("workflow_status", "Pending Slicing");
+	}
+	if (frm.doc.sliced_by) {
+		frm.set_value("sliced_by", null);
+	}
+	if (frm.doc.assembled_by) {
+		frm.set_value("assembled_by", null);
+	}
+}
 
 function recalc_sheeting_cbm(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];

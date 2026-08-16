@@ -3,8 +3,8 @@
 
 """Finished-good Item traceability defaults.
 
-Foam blocks are Batch-only (qty > 1 on conversion rows).
-Mattresses / cores keep Batch + Serial.
+Foam blocks and mattress cores are Batch-only (qty > 1 on conversion / assembly).
+Finished mattresses keep Batch + Serial (warranty).
 """
 
 from __future__ import annotations
@@ -19,10 +19,11 @@ DEFAULT_SERIAL_NO_SERIES = "S-.YYYY.-.#####"
 
 
 def apply_finished_good_traceability(item, brand=None):
-	"""Force Batch + Serial tracking on mattress / core Item docs.
+	"""Force Batch + Serial tracking on finished mattress Item docs.
 
 	Mutates ``item`` in place. Caller is responsible for insert/save.
-	Do not use this for foam blocks — use ``apply_block_traceability``.
+	Do not use this for foam blocks or cores — use ``apply_block_traceability``
+	/ ``apply_core_traceability``.
 	"""
 	item.has_batch_no = 1
 	item.create_new_batch = 1
@@ -54,6 +55,11 @@ def apply_block_traceability(item, brand=None):
 	return item
 
 
+def apply_core_traceability(item, brand=None):
+	"""Force Batch-only tracking on mattress core Items (no serials)."""
+	return apply_block_traceability(item, brand=brand)
+
+
 def finished_good_traceability_defaults(brand=None):
 	"""Dict suitable for ``frappe.get_doc({...})`` / ``doc.update(...)``."""
 	data = {
@@ -81,6 +87,11 @@ def block_traceability_defaults(brand=None):
 	return data
 
 
+def core_traceability_defaults(brand=None):
+	"""Batch-only defaults for generated mattress core Items."""
+	return block_traceability_defaults(brand=brand)
+
+
 def item_has_stock_ledger(item_code):
 	"""True when Item has non-cancelled SLE rows (locks Has Batch/Serial No)."""
 	if not item_code:
@@ -101,6 +112,17 @@ def is_foam_block_item(item_code):
 	if "BASE-FOAM-M3" in name:
 		return False
 	return name.endswith(" Block") or (" by " in name and name.endswith("Block"))
+
+
+def is_foam_core_item(item_code):
+	"""True for generated mattress core SKUs (…-CORE or legacy CORE-…)."""
+	if not item_code:
+		return False
+	name = str(item_code)
+	if name.endswith(" Block"):
+		return False
+	upper = name.upper()
+	return upper.endswith("-CORE") or upper.startswith("CORE-")
 
 
 def ensure_item_finished_good_traceability(item_code, brand=None, throw_if_locked=True):
@@ -173,6 +195,13 @@ def ensure_block_item_traceability(item_code, brand=None, throw_if_locked=True):
 	return item
 
 
+def ensure_core_item_traceability(item_code, brand=None, throw_if_locked=True):
+	"""Ensure mattress core Item is Batch-only (has_serial_no = 0)."""
+	return ensure_block_item_traceability(
+		item_code, brand=brand, throw_if_locked=throw_if_locked
+	)
+
+
 def list_foam_block_item_codes():
 	"""Active Item names that look like generated foam blocks."""
 	names = frappe.get_all(
@@ -186,4 +215,26 @@ def list_foam_block_item_codes():
 		pluck="name",
 	)
 	return sorted({n for n in (names + legacy) if is_foam_block_item(n)})
+
+
+def list_foam_core_item_codes():
+	"""Active Item names that look like generated mattress cores."""
+	by_suffix = frappe.get_all(
+		"Item",
+		filters={"disabled": 0, "name": ["like", "%-CORE"]},
+		pluck="name",
+	)
+	legacy = frappe.get_all(
+		"Item",
+		filters={"disabled": 0, "name": ["like", "CORE-%"]},
+		pluck="name",
+	)
+	by_group = []
+	if frappe.db.exists("Item Group", "Foam Cores"):
+		by_group = frappe.get_all(
+			"Item",
+			filters={"disabled": 0, "item_group": "Foam Cores"},
+			pluck="name",
+		)
+	return sorted({n for n in (by_suffix + legacy + by_group) if is_foam_core_item(n)})
 

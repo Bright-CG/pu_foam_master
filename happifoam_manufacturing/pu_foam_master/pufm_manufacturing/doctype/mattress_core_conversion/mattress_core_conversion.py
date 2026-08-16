@@ -3,6 +3,12 @@ from frappe.model.document import Document
 from frappe.model.naming import make_autoname
 from frappe.utils import cint, flt
 
+from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
+	apply_manual_rate,
+	balance_stock_entry_targets,
+	get_stock_valuation_rate,
+)
+
 
 class MattressCoreConversion(Document):
 	def autoname(self):
@@ -11,9 +17,21 @@ class MattressCoreConversion(Document):
 	def validate(self):
 		if not self.processed_by:
 			self.processed_by = frappe.session.user
+		self._validate_job_order_type()
 		self._set_conversion_rate()
 		self._recalculate_totals()
 		self._validate_rows()
+
+	def _validate_job_order_type(self):
+		if not self.job_order:
+			return
+		order_type = frappe.db.get_value("Pufm Job Order", self.job_order, "order_type")
+		if order_type and order_type != "Mattress":
+			frappe.throw(
+				"Job Order {0} is type {1}. Mattress Core Conversion only accepts Mattress Job Orders.".format(
+					self.job_order, order_type
+				)
+			)
 
 	def on_submit(self):
 		self._create_repack_stock_entry()
@@ -163,18 +181,21 @@ class MattressCoreConversion(Document):
 				"to post conversion overhead."
 			)
 
-		# --- Step 1: Source block value ---
+		# --- Step 1: Source block value (rate from each row's issue warehouse) ---
 		total_input_cost = 0.0
 		source_rates = {}
 		for row in input_rows:
-			source_rate = flt(
-				frappe.db.get_value(
-					"Bin",
-					{"item_code": row.item_code, "warehouse": row.source_warehouse},
-					"valuation_rate",
-				)
-				or 0.0
+			source_rate = get_stock_valuation_rate(
+				row.item_code,
+				warehouse=row.source_warehouse,
+				batch_no=row.batch_no,
 			)
+			if source_rate <= 0:
+				frappe.throw(
+					"Valuation rate missing for block {0} in warehouse {1} (batch {2}).".format(
+						row.item_code, row.source_warehouse, row.batch_no or "—"
+					)
+				)
 			source_rates[row.idx] = source_rate
 			total_input_cost = flt(total_input_cost + (flt(row.qty) * source_rate), PRECISION)
 
@@ -203,7 +224,7 @@ class MattressCoreConversion(Document):
 				},
 			)
 
-		# --- Step 3A: Source rows (blocks) — map batch from input table ---
+		# --- Step 3A: Source rows (blocks) ---
 		for row in input_rows:
 			item_doc = frappe.get_cached_doc("Item", row.item_code)
 			source_rate = flt(source_rates.get(row.idx), PRECISION)
@@ -214,13 +235,10 @@ class MattressCoreConversion(Document):
 				"uom": item_doc.stock_uom,
 				"stock_uom": item_doc.stock_uom,
 				"conversion_factor": 1,
-				"basic_rate": source_rate,
-				"valuation_rate": source_rate,
-				"set_basic_rate_manually": 1,
-				"allow_zero_valuation_rate": 1 if source_rate <= 0 else 0,
 				"use_serial_batch_fields": 1,
 				"batch_no": row.batch_no,
 			}
+			apply_manual_rate(source_row, source_rate, precision=PRECISION)
 			entry.append("items", source_row)
 
 		# --- Step 3B: Target scrap ---
@@ -230,24 +248,18 @@ class MattressCoreConversion(Document):
 					"Please set Scrap Item and Default Scrap Warehouse in Pufm Manufacturing Settings."
 				)
 			scrap_doc = frappe.get_cached_doc("Item", scrap_item)
-			entry.append(
-				"items",
-				{
-					"item_code": scrap_item,
-					"qty": flt(self.scrap_weight),
-					"t_warehouse": scrap_warehouse,
-					"uom": scrap_doc.stock_uom,
-					"stock_uom": scrap_doc.stock_uom,
-					"conversion_factor": 1,
-					"basic_rate": scrap_output_rate,
-					"valuation_rate": scrap_output_rate,
-					"set_basic_rate_manually": 1,
-					"allow_zero_valuation_rate": 1 if scrap_output_rate <= 0 else 0,
-				},
-			)
+			scrap_row = {
+				"item_code": scrap_item,
+				"qty": flt(self.scrap_weight),
+				"t_warehouse": scrap_warehouse,
+				"uom": scrap_doc.stock_uom,
+				"stock_uom": scrap_doc.stock_uom,
+				"conversion_factor": 1,
+			}
+			apply_manual_rate(scrap_row, scrap_output_rate, precision=PRECISION)
+			entry.append("items", scrap_row)
 
-		# --- Step 3C: Target cores / sheets (CBM apportionment + batch/serial) ---
-		total_target_amount = 0.0
+		# --- Step 3C: Target cores / sheets ---
 		for row in output_rows:
 			item_doc = frappe.get_cached_doc("Item", row.item_code)
 			qty = flt(row.qty)
@@ -255,7 +267,6 @@ class MattressCoreConversion(Document):
 				continue
 
 			has_serial = cint(frappe.db.get_value("Item", row.item_code, "has_serial_no"))
-			# Discrete serialized items need whole qty; continuous sheets (Meter) may be fractional
 			if has_serial:
 				serial_qty = cint(qty)
 				if serial_qty <= 0 or abs(qty - serial_qty) > 0.0001:
@@ -270,9 +281,6 @@ class MattressCoreConversion(Document):
 				serial_string = self._build_output_serials(batch_id, cint(qty))
 
 			core_unit_cost = flt(cost_per_cbm * flt(row.unit_cbm), PRECISION)
-			amount = flt(core_unit_cost * qty, PRECISION)
-			total_target_amount = flt(total_target_amount + amount, PRECISION)
-
 			target_row = {
 				"item_code": row.item_code,
 				"qty": qty,
@@ -280,36 +288,20 @@ class MattressCoreConversion(Document):
 				"uom": row.uom or item_doc.stock_uom,
 				"stock_uom": item_doc.stock_uom,
 				"conversion_factor": 1,
-				"basic_rate": core_unit_cost,
-				"valuation_rate": core_unit_cost,
-				"amount": amount,
-				"set_basic_rate_manually": 1,
-				"allow_zero_valuation_rate": 1 if core_unit_cost <= 0 else 0,
 				"use_serial_batch_fields": 1,
 				"batch_no": batch_id,
 			}
+			apply_manual_rate(target_row, core_unit_cost, precision=PRECISION)
 			if serial_string:
 				target_row["serial_no"] = serial_string
 
 			entry.append("items", target_row)
 
-		# Absorb residual rounding so Input Cost + Conversion = Output Cores + Scrap
-		left = flt(total_input_cost + conversion_cost, PRECISION)
-		right = flt(total_target_amount + scrap_value, PRECISION)
-		residual = flt(left - right, PRECISION)
-		if abs(residual) > 0.00001:
-			for se_row in reversed(entry.items):
-				if (
-					se_row.t_warehouse
-					and flt(se_row.qty)
-					and (not scrap_item or se_row.item_code != scrap_item)
-				):
-					new_amount = flt(flt(se_row.basic_rate) * flt(se_row.qty) + residual, PRECISION)
-					new_rate = flt(new_amount / flt(se_row.qty), PRECISION)
-					se_row.basic_rate = new_rate
-					se_row.valuation_rate = new_rate
-					se_row.amount = new_amount
-					break
+		balance_stock_entry_targets(
+			entry,
+			scrap_item=scrap_item,
+			context="Mattress Core Conversion {0}".format(self.name),
+		)
 
 		entry.insert(ignore_permissions=True)
 		entry.submit()

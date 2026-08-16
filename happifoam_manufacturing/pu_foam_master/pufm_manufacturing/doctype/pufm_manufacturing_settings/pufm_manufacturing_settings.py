@@ -35,7 +35,6 @@ _REQUIRED_CORE_FIELDS = (
 	("default_tape_edge_item", "Default Tape Edge Item"),
 	("default_pvc_nylon_item", "Default PVC/Nylon Item"),
 	("default_thread_item", "Default Thread Item"),
-	("default_label_item", "Default Label Item"),
 	("rebate_expense_account", "Rebate Expense Account"),
 	("labour_absorption_account", "Labour Absorption Account"),
 	("conversion_absorption_account", "Conversion Absorption Account"),
@@ -59,6 +58,7 @@ class PufmManufacturingSettings(Document):
 		self._validate_required_operational_fields()
 		self._validate_warehouse_companies()
 		self._validate_rebate_account_type()
+		self._validate_mattress_labour_absorption()
 
 	def _validate_required_operational_fields(self):
 		missing = [label for field, label in _REQUIRED_CORE_FIELDS if not self.get(field)]
@@ -100,6 +100,22 @@ class PufmManufacturingSettings(Document):
 		if root_type and root_type != "Expense":
 			frappe.throw(
 				_("Rebate Expense Account must be an Expense account."),
+				frappe.ValidationError,
+			)
+
+	def _validate_mattress_labour_absorption(self):
+		if flt(self.mattress_labour_per_pc) > 0 and not self.mattress_labour_absorption_account:
+			frappe.throw(
+				_("Set Mattress Labour Absorption Account when Labor per Mattress is greater than zero."),
+				frappe.ValidationError,
+			)
+		account = self.mattress_labour_absorption_account
+		if not account:
+			return
+		root_type = frappe.db.get_value("Account", account, "root_type")
+		if root_type and root_type != "Expense":
+			frappe.throw(
+				_("Mattress Labour Absorption Account must be an Expense account."),
 				frappe.ValidationError,
 			)
 

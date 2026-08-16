@@ -6,13 +6,19 @@ from frappe.model.document import Document
 from frappe.utils import cint, flt, nowdate
 
 from pu_foam_master.pufm_manufacturing.utils.settings import get_formula_factor
+from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
+	apply_manual_rate,
+	balance_stock_entry_targets,
+	get_stock_valuation_rate,
+)
 
 CONSUMABLE_SETTINGS = (
 	("default_tape_edge_item", "Default Tape Edge Item"),
 	("default_pvc_nylon_item", "Default PVC/Nylon Item"),
 	("default_thread_item", "Default Thread Item"),
-	("default_label_item", "Default Label Item"),
 )
+
+LABEL_ITEM_GROUP = "Labels"
 
 
 class MattressProductionEntry(Document):
@@ -25,25 +31,52 @@ class MattressProductionEntry(Document):
 			frappe.throw("Source/WIP Warehouse is required.")
 		if not self.target_warehouse:
 			frappe.throw("Target/FG Warehouse is required.")
-		self._calculate_rows()
+		self._validate_job_order_type()
+		if self._action == "submit":
+			self._preflight_all_rows_before_posting()
+		else:
+			self._throw_if_errors(self._collect_row_field_errors())
+			self._calculate_rows()
+
+	def _validate_job_order_type(self):
+		if not self.job_order:
+			return
+		order_type = frappe.db.get_value("Pufm Job Order", self.job_order, "order_type")
+		if order_type and order_type != "Mattress":
+			frappe.throw(
+				"Job Order {0} is type {1}. Mattress Production only accepts Mattress Job Orders.".format(
+					self.job_order, order_type
+				)
+			)
 
 	def before_submit(self):
-		self._calculate_rows()
-		_require_mattress_consumable_settings()
+		self._preflight_all_rows_before_posting()
 
 	def on_submit(self):
-		entry = self._create_manufacture_stock_entry()
-		self.db_set("stock_entry", entry.name, update_modified=False)
+		entries = self._create_manufacture_stock_entries()
+		self.db_set("stock_entry", entries[0] if entries else None, update_modified=False)
+		self.db_set("stock_entries", ",".join(entries), update_modified=False)
 		self._sync_job_order_on_submit()
 		self._sync_job_order_operator(self.processed_by)
 
 	def on_cancel(self):
-		if self.stock_entry and frappe.db.exists("Stock Entry", self.stock_entry):
-			se = frappe.get_doc("Stock Entry", self.stock_entry)
-			if se.docstatus == 1:
-				se.cancel()
+		for se_name in self._linked_stock_entry_names():
+			if frappe.db.exists("Stock Entry", se_name):
+				se = frappe.get_doc("Stock Entry", se_name)
+				if se.docstatus == 1:
+					se.cancel()
 		self._sync_job_order_on_cancel()
 		self._sync_job_order_operator(None)
+
+	def _linked_stock_entry_names(self):
+		names = []
+		for raw in (self.get("stock_entries") or "").split(","):
+			name = raw.strip()
+			if name and name not in names:
+				names.append(name)
+		if self.stock_entry and self.stock_entry not in names:
+			names.append(self.stock_entry)
+		return names
 
 	def _sync_job_order_operator(self, user):
 		if not self.job_order:
@@ -74,147 +107,219 @@ class MattressProductionEntry(Document):
 
 		sync_job_order_status(self.job_order, "Pending Assembly")
 
+	def _collect_row_field_errors(self):
+		errors = []
+		for row in self.production_items or []:
+			row.finish_type = _row_finish_type(row)
+			errors.extend(_row_field_errors(row))
+		return errors
+
+	def _preflight_all_rows_before_posting(self):
+		"""Validate every row (and settings) before any Stock Entry is created."""
+		if not self.production_items:
+			frappe.throw("Add at least one Production Item row before submitting.")
+
+		settings = frappe.get_single("Pufm Manufacturing Settings")
+		field_errors = self._collect_row_field_errors()
+		setting_errors = _mattress_consumable_setting_errors(settings)
+		errors = list(field_errors)
+		errors.extend(setting_errors)
+		errors.extend(_assembly_absorption_errors(settings))
+
+		settings_ok = not setting_errors
+		for row in self.production_items:
+			if any(e.startswith("Row {0}:".format(row.idx)) for e in field_errors):
+				continue
+			if not settings_ok:
+				continue
+			errors.extend(
+				_row_posting_errors(row, settings, source_warehouse=self.source_warehouse)
+			)
+
+		self._throw_if_errors(errors)
+		return settings
+
+	def _throw_if_errors(self, errors):
+		if not errors:
+			return
+		frappe.throw(
+			"Cannot continue until these issues are fixed:\n\n- " + "\n- ".join(errors),
+			title="Mattress Production validation failed",
+		)
+
 	def _calculate_rows(self):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
 		for row in self.production_items or []:
-			costs = _row_cost_breakdown(row, settings)
-			row.total_row_cost = costs["total_row_cost"]
+			try:
+				costs = _row_cost_breakdown(row, settings, source_warehouse=self.source_warehouse)
+				row.total_row_cost = costs["total_row_cost"]
+			except Exception:
+				row.total_row_cost = 0
 
-	def _create_manufacture_stock_entry(self):
-		settings = _require_mattress_consumable_settings()
+	def _create_manufacture_stock_entries(self):
+		"""One Manufacture SE per production row (ERPNext allows only one finished Item)."""
+		settings = self._preflight_all_rows_before_posting()
+		drafts = []
+		build_errors = []
+		for row in self.production_items:
+			try:
+				drafts.append(self._build_row_manufacture_entry(row, settings))
+			except Exception as exc:
+				build_errors.append(_exc_message(exc))
+		self._throw_if_errors(build_errors)
+
+		submitted = []
+		try:
+			for entry in drafts:
+				entry.insert(ignore_permissions=True)
+				submitted.append(entry.name)
+				entry.submit()
+		except Exception:
+			self._rollback_submitted_stock_entries(submitted)
+			raise
+		return submitted
+
+	def _rollback_submitted_stock_entries(self, names):
+		"""Undo any Stock Entries posted in this attempt so a retry cannot double-issue FG."""
+		for se_name in reversed(names or []):
+			try:
+				if not se_name or not frappe.db.exists("Stock Entry", se_name):
+					continue
+				se = frappe.get_doc("Stock Entry", se_name)
+				if se.docstatus == 1:
+					se.cancel()
+				elif se.docstatus == 0:
+					se.delete()
+			except Exception:
+				frappe.log_error(
+					frappe.get_traceback(),
+					"Mattress Production SE rollback failed: {0}".format(se_name),
+				)
+
+	def _build_row_manufacture_entry(self, row, settings):
 		rm_warehouse = settings.default_raw_material_warehouse
-
 		entry = frappe.new_doc("Stock Entry")
 		entry.company = self.company
 		entry.stock_entry_type = "Manufacture"
 		entry.purpose = "Manufacture"
 		entry.posting_date = self.posting_date
 		entry.set_posting_time = 1
+		entry.remarks = "Mattress Production Entry {0} row {1}".format(self.name, row.idx)
 
-		for row in self.production_items or []:
-			costs = _row_cost_breakdown(row, settings)
-			core_item = _get_batch_item(row.core_batch)
-			fabric_item = row.fabric_item or _get_batch_item(row.fabric_batch)
+		costs = _row_cost_breakdown(row, settings, source_warehouse=self.source_warehouse)
+		core_item = _get_batch_item(row.core_batch)
+		fabric_item = row.fabric_item or _get_batch_item(row.fabric_batch)
 
-			core_doc = frappe.get_cached_doc("Item", core_item)
-			fabric_doc = frappe.get_cached_doc("Item", fabric_item)
-			mattress_doc = frappe.get_cached_doc("Item", row.mattress_item)
+		core_doc = frappe.get_cached_doc("Item", core_item)
+		fabric_doc = frappe.get_cached_doc("Item", fabric_item)
+		mattress_doc = frappe.get_cached_doc("Item", row.mattress_item)
 
-			# --- Source: Core ---
-			entry.append(
-				"items",
-				{
-					"item_code": core_item,
-					"s_warehouse": self.source_warehouse,
-					"batch_no": row.core_batch,
-					"qty": flt(row.qty),
-					"uom": core_doc.stock_uom,
-					"stock_uom": core_doc.stock_uom,
-					"conversion_factor": 1,
-					"basic_rate": costs["core_rate"],
-					"valuation_rate": costs["core_rate"],
-					"set_basic_rate_manually": 1,
-					"allow_zero_valuation_rate": 1 if costs["core_rate"] <= 0 else 0,
-					"use_serial_batch_fields": 1,
-				},
-			)
+		core_row = {
+			"item_code": core_item,
+			"s_warehouse": self.source_warehouse,
+			"batch_no": row.core_batch,
+			"qty": flt(row.qty),
+			"uom": core_doc.stock_uom,
+			"stock_uom": core_doc.stock_uom,
+			"conversion_factor": 1,
+			"use_serial_batch_fields": 1,
+		}
+		apply_manual_rate(core_row, costs["core_rate"])
+		entry.append("items", core_row)
 
-			# --- Source: Fabric ---
-			entry.append(
-				"items",
-				{
-					"item_code": fabric_item,
-					"s_warehouse": self.source_warehouse,
-					"batch_no": row.fabric_batch,
-					"qty": costs["fabric_meters"],
-					"uom": fabric_doc.stock_uom or "Meter",
-					"stock_uom": fabric_doc.stock_uom or "Meter",
-					"conversion_factor": 1,
-					"basic_rate": costs["fabric_rate"],
-					"valuation_rate": costs["fabric_rate"],
-					"set_basic_rate_manually": 1,
-					"allow_zero_valuation_rate": 1 if costs["fabric_rate"] <= 0 else 0,
-					"use_serial_batch_fields": 1,
-				},
-			)
+		fabric_row = {
+			"item_code": fabric_item,
+			"s_warehouse": self.source_warehouse,
+			"batch_no": row.fabric_batch,
+			"qty": costs["fabric_meters"],
+			"uom": fabric_doc.stock_uom or "Meter",
+			"stock_uom": fabric_doc.stock_uom or "Meter",
+			"conversion_factor": 1,
+			"use_serial_batch_fields": 1,
+		}
+		apply_manual_rate(fabric_row, costs["fabric_rate"])
+		entry.append("items", fabric_row)
 
-			# --- Source: Tape / PVC / Thread / Labels (physical stock backflush) ---
-			for consumable in costs["consumables"]:
-				item_doc = frappe.get_cached_doc("Item", consumable["item_code"])
-				entry.append(
-					"items",
-					{
-						"item_code": consumable["item_code"],
-						"s_warehouse": rm_warehouse,
-						"qty": consumable["qty"],
-						"uom": item_doc.stock_uom,
-						"stock_uom": item_doc.stock_uom,
-						"conversion_factor": 1,
-						"basic_rate": consumable["rate"],
-						"valuation_rate": consumable["rate"],
-						"set_basic_rate_manually": 1,
-						"allow_zero_valuation_rate": 1 if consumable["rate"] <= 0 else 0,
-					},
-				)
-
-			unit_rate = (
-				flt(costs["stocked_cost"]) / flt(row.qty) if flt(row.qty) else 0
-			)
-
-			qty = flt(row.qty)
-			has_serial = cint(mattress_doc.has_serial_no)
-			has_batch = cint(mattress_doc.has_batch_no)
-			if has_serial:
-				serial_qty = cint(qty)
-				if serial_qty <= 0 or abs(qty - serial_qty) > 0.0001:
-					frappe.throw(
-						"Quantity for {0} must be a whole number to generate serial numbers "
-						"(got {1}).".format(row.mattress_item, qty)
-					)
-
-			batch_id = None
-			if has_batch:
-				batch_id = self._ensure_output_batch(row.mattress_item, row.idx)
-
-			serial_string = None
-			if has_serial:
-				serial_string = self._build_output_serials(
-					row.mattress_item, cint(qty), row.idx, batch_id
-				)
-
-			target_row = {
-				"item_code": row.mattress_item,
-				"t_warehouse": self.target_warehouse,
-				"qty": qty,
-				"uom": mattress_doc.stock_uom,
-				"stock_uom": mattress_doc.stock_uom,
+		if flt(costs.get("side_fabric_meters")) > 0:
+			side_item = row.side_fabric_item or _get_batch_item(row.side_fabric_batch)
+			side_doc = frappe.get_cached_doc("Item", side_item)
+			side_row = {
+				"item_code": side_item,
+				"s_warehouse": self.source_warehouse,
+				"batch_no": row.side_fabric_batch,
+				"qty": costs["side_fabric_meters"],
+				"uom": side_doc.stock_uom or "Meter",
+				"stock_uom": side_doc.stock_uom or "Meter",
 				"conversion_factor": 1,
-				"basic_rate": unit_rate,
-				"valuation_rate": unit_rate,
-				"set_basic_rate_manually": 1,
-				"allow_zero_valuation_rate": 1 if unit_rate <= 0 else 0,
-				"is_finished_item": 1,
 				"use_serial_batch_fields": 1,
 			}
-			if batch_id:
-				target_row["batch_no"] = batch_id
-			if serial_string:
-				target_row["serial_no"] = serial_string
+			apply_manual_rate(side_row, costs["side_fabric_rate"])
+			entry.append("items", side_row)
 
-			entry.append("items", target_row)
+		for consumable in costs["consumables"]:
+			item_doc = frappe.get_cached_doc("Item", consumable["item_code"])
+			cons_row = {
+				"item_code": consumable["item_code"],
+				"s_warehouse": rm_warehouse,
+				"qty": consumable["qty"],
+				"uom": item_doc.stock_uom,
+				"stock_uom": item_doc.stock_uom,
+				"conversion_factor": 1,
+			}
+			apply_manual_rate(cons_row, consumable["rate"])
+			entry.append("items", cons_row)
 
-		self._append_mattress_depreciation_cost(entry, settings)
+		# Materials only in FG basic rate; labour/depr via additional_costs then balance.
+		unit_rate = flt(costs["stocked_cost"]) / flt(row.qty) if flt(row.qty) else 0
+		qty = flt(row.qty)
+		has_serial = cint(mattress_doc.has_serial_no)
+		has_batch = cint(mattress_doc.has_batch_no)
+		if has_serial:
+			serial_qty = cint(qty)
+			if serial_qty <= 0 or abs(qty - serial_qty) > 0.0001:
+				frappe.throw(
+					"Quantity for {0} must be a whole number to generate serial numbers "
+					"(got {1}).".format(row.mattress_item, qty)
+				)
 
-		entry.insert(ignore_permissions=True)
-		entry.submit()
+		batch_id = None
+		if has_batch:
+			batch_id = self._ensure_output_batch(row.mattress_item, row.idx)
+
+		serial_string = None
+		if has_serial:
+			serial_string = self._build_output_serials(
+				row.mattress_item, cint(qty), row.idx, batch_id
+			)
+
+		target_row = {
+			"item_code": row.mattress_item,
+			"t_warehouse": self.target_warehouse,
+			"qty": qty,
+			"uom": mattress_doc.stock_uom,
+			"stock_uom": mattress_doc.stock_uom,
+			"conversion_factor": 1,
+			"is_finished_item": 1,
+			"use_serial_batch_fields": 1,
+		}
+		apply_manual_rate(target_row, unit_rate)
+		if batch_id:
+			target_row["batch_no"] = batch_id
+		if serial_string:
+			target_row["serial_no"] = serial_string
+
+		entry.append("items", target_row)
+		self._append_mattress_depreciation_cost(entry, settings, qty)
+		self._append_mattress_labour_cost(entry, settings, qty, row.idx)
+		balance_stock_entry_targets(
+			entry,
+			context="Mattress Production {0} row {1}".format(self.name, row.idx),
+		)
 		return entry
 
-	def _append_mattress_depreciation_cost(self, entry, settings):
+	def _append_mattress_depreciation_cost(self, entry, settings, qty):
 		rate = flt(getattr(settings, "mattress_depreciation_per_pc", 0) or 0)
-		if rate <= 0:
-			return
-		total_pcs = sum(flt(row.qty) for row in self.production_items or [])
-		amount = rate * total_pcs
+		amount = rate * flt(qty)
 		if amount <= 0:
 			return
 		account = getattr(settings, "depreciation_absorption_account", None)
@@ -228,6 +333,28 @@ class MattressProductionEntry(Document):
 			{
 				"expense_account": account,
 				"description": "Mattress Depreciation for {0}".format(self.name),
+				"amount": amount,
+			},
+		)
+
+	def _append_mattress_labour_cost(self, entry, settings, qty, row_idx):
+		rate = flt(getattr(settings, "mattress_labour_per_pc", 0) or 0)
+		amount = rate * flt(qty)
+		if amount <= 0:
+			return
+		account = getattr(settings, "mattress_labour_absorption_account", None)
+		if not account:
+			frappe.throw(
+				"Set Mattress Labour Absorption Account in Pufm Manufacturing Settings "
+				"to post assembly labour."
+			)
+		entry.append(
+			"additional_costs",
+			{
+				"expense_account": account,
+				"description": "Mattress Assembly Labour for {0} row {1}".format(
+					self.name, row_idx
+				),
 				"amount": amount,
 			},
 		)
@@ -256,8 +383,8 @@ class MattressProductionEntry(Document):
 		return "\n".join(serial_nos)
 
 
-def _require_mattress_consumable_settings(settings=None):
-	"""Ensure Settings Links for stocked mattress consumables + RM warehouse."""
+def _mattress_consumable_setting_errors(settings=None):
+	"""Return missing Settings Links for stocked mattress consumables + RM warehouse."""
 	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
 	missing = []
 
@@ -271,15 +398,180 @@ def _require_mattress_consumable_settings(settings=None):
 		if not item_code or not frappe.db.exists("Item", item_code):
 			missing.append(label)
 
-	if missing:
-		frappe.throw(
-			"Configure the following in Pufm Manufacturing Settings before submitting "
-			"Mattress Production: {0}.".format(", ".join(missing))
-		)
+	if not missing:
+		return []
+	return [
+		"Configure the following in Pufm Manufacturing Settings before submitting "
+		"Mattress Production: {0}.".format(", ".join(missing))
+	]
+
+
+def _require_mattress_consumable_settings(settings=None):
+	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
+	errors = _mattress_consumable_setting_errors(settings)
+	if errors:
+		frappe.throw(errors[0])
 	return settings
 
 
-def _row_cost_breakdown(row, settings):
+def _assembly_absorption_errors(settings):
+	errors = []
+	if flt(getattr(settings, "mattress_depreciation_per_pc", 0) or 0) > 0 and not getattr(
+		settings, "depreciation_absorption_account", None
+	):
+		errors.append(
+			"Set Depreciation Absorption Account in Pufm Manufacturing Settings "
+			"because Mattress Depreciation per Piece is greater than zero."
+		)
+	if flt(getattr(settings, "mattress_labour_per_pc", 0) or 0) > 0 and not getattr(
+		settings, "mattress_labour_absorption_account", None
+	):
+		errors.append(
+			"Set Mattress Labour Absorption Account in Pufm Manufacturing Settings "
+			"because Labor per Mattress is greater than zero."
+		)
+	return errors
+
+
+def _row_field_errors(row):
+	errors = []
+	prefix = "Row {0}".format(row.idx)
+	if not row.mattress_item:
+		errors.append("{0}: Mattress Item is required.".format(prefix))
+	if flt(row.qty) <= 0:
+		errors.append("{0}: Quantity must be greater than zero.".format(prefix))
+	if not row.core_batch:
+		errors.append("{0}: Core Batch is required.".format(prefix))
+	elif not _get_batch_item(row.core_batch):
+		errors.append("{0}: Core Batch {1} was not found.".format(prefix, row.core_batch))
+	if not row.fabric_item:
+		errors.append("{0}: Fabric Item is required.".format(prefix))
+	if not row.fabric_batch:
+		errors.append("{0}: Fabric Batch is required.".format(prefix))
+	elif not _get_batch_item(row.fabric_batch):
+		errors.append("{0}: Fabric Batch {1} was not found.".format(prefix, row.fabric_batch))
+
+	errors.extend(_label_item_errors(row))
+
+	if row.fabric_item and row.fabric_batch:
+		batch_item = _get_batch_item(row.fabric_batch)
+		if batch_item and batch_item != row.fabric_item:
+			errors.append(
+				"{0}: Fabric Batch {1} belongs to {2}, not {3}.".format(
+					prefix, row.fabric_batch, batch_item, row.fabric_item
+				)
+			)
+
+	if not _is_side_quilted_row(row):
+		row.side_fabric_item = None
+		row.side_fabric_batch = None
+		return errors
+
+	if not row.side_fabric_item or not row.side_fabric_batch:
+		errors.append(
+			"{0}: The mattress '{1}' is Side Quilted. "
+			"You must select a Side Fabric and Batch.".format(prefix, row.mattress_item)
+		)
+		return errors
+
+	if row.side_fabric_item == row.fabric_item:
+		errors.append(
+			"{0}: Side Fabric Item must be different from the face Fabric Item.".format(prefix)
+		)
+	batch_item = _get_batch_item(row.side_fabric_batch)
+	if batch_item and batch_item != row.side_fabric_item:
+		errors.append(
+			"{0}: Side Fabric Batch {1} belongs to {2}, not {3}.".format(
+				prefix, row.side_fabric_batch, batch_item, row.side_fabric_item
+			)
+		)
+	return errors
+
+
+def _row_posting_errors(row, settings, source_warehouse=None):
+	errors = []
+	prefix = "Row {0}".format(row.idx)
+	if not row.mattress_item:
+		return errors
+
+	if not frappe.db.exists("Item", row.mattress_item):
+		errors.append("{0}: Mattress Item {1} does not exist.".format(prefix, row.mattress_item))
+		return errors
+
+	item = frappe.get_cached_doc("Item", row.mattress_item)
+	if not (flt(item.custom_length) and flt(item.custom_width) and flt(item.custom_height)):
+		errors.append("{0}: Mattress item dimensions are missing.".format(prefix))
+	if not _row_finish_type(row):
+		errors.append(
+			"{0}: Mattress {1} has no Finish Type. Set Item Finish Type before assembling.".format(
+				prefix, row.mattress_item
+			)
+		)
+
+	qty = flt(row.qty)
+	if cint(item.has_serial_no):
+		serial_qty = cint(qty)
+		if serial_qty <= 0 or abs(qty - serial_qty) > 0.0001:
+			errors.append(
+				"{0}: Quantity for {1} must be a whole number to generate serial numbers "
+				"(got {2}).".format(prefix, row.mattress_item, qty)
+			)
+
+	if errors:
+		return errors
+
+	try:
+		costs = _row_cost_breakdown(row, settings, source_warehouse=source_warehouse)
+		row.total_row_cost = costs["total_row_cost"]
+	except Exception as exc:
+		msg = _exc_message(exc)
+		if not msg.startswith("Row "):
+			msg = "{0}: {1}".format(prefix, msg)
+		errors.append(msg)
+	return errors
+
+
+def _label_item_errors(row):
+	errors = []
+	prefix = "Row {0}".format(row.idx)
+	label_item = (row.get("label_item") or "").strip()
+	if not label_item:
+		errors.append("{0}: Label Item is required.".format(prefix))
+		return errors
+
+	if not frappe.db.exists("Item", label_item):
+		errors.append("{0}: Label Item {1} does not exist.".format(prefix, label_item))
+		return errors
+
+	item = frappe.get_cached_doc("Item", label_item)
+	if cint(item.disabled):
+		errors.append("{0}: Label Item {1} is disabled.".format(prefix, label_item))
+	if frappe.db.exists("Item Group", LABEL_ITEM_GROUP) and item.item_group != LABEL_ITEM_GROUP:
+		errors.append(
+			"{0}: Label Item {1} must belong to Item Group '{2}'.".format(
+				prefix, label_item, LABEL_ITEM_GROUP
+			)
+		)
+	if cint(item.has_batch_no):
+		errors.append(
+			"{0}: Label Item {1} is batch-tracked. Use a non-batch Labels Item "
+			"so assembly can consume FIFO without a batch.".format(prefix, label_item)
+		)
+	if cint(item.has_serial_no):
+		errors.append(
+			"{0}: Label Item {1} is serial-tracked. Labels must not use serial numbers.".format(
+				prefix, label_item
+			)
+		)
+	return errors
+
+
+def _exc_message(exc):
+	msg = getattr(exc, "message", None) or str(exc)
+	return str(msg).replace("<br>", "\n").strip()
+
+
+def _row_cost_breakdown(row, settings, source_warehouse=None):
 	"""All mattress consumables are physical stock — no absorption path."""
 	if flt(row.qty) <= 0:
 		frappe.throw(f"Row {row.idx}: Quantity must be greater than zero.")
@@ -301,17 +593,57 @@ def _row_cost_breakdown(row, settings):
 	thread_qty = get_formula_factor("thread_qty_per_mattress", settings) * flt(row.qty)
 	label_qty = get_formula_factor("label_qty_per_mattress", settings) * flt(row.qty)
 
+	face_area, side_area = _fabric_panel_areas(length, width, height, settings)
 	fabric_width_inches = _resolve_fabric_width(row.fabric_item, settings)
-	panel_faces = get_formula_factor("fabric_panel_faces", settings)
-	side_factor = get_formula_factor("fabric_side_panels_factor", settings)
-	total_area = (panel_faces * (length * width)) + ((side_factor * (length + width)) * height)
-	total_area = total_area * (1 + (flt(settings.fabric_waste_factor) / 100))
-	fabric_meters = (total_area / (fabric_width_inches * inches_per_meter)) * flt(row.qty)
+	use_side = _is_side_quilted_row(row) and bool(
+		row.get("side_fabric_item") and row.get("side_fabric_batch")
+	)
 
-	core_rate = _get_batch_valuation_rate(row.core_batch)
-	fabric_rate = _get_batch_valuation_rate(row.fabric_batch)
+	if use_side:
+		fabric_meters = (face_area / (fabric_width_inches * inches_per_meter)) * flt(row.qty)
+		side_width = _resolve_fabric_width(row.side_fabric_item, settings)
+		side_fabric_meters = (side_area / (side_width * inches_per_meter)) * flt(row.qty)
+	else:
+		total_area = face_area + side_area
+		fabric_meters = (total_area / (fabric_width_inches * inches_per_meter)) * flt(row.qty)
+		side_fabric_meters = 0.0
+
+	core_item = _get_batch_item(row.core_batch)
+	fabric_item = row.fabric_item or _get_batch_item(row.fabric_batch)
+	core_rate = get_stock_valuation_rate(
+		core_item, warehouse=source_warehouse, batch_no=row.core_batch
+	)
+	fabric_rate = get_stock_valuation_rate(
+		fabric_item, warehouse=source_warehouse, batch_no=row.fabric_batch
+	)
+	side_fabric_rate = 0.0
+	if use_side:
+		side_item = row.side_fabric_item or _get_batch_item(row.side_fabric_batch)
+		side_fabric_rate = get_stock_valuation_rate(
+			side_item, warehouse=source_warehouse, batch_no=row.side_fabric_batch
+		)
+	if core_rate <= 0:
+		frappe.throw(
+			"Row {0}: Valuation rate missing for core batch {1} in warehouse {2}.".format(
+				row.idx, row.core_batch, source_warehouse or "(none)"
+			)
+		)
+	if fabric_rate <= 0:
+		frappe.throw(
+			"Row {0}: Valuation rate missing for fabric batch {1} in warehouse {2}.".format(
+				row.idx, row.fabric_batch, source_warehouse or "(none)"
+			)
+		)
+	if use_side and side_fabric_rate <= 0:
+		frappe.throw(
+			"Row {0}: Valuation rate missing for side fabric batch {1} in warehouse {2}.".format(
+				row.idx, row.side_fabric_batch, source_warehouse or "(none)"
+			)
+		)
+
 	core_cost = flt(row.qty) * core_rate
 	fabric_cost = fabric_meters * fabric_rate
+	side_fabric_cost = side_fabric_meters * side_fabric_rate
 
 	rm_wh = getattr(settings, "default_raw_material_warehouse", None)
 	consumables = []
@@ -319,13 +651,13 @@ def _row_cost_breakdown(row, settings):
 		(settings.default_tape_edge_item, tape_meters),
 		(settings.default_pvc_nylon_item, pvc_sqm),
 		(settings.default_thread_item, thread_qty),
-		(settings.default_label_item, label_qty),
+		(row.get("label_item"), label_qty),
 	)
 	consumable_cost = 0.0
 	for item_code, qty in consumable_specs:
 		if not item_code or flt(qty) <= 0:
 			continue
-		rate = _get_item_valuation_rate(item_code, rm_wh)
+		rate = get_stock_valuation_rate(item_code, warehouse=rm_wh)
 		if rate <= 0:
 			frappe.throw(
 				"Valuation rate missing for mattress consumable {0} in warehouse {1}. "
@@ -333,23 +665,55 @@ def _row_cost_breakdown(row, settings):
 					item_code, rm_wh or "(no Raw Material Warehouse)"
 				)
 			)
-		consumables.append({"item_code": item_code, "qty": flt(qty), "rate": rate})
+		consumables.append(
+			{
+				"item_code": item_code,
+				"qty": flt(qty),
+				"rate": rate,
+			}
+		)
 		consumable_cost += flt(qty) * rate
 
-	stocked_cost = core_cost + fabric_cost + consumable_cost
+	stocked_cost = core_cost + fabric_cost + side_fabric_cost + consumable_cost
 
 	return {
 		"tape_meters": tape_meters,
 		"fabric_meters": fabric_meters,
+		"side_fabric_meters": side_fabric_meters,
 		"core_rate": core_rate,
 		"fabric_rate": fabric_rate,
+		"side_fabric_rate": side_fabric_rate,
 		"core_cost": core_cost,
 		"fabric_cost": fabric_cost,
+		"side_fabric_cost": side_fabric_cost,
 		"consumables": consumables,
 		"stocked_cost": stocked_cost,
 		"absorption_cost": 0.0,
 		"total_row_cost": stocked_cost,
 	}
+
+
+def _row_finish_type(row):
+	finish = (row.get("finish_type") or "").strip()
+	if finish:
+		return finish
+	if row.mattress_item:
+		return (frappe.db.get_value("Item", row.mattress_item, "custom_finish_type") or "").strip()
+	return ""
+
+
+def _is_side_quilted_row(row):
+	return _row_finish_type(row) == "Side Quilted"
+
+
+def _fabric_panel_areas(length, width, height, settings):
+	"""Return (face_area, side_area) in square inches, including fabric waste."""
+	panel_faces = get_formula_factor("fabric_panel_faces", settings)
+	side_factor = get_formula_factor("fabric_side_panels_factor", settings)
+	waste = 1 + (flt(settings.fabric_waste_factor) / 100)
+	face_area = panel_faces * (length * width) * waste
+	side_area = (side_factor * (length + width) * height) * waste
+	return face_area, side_area
 
 
 def _tape_edge_meters(length_inches, width_inches, qty, settings=None):
@@ -426,13 +790,11 @@ def _get_batch_item(batch_no):
 
 @frappe.whitelist()
 def get_allowed_fabric_items_for_mattress(mattress_item):
-	"""Resolve fabrics from the mattress Item's native Brand policy."""
+	"""Resolve fabrics from the mattress Item's Brand field + Brand Policy."""
 	if not mattress_item:
 		return []
 
 	item_brand = frappe.db.get_value("Item", mattress_item, "brand")
-	if not item_brand:
-		item_brand = _extract_brand_from_item(mattress_item)
 	if not item_brand:
 		return []
 
@@ -443,9 +805,57 @@ def get_allowed_fabric_items_for_mattress(mattress_item):
 	return get_allowed_fabric_items(item_brand)
 
 
-def _extract_brand_from_item(item_code):
-	code = (item_code or "").upper()
-	if not code.startswith("MAT-"):
-		return ""
-	chunks = code.split("-")
-	return chunks[1] if len(chunks) >= 3 else ""
+def _filter_fabrics_by_group(item_codes, item_group):
+	if not item_codes or not item_group or not frappe.db.exists("Item Group", item_group):
+		return []
+	return [
+		code
+		for code in item_codes
+		if frappe.db.get_value("Item", code, "item_group") == item_group
+	]
+
+
+def _fabric_candidates(mattress_item, preferred_item_group):
+	"""Brand Policy fabrics in the preferred group, else the whole Item Group."""
+	allowed = get_allowed_fabric_items_for_mattress(mattress_item)
+	grouped = _filter_fabrics_by_group(allowed, preferred_item_group)
+	if grouped:
+		return grouped
+	if preferred_item_group and frappe.db.exists("Item Group", preferred_item_group):
+		return frappe.get_all(
+			"Item",
+			filters={"item_group": preferred_item_group, "disabled": 0},
+			pluck="name",
+		)
+	return allowed or []
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def mattress_fabric_item_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Brand-policy fabrics for the mattress Item.brand, with Item Group fallback."""
+	filters = frappe._dict(filters or {})
+	allowed = _fabric_candidates(
+		filters.get("mattress_item"), filters.get("preferred_item_group")
+	)
+	if not allowed:
+		return []
+
+	txt = f"%{txt or ''}%"
+	return frappe.db.sql(
+		"""
+		SELECT name, item_name
+		FROM `tabItem`
+		WHERE disabled = 0
+			AND name IN %(allowed)s
+			AND (name LIKE %(txt)s OR item_name LIKE %(txt)s)
+		ORDER BY name
+		LIMIT %(start)s, %(page_len)s
+		""",
+		{
+			"allowed": tuple(allowed),
+			"txt": txt,
+			"start": start,
+			"page_len": page_len,
+		},
+	)

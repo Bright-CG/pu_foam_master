@@ -40,5 +40,12 @@
   "is_custom": 1,
   "name": "PUFM Rebound",
   "role_name": "PUFM Rebound"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Brand Policy",
+  "role_name": "PUFM Brand Policy"
  }
 ]
