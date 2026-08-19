@@ -17,7 +17,8 @@ from frappe.model.naming import make_autoname
 from frappe.utils import cint, flt
 
 from pu_foam_master.pufm_manufacturing.utils.density_bom import get_preferred_company
-from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor
+from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor, get_scrap_output_rate
+from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import apply_manual_rate
 
 
 class PufmSheetingConversion(Document):
@@ -96,10 +97,19 @@ class PufmSheetingConversion(Document):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
 		scrap_item = getattr(settings, "scrap_item", None)
 		scrap_warehouse = getattr(settings, "default_scrap_warehouse", None)
+		scrap_output_rate = get_scrap_output_rate(settings)
 		if not scrap_item or not scrap_warehouse:
 			frappe.throw(
 				_(
 					"Please set Scrap Item and Default Scrap Warehouse in Pufm Manufacturing Settings."
+				)
+			)
+
+		scrap_wh_company = frappe.db.get_value("Warehouse", scrap_warehouse, "company")
+		if scrap_wh_company and scrap_wh_company != self.company:
+			frappe.throw(
+				_("Default Scrap Warehouse {0} belongs to {1}, not {2}.").format(
+					scrap_warehouse, scrap_wh_company, self.company
 				)
 			)
 
@@ -111,19 +121,18 @@ class PufmSheetingConversion(Document):
 		entry.stock_entry_type = "Material Receipt"
 		entry.purpose = "Material Receipt"
 		entry.posting_date = self.posting_date
+		entry.set_posting_time = 1
 		entry.remarks = f"Scrap generated from Sheeting Conversion: {self.name}"
-		entry.append(
-			"items",
-			{
-				"item_code": scrap_item,
-				"qty": flt(self.scrap_weight_kg),
-				"t_warehouse": scrap_warehouse,
-				"uom": uom,
-				"stock_uom": uom,
-				"conversion_factor": 1,
-				"allow_zero_valuation_rate": 1,
-			},
-		)
+		scrap_row = {
+			"item_code": scrap_item,
+			"qty": flt(self.scrap_weight_kg),
+			"t_warehouse": scrap_warehouse,
+			"uom": uom,
+			"stock_uom": uom,
+			"conversion_factor": 1,
+		}
+		apply_manual_rate(scrap_row, scrap_output_rate)
+		entry.append("items", scrap_row)
 		entry.insert(ignore_permissions=True)
 		entry.submit()
 		self.db_set("scrap_stock_entry", entry.name, update_modified=False)

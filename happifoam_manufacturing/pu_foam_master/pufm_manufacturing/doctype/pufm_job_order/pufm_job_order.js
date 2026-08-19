@@ -3,36 +3,29 @@
 
 frappe.ui.form.on("Pufm Job Order", {
 	setup(frm) {
-		frm.set_query("item_code", "mattress_instructions", () => {
-			return {
-				filters: {
-					disabled: 0,
-					is_stock_item: 1,
-					name: ["like", "%-%"],
-				},
-				query: "pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.mattress_item_query",
-			};
-		});
-		frm.set_query("source_block", "sheeting_instructions", () => {
-			return {
-				filters: {
-					disabled: 0,
-					is_stock_item: 1,
-					name: ["like", "% Block"],
-				},
-			};
-		});
+		frm.set_query("item_code", "mattress_instructions", () => ({
+			filters: { disabled: 0, is_stock_item: 1, name: ["like", "%-%"] },
+			query:
+				"pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.mattress_item_query",
+		}));
+		frm.set_query("source_block", "sheeting_instructions", () => ({
+			filters: { disabled: 0, is_stock_item: 1, name: ["like", "% Block"] },
+		}));
+		frm.set_query("source_block", "quilting_instructions", () => ({
+			filters: { disabled: 0, is_stock_item: 1, name: ["like", "% Block"] },
+		}));
 	},
 	onload(frm) {
 		ensure_draft_pending_slicing(frm);
+		limit_quilting_rows(frm);
 	},
 	onload_post_render(frm) {
 		ensure_draft_pending_slicing(frm);
 	},
 	refresh(frm) {
 		ensure_draft_pending_slicing(frm);
+		limit_quilting_rows(frm);
 		frm.clear_custom_buttons();
-		// Only route from submitted Job Orders — prevents draft-stage duplicate starts
 		if (frm.is_new() || frm.doc.docstatus !== 1) {
 			return;
 		}
@@ -40,30 +33,85 @@ frappe.ui.form.on("Pufm Job Order", {
 		if (frm.doc.workflow_status === "Pending Slicing") {
 			if (frm.doc.order_type === "Sheetings") {
 				frm.add_custom_button(__("Start Sheeting Conversion"), () => {
-					frappe.new_doc("Pufm Sheeting Conversion", {
-						job_order: frm.doc.name,
-						company: frm.doc.company || undefined,
-					});
+					frappe.new_doc("Pufm Sheeting Conversion", { job_order: frm.doc.name });
 				}).addClass("btn-primary");
-			} else if (frm.doc.order_type === "Mattress") {
+			} else if (frm.doc.order_type === "Mattress" || frm.doc.order_type === "Quilting") {
 				frm.add_custom_button(__("Start Core Slicing"), () => {
-					frappe.new_doc("Mattress Core Conversion", {
-						job_order: frm.doc.name,
-						company: frm.doc.company || undefined,
-					});
+					if (frm.doc.order_type === "Quilting") {
+						frappe.call({
+							method:
+								"pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.get_core_conversion_prefill",
+							args: { job_order: frm.doc.name },
+							callback(r) {
+								const prefill = r.message || {};
+								frappe.model.with_doctype("Mattress Core Conversion", () => {
+									const doc = frappe.model.get_new_doc("Mattress Core Conversion");
+									doc.job_order = prefill.job_order;
+									(prefill.inputs || []).forEach((row) => {
+										const d = frappe.model.add_child(doc, "inputs");
+										d.item_code = row.item_code;
+										d.qty = row.qty;
+									});
+									(prefill.outputs || []).forEach((row) => {
+										const d = frappe.model.add_child(doc, "outputs");
+										d.item_code = row.item_code;
+										d.qty = row.qty;
+									});
+									frappe.set_route("Form", "Mattress Core Conversion", doc.name);
+								});
+							},
+						});
+					} else {
+						frappe.new_doc("Mattress Core Conversion", { job_order: frm.doc.name });
+					}
 				}).addClass("btn-primary");
 			}
 		}
 
-		if (
-			frm.doc.workflow_status === "Pending Assembly" &&
-			frm.doc.order_type === "Mattress"
-		) {
-			frm.add_custom_button(__("Start Assembly"), () => {
-				frappe.new_doc("Mattress Production Entry", {
-					job_order: frm.doc.name,
-					company: frm.doc.company || undefined,
+		if (frm.doc.order_type === "Quilting" && frm.doc.workflow_status === "Pending Quilting") {
+			frm.add_custom_button(__("Start Quilting"), () => {
+				frappe.call({
+					method:
+						"pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.get_quilting_record_prefill",
+					args: { job_order: frm.doc.name },
+					callback(r) {
+						const prefill = r.message || {};
+						frappe.model.with_doctype("Quilting Record", () => {
+							const doc = frappe.model.get_new_doc("Quilting Record");
+							doc.job_order = prefill.job_order;
+							if (prefill.sales_order) {
+								doc.sales_order = prefill.sales_order;
+							}
+							doc.finished_item = prefill.finished_item;
+							(prefill.inputs || []).forEach((row) => {
+								const d = frappe.model.add_child(doc, "inputs");
+								d.item_code = row.item_code;
+							});
+							frappe.set_route("Form", "Quilting Record", doc.name);
+						});
+					},
 				});
+			});
+			frm.add_custom_button(__("Start Assembly"), () => {
+				frappe.call({
+					method:
+						"pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.get_mattress_production_prefill",
+					args: { job_order: frm.doc.name },
+					callback(r) {
+						const prefill = r.message || {};
+						frappe.new_doc("Mattress Production Entry", {
+							job_order: prefill.job_order,
+							core_conversion: prefill.core_conversion,
+							sales_order: prefill.sales_order || undefined,
+						});
+					},
+				});
+			}).addClass("btn-primary");
+		}
+
+		if (frm.doc.workflow_status === "Pending Assembly" && frm.doc.order_type === "Mattress") {
+			frm.add_custom_button(__("Start Assembly"), () => {
+				frappe.new_doc("Mattress Production Entry", { job_order: frm.doc.name });
 			}).addClass("btn-primary");
 		}
 	},
@@ -71,6 +119,7 @@ frappe.ui.form.on("Pufm Job Order", {
 		if (frm.doc.docstatus === 0) {
 			ensure_draft_pending_slicing(frm);
 		}
+		limit_quilting_rows(frm);
 		frm.refresh_fields();
 	},
 });
@@ -90,8 +139,25 @@ frappe.ui.form.on("Pufm Sheeting Instruction", {
 	},
 });
 
+frappe.ui.form.on("Pufm Quilting Instruction", {
+	quilting_instructions_add(frm) {
+		limit_quilting_rows(frm);
+	},
+});
+
+function limit_quilting_rows(frm) {
+	if (frm.doc.order_type !== "Quilting") {
+		return;
+	}
+	const grid = frm.fields_dict.quilting_instructions && frm.fields_dict.quilting_instructions.grid;
+	if (!grid) {
+		return;
+	}
+	const allow = (frm.doc.quilting_instructions || []).length < 1;
+	grid.wrapper.find(".grid-add-row").toggle(allow);
+}
+
 function ensure_draft_pending_slicing(frm) {
-	// Ignore list-filter / duplicate prefill of Pending Assembly or Completed on drafts.
 	if (frm.doc.docstatus !== 0) {
 		return;
 	}

@@ -10,6 +10,7 @@
   "company",
   "posting_date",
   "job_order",
+  "core_conversion",
   "sales_order",
   "material_request",
   "source_warehouse",
@@ -58,6 +59,14 @@
    "in_list_view": 1,
    "label": "Job Order",
    "options": "Pufm Job Order"
+  },
+  {
+   "depends_on": "eval:doc.job_order",
+   "description": "Required for Quilting Job Orders — limits core batches to this conversion.",
+   "fieldname": "core_conversion",
+   "fieldtype": "Link",
+   "label": "Core Conversion",
+   "options": "Mattress Core Conversion"
   },
   {
    "fieldname": "sales_order",

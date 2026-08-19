@@ -94,11 +94,15 @@ after_install = [
 doctype_js = {
 	"Sales Invoice": "public/js/sales_invoice.js",
 	"Sales Order": "public/js/sales_order.js",
+	"Item": "public/js/item.js",
 }
 
 doc_events = {
 	"Sales Invoice": {
 		"validate": "pu_foam_master.rebate.sales_invoice.apply_instant_rebate",
 		"before_submit": "pu_foam_master.rebate.sales_invoice.ensure_rebate_tax_row",
+	},
+	"Item": {
+		"validate": "pu_foam_master.pufm_manufacturing.utils.item_cbm.on_item_validate",
 	},
 }

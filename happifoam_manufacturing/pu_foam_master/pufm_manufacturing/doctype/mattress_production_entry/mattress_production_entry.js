@@ -4,6 +4,23 @@
 frappe.ui.form.on("Mattress Production Entry", {
 	setup(frm) {
 		frm.add_fetch("mattress_item", "custom_finish_type", "finish_type");
+		frm.set_query("job_order", () => ({
+			filters: {
+				docstatus: 1,
+				order_type: ["in", ["Mattress", "Quilting"]],
+			},
+		}));
+		frm.set_query("core_conversion", () => {
+			if (!frm.doc.job_order) {
+				return { filters: { name: ["in", [""]] } };
+			}
+			return {
+				filters: {
+					job_order: frm.doc.job_order,
+					docstatus: 1,
+				},
+			};
+		});
 		frm.set_query("source_warehouse", () => ({
 			filters: { company: frm.doc.company, disabled: 0 },
 		}));
@@ -12,6 +29,16 @@ frappe.ui.form.on("Mattress Production Entry", {
 		}));
 		frm.set_query("core_batch", "production_items", (doc, cdt, cdn) => {
 			const row = locals[cdt][cdn];
+			if (doc.core_conversion) {
+				return {
+					query:
+						"pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.core_batch_query_for_conversion",
+					filters: {
+						core_conversion: doc.core_conversion,
+						mattress_item: row.mattress_item || "",
+					},
+				};
+			}
 			const core_item = guess_core_item(row.mattress_item);
 			if (!core_item || !doc.source_warehouse) {
 				return { filters: { name: ["in", [""]] } };
@@ -109,7 +136,16 @@ frappe.ui.form.on("Mattress Production Entry", {
 		apply_side_fabric_grid_state(frm);
 	},
 	job_order(frm) {
+		if (frm.doc.core_conversion) {
+			frm.set_value("core_conversion", null);
+		}
 		pufm_fetch_job_instructions(frm);
+	},
+	core_conversion(frm) {
+		pufm_fetch_job_instructions(frm);
+		(frm.doc.production_items || []).forEach((row) => {
+			frappe.model.set_value(row.doctype, row.name, "core_batch", "");
+		});
 	},
 	fetch_job_instructions(frm) {
 		pufm_fetch_job_instructions(frm);
@@ -263,10 +299,15 @@ function pufm_fetch_job_instructions(frm) {
 		}
 		return;
 	}
+	const method = frm.doc.core_conversion
+		? "pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.get_mattress_production_traveler_html"
+		: "pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.get_job_order_instructions_html";
+	const args = frm.doc.core_conversion
+		? { job_order: frm.doc.job_order, core_conversion: frm.doc.core_conversion }
+		: { job_order: frm.doc.job_order };
 	frappe.call({
-		method:
-			"pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order.get_job_order_instructions_html",
-		args: { job_order: frm.doc.job_order },
+		method,
+		args,
 		callback(r) {
 			if (frm.fields_dict.job_instructions_html) {
 				frm.fields_dict.job_instructions_html.$wrapper.html(r.message || "");

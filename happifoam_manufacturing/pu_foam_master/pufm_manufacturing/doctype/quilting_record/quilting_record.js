@@ -9,6 +9,12 @@ frappe.ui.form.on("Quilting Record", {
 				disabled: 0,
 			},
 		}));
+		frm.set_query("job_order", () => ({
+			filters: {
+				docstatus: 1,
+				order_type: "Quilting",
+			},
+		}));
 		frm.set_query("source_warehouse", "inputs", () => ({
 			filters: {
 				company: frm.doc.company,
@@ -66,6 +72,17 @@ frappe.ui.form.on("Quilting Record", {
 					frappe.model.set_value(row.doctype, row.name, "batch_no", null);
 				}
 			});
+		});
+	},
+	job_order(frm) {
+		if (!frm.doc.job_order || frm.doc.sales_order) {
+			return;
+		}
+		frappe.db.get_value("Pufm Job Order", frm.doc.job_order, ["source_doctype", "source_document"]).then((r) => {
+			const jo = r && r.message;
+			if (jo && jo.source_doctype === "Sales Order" && jo.source_document) {
+				frm.set_value("sales_order", jo.source_document);
+			}
 		});
 	},
 });

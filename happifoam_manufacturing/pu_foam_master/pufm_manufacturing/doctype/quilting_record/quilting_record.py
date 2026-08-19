@@ -16,6 +16,7 @@ class QuiltingRecord(Document):
 	def validate(self):
 		if not self.company:
 			frappe.throw("Company is required.")
+		self._validate_job_order()
 		self._validate_inputs()
 		self._calculate_variance_fields()
 
@@ -26,12 +27,40 @@ class QuiltingRecord(Document):
 	def on_submit(self):
 		stock_entry = self._create_manufacture_stock_entry()
 		self.db_set("stock_entry", stock_entry.name, update_modified=False)
+		self._sync_job_order_on_change()
 
 	def on_cancel(self):
 		if self.stock_entry and frappe.db.exists("Stock Entry", self.stock_entry):
 			se = frappe.get_doc("Stock Entry", self.stock_entry)
 			if se.docstatus == 1:
 				se.cancel()
+		self._sync_job_order_on_change()
+
+	def _validate_job_order(self):
+		if not self.job_order:
+			return
+		if not frappe.db.exists("Pufm Job Order", self.job_order):
+			frappe.throw("Job Order {0} was not found.".format(self.job_order))
+		order_type, docstatus = frappe.db.get_value(
+			"Pufm Job Order", self.job_order, ["order_type", "docstatus"]
+		)
+		if cint(docstatus) != 1:
+			frappe.throw("Job Order {0} must be submitted before linking quilting.".format(self.job_order))
+		if order_type and order_type != "Quilting":
+			frappe.throw(
+				"Job Order {0} is type {1}. Quilting Record only accepts Quilting Job Orders.".format(
+					self.job_order, order_type
+				)
+			)
+
+	def _sync_job_order_on_change(self):
+		if not self.job_order:
+			return
+		from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (
+			reconcile_job_order_workflow,
+		)
+
+		reconcile_job_order_workflow(self.job_order)
 
 	def _validate_inputs(self):
 		if flt(self.output_qty_meters) <= 0:

@@ -8,8 +8,14 @@ from frappe.utils import cint, flt
 
 from pu_foam_master.pufm_manufacturing.utils.settings import (
 	calculate_cbm,
+	get_scrap_input_rate,
 	get_settings,
 	require_absorption_accounts,
+)
+from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
+	apply_manual_rate,
+	balance_stock_entry_targets,
+	get_stock_valuation_rate,
 )
 
 
@@ -91,23 +97,29 @@ class ReboundProductionEntry(Document):
 		entry.set_posting_time = 1
 		entry.from_bom = 0
 
-		# Scrap and MDI issue from their own physical warehouses
+		# Scrap always at Settings Scrap Input Rate (zero is valid).
+		# MDI keeps warehouse valuation so binder cost is not overwritten.
+		scrap_input_rate = get_scrap_input_rate(settings)
+		mdi_batch = _pick_batch_with_stock(mdi_item, self.mdi_warehouse, self.actual_mdi_kg)
+		mdi_rate = get_stock_valuation_rate(
+			mdi_item, warehouse=self.mdi_warehouse, batch_no=mdi_batch
+		)
+
 		scrap_row = {
 			"item_code": scrap_item,
 			"qty": flt(self.actual_scrap_kg),
 			"s_warehouse": self.scrap_warehouse,
-			"allow_zero_valuation_rate": 1,
 			"use_serial_batch_fields": 1,
 		}
+		apply_manual_rate(scrap_row, scrap_input_rate)
+
 		mdi_row = {
 			"item_code": mdi_item,
 			"qty": flt(self.actual_mdi_kg),
 			"s_warehouse": self.mdi_warehouse,
-			"allow_zero_valuation_rate": 1,
 			"use_serial_batch_fields": 1,
 		}
-
-		mdi_batch = _pick_batch_with_stock(mdi_item, self.mdi_warehouse, self.actual_mdi_kg)
+		apply_manual_rate(mdi_row, mdi_rate)
 		if mdi_batch:
 			mdi_row["batch_no"] = mdi_batch
 
@@ -120,6 +132,7 @@ class ReboundProductionEntry(Document):
 		}
 		if cint(frappe.db.get_value("Item", self.target_block_item, "has_batch_no")):
 			fg_row["batch_no"] = self._ensure_output_batch(self.target_block_item)
+		apply_manual_rate(fg_row, 0)
 
 		entry.append("items", scrap_row)
 		entry.append("items", mdi_row)
@@ -145,6 +158,10 @@ class ReboundProductionEntry(Document):
 					"expense_account": account,
 				},
 			)
+
+		balance_stock_entry_targets(
+			entry, context="Rebound Production Entry {0}".format(self.name)
+		)
 
 		entry.insert(ignore_permissions=True)
 		entry.submit()

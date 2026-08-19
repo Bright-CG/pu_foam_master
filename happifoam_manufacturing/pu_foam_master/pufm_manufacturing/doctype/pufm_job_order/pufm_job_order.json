@@ -18,6 +18,8 @@
   "assembled_by",
   "section_mattress",
   "mattress_instructions",
+  "section_quilting",
+  "quilting_instructions",
   "section_sheeting",
   "sheeting_instructions",
   "section_remarks",
@@ -48,7 +50,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Order Type",
-   "options": "Mattress\nSheetings",
+   "options": "Mattress\nQuilting\nSheetings",
    "reqd": 1
   },
   {
@@ -81,7 +83,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Workflow Status",
-   "options": "Pending Slicing\nPending Assembly\nCompleted",
+   "options": "Pending Slicing\nPending Quilting\nPending Assembly\nCompleted",
    "read_only": 1
   },
   {
@@ -110,6 +112,20 @@
    "fieldtype": "Table",
    "label": "Mattress Instructions",
    "options": "Pufm Mattress Instruction"
+  },
+  {
+   "depends_on": "eval:doc.order_type==\"Quilting\"",
+   "fieldname": "section_quilting",
+   "fieldtype": "Section Break",
+   "label": "Quilting Instructions"
+  },
+  {
+   "depends_on": "eval:doc.order_type==\"Quilting\"",
+   "description": "Exactly one row: source block, sheeting roll output, fabric, and target quilted (QF) item.",
+   "fieldname": "quilting_instructions",
+   "fieldtype": "Table",
+   "label": "Quilting Instruction",
+   "options": "Pufm Quilting Instruction"
   },
   {
    "depends_on": "eval:doc.order_type==\"Sheetings\"",
@@ -145,8 +161,25 @@
   }
  ],
  "is_submittable": 1,
- "links": [],
- "modified": "2026-08-15 18:35:00.000000",
+ "links": [
+  {
+   "link_doctype": "Mattress Core Conversion",
+   "link_fieldname": "job_order"
+  },
+  {
+   "link_doctype": "Pufm Sheeting Conversion",
+   "link_fieldname": "job_order"
+  },
+  {
+   "link_doctype": "Quilting Record",
+   "link_fieldname": "job_order"
+  },
+  {
+   "link_doctype": "Mattress Production Entry",
+   "link_fieldname": "job_order"
+  }
+ ],
+ "modified": "2026-08-19 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Pufm Job Order",
@@ -200,6 +233,17 @@
    "print": 1,
    "read": 1,
    "report": 1,
+   "role": "PUFM Quilting",
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
    "role": "PUFM Assembly",
    "submit": 1,
    "write": 1
@@ -211,6 +255,10 @@
   {
    "color": "Orange",
    "title": "Pending Slicing"
+  },
+  {
+   "color": "Purple",
+   "title": "Pending Quilting"
   },
   {
    "color": "Blue",

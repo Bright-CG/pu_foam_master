@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "creation": "2026-08-19 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "source_block",
+  "block_qty",
+  "output_sheeting_item",
+  "fabric_item",
+  "target_quilted_item",
+  "planned_qty_meters"
+ ],
+ "fields": [
+  {
+   "description": "Foam block to slice (e.g. D13-60x75x44 Block).",
+   "fieldname": "source_block",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source Block",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "block_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Block Qty",
+   "reqd": 1
+  },
+  {
+   "fieldname": "output_sheeting_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Output Sheeting Roll Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "fabric_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Fabric Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "target_quilted_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Target Quilted Item (QF)",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "description": "Planning reference only — floor staff enter actual meters on Quilting Record.",
+   "fieldname": "planned_qty_meters",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Planned Qty (Meters)"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "Pufm Quilting Instruction",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

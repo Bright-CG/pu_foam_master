@@ -59,6 +59,7 @@ class PufmManufacturingSettings(Document):
 		self._validate_warehouse_companies()
 		self._validate_rebate_account_type()
 		self._validate_mattress_labour_absorption()
+		self._validate_scrap_rates()
 
 	def _validate_required_operational_fields(self):
 		missing = [label for field, label in _REQUIRED_CORE_FIELDS if not self.get(field)]
@@ -118,6 +119,12 @@ class PufmManufacturingSettings(Document):
 				_("Mattress Labour Absorption Account must be an Expense account."),
 				frappe.ValidationError,
 			)
+
+	def _validate_scrap_rates(self):
+		if flt(self.scrap_output_rate) < 0:
+			frappe.throw(_("Scrap Output Rate cannot be negative."), frappe.ValidationError)
+		if flt(self.scrap_input_rate) < 0:
+			frappe.throw(_("Scrap Input Rate cannot be negative."), frappe.ValidationError)
 
 
 @frappe.whitelist()

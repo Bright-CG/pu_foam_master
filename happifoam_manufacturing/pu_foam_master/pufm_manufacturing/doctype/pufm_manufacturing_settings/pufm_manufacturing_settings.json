@@ -456,15 +456,17 @@
         },
         {
             "default": "0",
+            "description": "Value per kg used when Rebound consumes scrap to make rebound blocks. Rebound always costs scrap at this Settings rate (not the warehouse moving-average). Set 0 to issue scrap at no value.",
             "fieldname": "scrap_input_rate",
             "fieldtype": "Currency",
-            "label": "Scrap Input Rate"
+            "label": "Scrap Input Rate (Rebound consume)"
         },
         {
             "default": "0",
+            "description": "Value per kg used when scrap is received into the scrap warehouse: virgin pour, mattress core conversion, and furniture sheeting conversion. That value is credited out of the foam/block cost pool before remaining cost is shared across good output by CBM. Set 0 to receive scrap at no value.",
             "fieldname": "scrap_output_rate",
             "fieldtype": "Currency",
-            "label": "Scrap Output Rate"
+            "label": "Scrap Output Rate (receive into scrap warehouse)"
         },
         {
             "fieldname": "rebound_economics_section",
@@ -547,7 +549,7 @@
     "index_pages": [],
     "issingle": 1,
     "links": [],
-    "modified": "2026-08-16 20:15:00.000000",
+    "modified": "2026-08-17 14:40:00.000000",
     "modified_by": "Administrator",
     "module": "pufm_manufacturing",
     "name": "Pufm Manufacturing Settings",

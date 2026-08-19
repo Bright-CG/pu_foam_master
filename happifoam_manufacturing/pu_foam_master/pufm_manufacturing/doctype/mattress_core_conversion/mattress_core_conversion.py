@@ -3,6 +3,7 @@ from frappe.model.document import Document
 from frappe.model.naming import make_autoname
 from frappe.utils import cint, flt
 
+from pu_foam_master.pufm_manufacturing.utils.settings import get_scrap_output_rate
 from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	apply_manual_rate,
 	balance_stock_entry_targets,
@@ -26,9 +27,9 @@ class MattressCoreConversion(Document):
 		if not self.job_order:
 			return
 		order_type = frappe.db.get_value("Pufm Job Order", self.job_order, "order_type")
-		if order_type and order_type != "Mattress":
+		if order_type and order_type not in ("Mattress", "Quilting"):
 			frappe.throw(
-				"Job Order {0} is type {1}. Mattress Core Conversion only accepts Mattress Job Orders.".format(
+				"Job Order {0} is type {1}. Mattress Core Conversion accepts Mattress or Quilting Job Orders only.".format(
 					self.job_order, order_type
 				)
 			)
@@ -58,14 +59,11 @@ class MattressCoreConversion(Document):
 			return
 		if not frappe.db.exists("Pufm Job Order", self.job_order):
 			return
-		order_type = frappe.db.get_value("Pufm Job Order", self.job_order, "order_type")
 		from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (
-			sync_job_order_status,
+			reconcile_job_order_workflow,
 		)
 
-		if order_type == "Mattress":
-			sync_job_order_status(self.job_order, "Pending Assembly")
-		# Sheetings Job Orders complete via Pufm Sheeting Conversion (no stock SE).
+		reconcile_job_order_workflow(self.job_order)
 
 	def _sync_job_order_on_cancel(self):
 		if not self.job_order:
@@ -73,10 +71,10 @@ class MattressCoreConversion(Document):
 		if not frappe.db.exists("Pufm Job Order", self.job_order):
 			return
 		from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (
-			sync_job_order_status,
+			reconcile_job_order_workflow,
 		)
 
-		sync_job_order_status(self.job_order, "Pending Slicing")
+		reconcile_job_order_workflow(self.job_order)
 
 	def _set_conversion_rate(self):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
@@ -160,7 +158,7 @@ class MattressCoreConversion(Document):
 		output_rows = self.get("outputs") or []
 
 		settings = frappe.get_single("Pufm Manufacturing Settings")
-		scrap_output_rate = flt(getattr(settings, "scrap_output_rate", 0) or 0)
+		scrap_output_rate = get_scrap_output_rate(settings)
 		scrap_item = getattr(settings, "scrap_item", None)
 		scrap_warehouse = getattr(settings, "default_scrap_warehouse", None)
 		conversion_absorption_account = getattr(settings, "conversion_absorption_account", None)

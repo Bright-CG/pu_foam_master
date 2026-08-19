@@ -370,4 +370,14 @@ def repair_job_order_workflow_statuses():
 		repair_job_order_workflow_status,
 	)
 
+	drop_legacy_quilting_status_column()
 	repair_job_order_workflow_status()
+
+
+def drop_legacy_quilting_status_column():
+	"""Remove deprecated quilting_status from Pufm Job Order (replaced by progress section)."""
+	if frappe.db.has_column("Pufm Job Order", "quilting_status"):
+		frappe.db.sql("ALTER TABLE `tabPufm Job Order` DROP COLUMN `quilting_status`")
+		frappe.db.commit()
+		frappe.clear_cache(doctype="Pufm Job Order")
+		print("[setup_migrations] Dropped legacy quilting_status from Pufm Job Order.")

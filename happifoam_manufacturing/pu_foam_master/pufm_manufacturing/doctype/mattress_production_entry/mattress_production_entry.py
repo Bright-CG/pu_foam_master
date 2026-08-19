@@ -33,6 +33,8 @@ class MattressProductionEntry(Document):
 			frappe.throw("Target/FG Warehouse is required.")
 		self._validate_job_order_type()
 		if self._action == "submit":
+			self._validate_core_conversion_link()
+		if self._action == "submit":
 			self._preflight_all_rows_before_posting()
 		else:
 			self._throw_if_errors(self._collect_row_field_errors())
@@ -42,11 +44,45 @@ class MattressProductionEntry(Document):
 		if not self.job_order:
 			return
 		order_type = frappe.db.get_value("Pufm Job Order", self.job_order, "order_type")
-		if order_type and order_type != "Mattress":
+		if order_type and order_type not in ("Mattress", "Quilting"):
 			frappe.throw(
-				"Job Order {0} is type {1}. Mattress Production only accepts Mattress Job Orders.".format(
+				"Job Order {0} is type {1}. Mattress Production accepts Mattress or Quilting Job Orders only.".format(
 					self.job_order, order_type
 				)
+			)
+
+	def _validate_core_conversion_link(self):
+		if not self.job_order:
+			return
+		order_type = frappe.db.get_value("Pufm Job Order", self.job_order, "order_type")
+		if order_type == "Quilting":
+			if not self.core_conversion:
+				frappe.throw(
+					"Core Conversion is required when assembling from a Quilting Job Order."
+				)
+			if not frappe.db.exists("Mattress Core Conversion", self.core_conversion):
+				frappe.throw("Core Conversion {0} was not found.".format(self.core_conversion))
+			conv = frappe.db.get_value(
+				"Mattress Core Conversion",
+				self.core_conversion,
+				["job_order", "docstatus"],
+				as_dict=True,
+			)
+			if not conv or conv.job_order != self.job_order:
+				frappe.throw(
+					"Core Conversion {0} does not belong to Job Order {1}.".format(
+						self.core_conversion, self.job_order
+					)
+				)
+			if cint(conv.docstatus) != 1:
+				frappe.throw(
+					"Core Conversion {0} must be submitted before assembly.".format(
+						self.core_conversion
+					)
+				)
+		elif self.core_conversion:
+			frappe.throw(
+				"Core Conversion is only used with Quilting Job Orders. Clear it or select a Quilting Job Order."
 			)
 
 	def before_submit(self):
@@ -91,10 +127,10 @@ class MattressProductionEntry(Document):
 		if not frappe.db.exists("Pufm Job Order", self.job_order):
 			return
 		from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (
-			sync_job_order_status,
+			reconcile_job_order_workflow,
 		)
 
-		sync_job_order_status(self.job_order, "Completed")
+		reconcile_job_order_workflow(self.job_order)
 
 	def _sync_job_order_on_cancel(self):
 		if not self.job_order:
@@ -102,16 +138,16 @@ class MattressProductionEntry(Document):
 		if not frappe.db.exists("Pufm Job Order", self.job_order):
 			return
 		from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (
-			sync_job_order_status,
+			reconcile_job_order_workflow,
 		)
 
-		sync_job_order_status(self.job_order, "Pending Assembly")
+		reconcile_job_order_workflow(self.job_order)
 
 	def _collect_row_field_errors(self):
 		errors = []
 		for row in self.production_items or []:
 			row.finish_type = _row_finish_type(row)
-			errors.extend(_row_field_errors(row))
+			errors.extend(_row_field_errors(row, core_conversion=self.core_conversion))
 		return errors
 
 	def _preflight_all_rows_before_posting(self):
@@ -433,7 +469,7 @@ def _assembly_absorption_errors(settings):
 	return errors
 
 
-def _row_field_errors(row):
+def _row_field_errors(row, core_conversion=None):
 	errors = []
 	prefix = "Row {0}".format(row.idx)
 	if not row.mattress_item:
@@ -444,6 +480,26 @@ def _row_field_errors(row):
 		errors.append("{0}: Core Batch is required.".format(prefix))
 	elif not _get_batch_item(row.core_batch):
 		errors.append("{0}: Core Batch {1} was not found.".format(prefix, row.core_batch))
+	else:
+		try:
+			from pu_foam_master.pufm_manufacturing.utils.item_cbm import (
+				batch_belongs_to_conversion,
+				validate_core_batch_for_mattress,
+			)
+
+			validate_core_batch_for_mattress(
+				row.mattress_item, row.core_batch, row_label=prefix
+			)
+			if core_conversion and not batch_belongs_to_conversion(
+				row.core_batch, core_conversion
+			):
+				errors.append(
+					"{0}: Core Batch {1} was not produced by Core Conversion {2}.".format(
+						prefix, row.core_batch, core_conversion
+					)
+				)
+		except Exception as exc:
+			errors.append(_exc_message(exc))
 	if not row.fabric_item:
 		errors.append("{0}: Fabric Item is required.".format(prefix))
 	if not row.fabric_batch:
@@ -452,6 +508,7 @@ def _row_field_errors(row):
 		errors.append("{0}: Fabric Batch {1} was not found.".format(prefix, row.fabric_batch))
 
 	errors.extend(_label_item_errors(row))
+	errors.extend(_quilted_fabric_requirement_errors(row))
 
 	if row.fabric_item and row.fabric_batch:
 		batch_item = _get_batch_item(row.fabric_batch)
@@ -523,6 +580,7 @@ def _row_posting_errors(row, settings, source_warehouse=None):
 	try:
 		costs = _row_cost_breakdown(row, settings, source_warehouse=source_warehouse)
 		row.total_row_cost = costs["total_row_cost"]
+		errors.extend(_quilted_fabric_stock_errors(row, costs, source_warehouse))
 	except Exception as exc:
 		msg = _exc_message(exc)
 		if not msg.startswith("Row "):
@@ -704,6 +762,102 @@ def _row_finish_type(row):
 
 def _is_side_quilted_row(row):
 	return _row_finish_type(row) == "Side Quilted"
+
+
+QUILTED_FABRIC_GROUP = "Quilted Fabric"
+
+
+def _item_in_group(item_code, item_group):
+	if not item_code:
+		return False
+	if not frappe.db.exists("Item Group", item_group):
+		return True
+	return frappe.db.get_value("Item", item_code, "item_group") == item_group
+
+
+def _batch_stock_qty(item_code, warehouse, batch_no):
+	if not item_code or not warehouse or not batch_no:
+		return 0.0
+	conditions = "item_code = %s AND warehouse = %s AND batch_no = %s"
+	if frappe.db.has_column("Stock Ledger Entry", "is_cancelled"):
+		conditions += " AND IFNULL(is_cancelled, 0) = 0"
+	qty = frappe.db.sql(
+		"""
+		SELECT COALESCE(SUM(actual_qty), 0)
+		FROM `tabStock Ledger Entry`
+		WHERE {conditions}
+		""".format(
+			conditions=conditions
+		),
+		(item_code, warehouse, batch_no),
+	)
+	return flt(qty[0][0] if qty else 0)
+
+
+def _quilted_fabric_requirement_errors(row):
+	"""FQ/SQ must consume Quilted Fabric. Plain cores are not blocked."""
+	errors = []
+	prefix = "Row {0}".format(row.idx)
+	finish = _row_finish_type(row)
+	if finish == "Fully Quilted":
+		if row.fabric_item and not _item_in_group(row.fabric_item, QUILTED_FABRIC_GROUP):
+			errors.append(
+				"{0}: Fully Quilted mattresses must consume Quilted Fabric "
+				"(Item Group {1}). Quilt it on a Quilting Record first, or pick a quilted batch.".format(
+					prefix, QUILTED_FABRIC_GROUP
+				)
+			)
+	elif finish == "Side Quilted":
+		if row.side_fabric_item and not _item_in_group(row.side_fabric_item, QUILTED_FABRIC_GROUP):
+			errors.append(
+				"{0}: Side Quilted mattresses must consume Quilted Fabric on the side "
+				"(Item Group {1}). Quilt it on a Quilting Record first, or pick a quilted batch.".format(
+					prefix, QUILTED_FABRIC_GROUP
+				)
+			)
+	return errors
+
+
+def _quilted_fabric_stock_errors(row, costs, source_warehouse):
+	errors = []
+	prefix = "Row {0}".format(row.idx)
+	finish = _row_finish_type(row)
+	checks = []
+	if finish == "Fully Quilted":
+		checks.append(
+			(
+				row.fabric_item,
+				row.fabric_batch,
+				flt(costs.get("fabric_meters")),
+				"quilted fabric",
+			)
+		)
+	elif finish == "Side Quilted":
+		checks.append(
+			(
+				row.side_fabric_item,
+				row.side_fabric_batch,
+				flt(costs.get("side_fabric_meters")),
+				"quilted side fabric",
+			)
+		)
+	for item_code, batch_no, needed, label in checks:
+		if not item_code or not batch_no or needed <= 0:
+			continue
+		available = _batch_stock_qty(item_code, source_warehouse, batch_no)
+		if available + 0.0001 < needed:
+			errors.append(
+				"{0}: Not enough {1} in warehouse {2} (batch {3}). "
+				"Need {4} m, have {5} m. Run Quilting Record or pick another batch.".format(
+					prefix,
+					label,
+					source_warehouse or "(none)",
+					batch_no,
+					flt(needed, 3),
+					flt(available, 3),
+				)
+			)
+	return errors
 
 
 def _fabric_panel_areas(length, width, height, settings):

@@ -5,7 +5,6 @@ frappe.listview_settings["Pufm Job Order"] = {
 	add_fields: ["workflow_status", "order_type"],
 	get_indicator(doc) {
 		if (cint(doc.docstatus) === 0) {
-			// No third-arg filter: values with spaces break list filters when clicked.
 			return [__("Draft"), "red"];
 		}
 		if (cint(doc.docstatus) === 2) {
@@ -14,12 +13,12 @@ frappe.listview_settings["Pufm Job Order"] = {
 
 		const colors = {
 			"Pending Slicing": "orange",
+			"Pending Quilting": "purple",
 			"Pending Assembly": "blue",
 			Completed: "green",
 		};
 		const status = doc.workflow_status || "Pending Slicing";
 		const color = colors[status] || "gray";
-		// Color only — use the standard filter bar for workflow_status (avoids empty lists).
 		return [__(status), color];
 	},
 };

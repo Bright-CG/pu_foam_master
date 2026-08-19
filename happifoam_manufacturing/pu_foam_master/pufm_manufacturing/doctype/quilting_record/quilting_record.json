@@ -9,6 +9,7 @@
   "naming_series",
   "company",
   "posting_date",
+  "job_order",
   "sales_order",
   "material_request",
   "finished_item",
@@ -46,6 +47,14 @@
    "in_list_view": 1,
    "label": "Posting Date",
    "reqd": 1
+  },
+  {
+   "fieldname": "job_order",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Job Order",
+   "options": "Pufm Job Order"
   },
   {
    "fieldname": "sales_order",
@@ -127,7 +136,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-07-25 17:00:00.000000",
+ "modified": "2026-08-17 14:30:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Quilting Record",

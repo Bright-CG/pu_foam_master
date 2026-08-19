@@ -53,6 +53,18 @@ def get_cbm_factor(settings=None):
 	return get_formula_factor("cbm_factor", settings)
 
 
+def get_scrap_output_rate(settings=None):
+	"""Rate used when scrap is received (pour, conversion, furniture sheeting). Zero is valid."""
+	settings = settings or get_settings()
+	return flt(getattr(settings, "scrap_output_rate", 0))
+
+
+def get_scrap_input_rate(settings=None):
+	"""Rate used when scrap is consumed in Rebound. Zero is valid."""
+	settings = settings or get_settings()
+	return flt(getattr(settings, "scrap_input_rate", 0))
+
+
 def get_rebound_settings():
 	settings = get_settings()
 	require_absorption_accounts(settings)

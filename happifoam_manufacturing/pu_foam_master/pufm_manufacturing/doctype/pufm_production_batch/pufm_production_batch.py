@@ -18,6 +18,7 @@ from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	balance_stock_entry_targets,
 	get_stock_valuation_rate,
 )
+from pu_foam_master.pufm_manufacturing.utils.settings import get_scrap_output_rate
 
 
 # workflow_state -> roles allowed to enter that state (status only; stock uses docstatus)
@@ -231,7 +232,7 @@ class PufmProductionBatch(Document):
 		company = self._require_company()
 		settings = self._get_settings()
 
-		scrap_output_rate = flt(getattr(settings, "scrap_output_rate", 0) or 0)
+		scrap_output_rate = get_scrap_output_rate(settings)
 		scrap_item = getattr(settings, "scrap_item", None) or frappe.db.get_single_value(
 			"Stock Settings", "scrap_item"
 		)
