@@ -1,7 +1,7 @@
 import json
 import os
 
-filepath = '/Users/bright/Development/PU_Foam/happifoam_manufacturing/hf_manufacturing/doctype/density_configuration/density_configuration.json'
+filepath = '/Users/bright/Development/PU_Foam/pu_foam_master/pu_foam_master/pufm_manufacturing/doctype/density_configuration/density_configuration.json'
 
 with open(filepath, 'r') as f:
     data = json.load(f)

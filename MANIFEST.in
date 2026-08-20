@@ -1,12 +1,12 @@
 include *.txt
 include *.md
-recursive-include happifoam_manufacturing *.py
-recursive-include happifoam_manufacturing *.html
-recursive-include happifoam_manufacturing *.js
-recursive-include happifoam_manufacturing *.json
-recursive-include happifoam_manufacturing *.css
-recursive-include happifoam_manufacturing *.png
-recursive-include happifoam_manufacturing *.jpg
-recursive-include happifoam_manufacturing *.svg
-recursive-include happifoam_manufacturing *.csv
-recursive-include happifoam_manufacturing *.txt
+recursive-include pu_foam_master *.py
+recursive-include pu_foam_master *.html
+recursive-include pu_foam_master *.js
+recursive-include pu_foam_master *.json
+recursive-include pu_foam_master *.css
+recursive-include pu_foam_master *.png
+recursive-include pu_foam_master *.jpg
+recursive-include pu_foam_master *.svg
+recursive-include pu_foam_master *.csv
+recursive-include pu_foam_master *.txt
