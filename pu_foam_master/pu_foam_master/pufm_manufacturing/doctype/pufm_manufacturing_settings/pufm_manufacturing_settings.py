@@ -55,11 +55,25 @@ class PufmManufacturingSettings(Document):
 			+ flt(self.non_woven_cost_per_m)
 			+ flt(self.quilting_labor_per_m)
 		)
+		# Fresh install / migrate creates an empty Single — do not block that bootstrap save.
+		if self._is_bootstrap_context():
+			return
 		self._validate_required_operational_fields()
 		self._validate_warehouse_companies()
 		self._validate_rebate_account_type()
 		self._validate_mattress_labour_absorption()
 		self._validate_scrap_rates()
+
+	def _is_bootstrap_context(self):
+		"""True during install/migrate, or when Settings has never been configured yet."""
+		if (
+			getattr(frappe.flags, "in_install", None)
+			or getattr(frappe.flags, "in_migrate", False)
+			or getattr(frappe.flags, "in_patch", False)
+		):
+			return True
+		# Allow first empty Single save (init_singles / Desk open before setup)
+		return not any(self.get(field) for field, _label in _REQUIRED_CORE_FIELDS)
 
 	def _validate_required_operational_fields(self):
 		missing = [label for field, label in _REQUIRED_CORE_FIELDS if not self.get(field)]

@@ -68,7 +68,11 @@ def ensure_default_item_groups():
 
 def before_install():
 	"""Run before DocType singles init so Link defaults / fallbacks never crash install."""
-	ensure_default_item_groups()
+	try:
+		ensure_default_item_groups()
+	except Exception:
+		frappe.log_error(title="pu_foam_master before_install item groups")
+		print("[pu_foam_master before_install] Item group bootstrap skipped (non-fatal).")
 
 
 def ensure_labels_item_group():
@@ -79,20 +83,31 @@ def ensure_labels_item_group():
 
 
 def ensure_standard_mattress_sizes():
-	"""Manual helper only — prefer pu_foam_master.utils.demo_data.seed_standard_mattress_sizes."""
+	"""Seed Standard Mattress Size rows (idempotent; safe when DocType exists)."""
+	if not frappe.db.exists("DocType", "Standard Mattress Size"):
+		return
 	from pu_foam_master.utils.demo_data import seed_standard_mattress_sizes
 
 	seed_standard_mattress_sizes()
 
 
 def migrate_rebate_expense_account():
-	income_account = frappe.db.get_single_value(
-		"Pufm Manufacturing Settings", "rebate_income_account"
-	)
-	expense_account = frappe.db.get_single_value(
-		"Pufm Manufacturing Settings", "rebate_expense_account"
-	)
+	"""Copy legacy rebate_income_account into rebate_expense_account when needed."""
+	if not frappe.db.exists("DocType", "Pufm Manufacturing Settings"):
+		return
+	try:
+		income_account = frappe.db.get_single_value(
+			"Pufm Manufacturing Settings", "rebate_income_account"
+		)
+		expense_account = frappe.db.get_single_value(
+			"Pufm Manufacturing Settings", "rebate_expense_account"
+		)
+	except Exception:
+		return
 	if income_account and not expense_account:
+		# Only set if the Account still exists (fresh sites have empty CoA)
+		if not frappe.db.exists("Account", income_account):
+			return
 		frappe.db.set_single_value(
 			"Pufm Manufacturing Settings",
 			"rebate_expense_account",
@@ -103,7 +118,10 @@ def migrate_rebate_expense_account():
 
 def ensure_customer_rebate_fields():
 	# Frappe blocks Select -> Link fieldtype changes; recreate the field when needed.
-	_recreate_customer_rebate_tier_link_field()
+	try:
+		_recreate_customer_rebate_tier_link_field()
+	except Exception:
+		frappe.log_error(title="ensure_customer_rebate_fields recreate tier field")
 
 	custom_fields = {
 		"Customer": [

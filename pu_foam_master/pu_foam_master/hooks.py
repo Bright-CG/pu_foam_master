@@ -86,15 +86,8 @@ after_migrate = [
 ]
 
 after_install = [
-	"pu_foam_master.setup_defaults.ensure_default_item_groups",
-	"pu_foam_master.setup_defaults.migrate_rebate_expense_account",
-	"pu_foam_master.setup_defaults.ensure_pufm_roles",
-	"pu_foam_master.custom_fields.ensure_item_custom_fields",
-	"pu_foam_master.custom_fields.ensure_sales_invoice_rebate_fields",
-	"pu_foam_master.setup_defaults.ensure_customer_rebate_fields",
-	"pu_foam_master.setup_defaults.ensure_default_rebate_tiers",
-	"pu_foam_master.setup_defaults.ensure_standard_mattress_sizes",
-	"pu_foam_master.setup_workspace.create_workspace",
+	# Single safe runner — each step is isolated so one failure cannot abort install
+	"pu_foam_master.install.run_after_install",
 ]
 
 doctype_js = {

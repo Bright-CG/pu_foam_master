@@ -230,5 +230,14 @@ def create_workspace():
 	frappe.db.commit()
 
 
+def create_workspace_safe():
+	"""Workspace sync that never raises during install."""
+	try:
+		create_workspace()
+	except Exception:
+		frappe.log_error(title="pu_foam_master create_workspace failed")
+		print("[setup_workspace] Workspace sync skipped (non-fatal).")
+
+
 if __name__ == "__main__":
 	create_workspace()
