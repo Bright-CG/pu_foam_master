@@ -130,7 +130,7 @@
             "options": "Company"
         },
         {
-            "default": "Products",
+            "description": "Item Group used when creating foam block Items from Density Configuration. Set after Item Groups exist.",
             "fieldname": "block_item_group",
             "fieldtype": "Link",
             "label": "Block Item Group",

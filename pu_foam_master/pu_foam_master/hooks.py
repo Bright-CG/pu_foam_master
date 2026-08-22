@@ -60,6 +60,10 @@ fixtures = [
 # No master-data seeding on install/migrate (Items, Warehouses, Companies, etc.).
 # Use: bench --site <site> execute pu_foam_master.utils.demo_data.seed_test_items
 
+before_install = [
+	"pu_foam_master.setup_defaults.before_install",
+]
+
 after_migrate = [
 	"pu_foam_master.setup_migrations.migrate_rebate_settlement_tool",
 	"pu_foam_master.setup_migrations.cleanup_output_item_variant",
@@ -82,6 +86,7 @@ after_migrate = [
 ]
 
 after_install = [
+	"pu_foam_master.setup_defaults.ensure_default_item_groups",
 	"pu_foam_master.setup_defaults.migrate_rebate_expense_account",
 	"pu_foam_master.setup_defaults.ensure_pufm_roles",
 	"pu_foam_master.custom_fields.ensure_item_custom_fields",

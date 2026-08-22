@@ -35,28 +35,40 @@ def ensure_pufm_roles():
 
 
 def ensure_default_item_groups():
-	"""Manual helper only — not wired into install/migrate hooks."""
-	if not frappe.db.exists("Item Group", "All Item Groups"):
+	"""Create core Item Groups used by PUFM (idempotent; safe on fresh ERPNext)."""
+	parent = "All Item Groups"
+	if not frappe.db.exists("Item Group", parent):
 		frappe.get_doc(
 			{
 				"doctype": "Item Group",
-				"item_group_name": "All Item Groups",
+				"item_group_name": parent,
 				"is_group": 1,
 			}
 		).insert(ignore_permissions=True, ignore_if_duplicate=True)
 
-	if not frappe.db.exists("Item Group", "Products"):
-		item_group = frappe.get_doc(
+	# Leaf groups — no Link defaults on Settings; operators pick these after install
+	for name, is_group in (
+		("Products", 0),
+		("Labels", 0),
+		("Raw Material", 0),
+	):
+		if frappe.db.exists("Item Group", name):
+			continue
+		frappe.get_doc(
 			{
 				"doctype": "Item Group",
-				"item_group_name": "Products",
-				"parent_item_group": "All Item Groups",
-				"is_group": 1,
+				"item_group_name": name,
+				"parent_item_group": parent,
+				"is_group": is_group,
 			}
-		)
-		item_group.insert(ignore_permissions=True, ignore_if_duplicate=True)
+		).insert(ignore_permissions=True, ignore_if_duplicate=True)
 
 	frappe.db.commit()
+
+
+def before_install():
+	"""Run before DocType singles init so Link defaults / fallbacks never crash install."""
+	ensure_default_item_groups()
 
 
 def ensure_labels_item_group():
