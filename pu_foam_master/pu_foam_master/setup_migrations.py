@@ -364,6 +364,67 @@ def ensure_labels_item_group():
 	frappe.db.commit()
 
 
+def migrate_quilting_record_parent_materials():
+	"""Copy legacy Quilting Input child rows onto fabric/sheeting parent fields."""
+	if not frappe.db.has_column("Quilting Record", "fabric_item"):
+		return
+	if not frappe.db.table_exists("tabQuilting Input"):
+		return
+
+	parents = frappe.db.sql(
+		"""
+		SELECT parent
+		FROM `tabQuilting Input`
+		GROUP BY parent
+		HAVING COUNT(*) >= 1
+		""",
+		as_dict=True,
+	)
+	updated = 0
+	for row in parents:
+		name = row.parent
+		if not name or not frappe.db.exists("Quilting Record", name):
+			continue
+		if frappe.db.get_value("Quilting Record", name, "fabric_item"):
+			continue
+		inputs = frappe.get_all(
+			"Quilting Input",
+			filters={"parent": name},
+			fields=["item_code", "source_warehouse", "batch_no", "qty", "idx"],
+			order_by="idx asc",
+		)
+		if not inputs:
+			continue
+		fabric = inputs[0]
+		sheeting = inputs[1] if len(inputs) > 1 else frappe._dict()
+		frappe.db.set_value(
+			"Quilting Record",
+			name,
+			{
+				"fabric_item": fabric.item_code,
+				"fabric_warehouse": fabric.source_warehouse,
+				"fabric_batch": fabric.batch_no,
+				"fabric_qty_meters": fabric.qty,
+				"sheeting_roll_item": sheeting.item_code,
+				"sheeting_warehouse": sheeting.source_warehouse,
+				"sheeting_batch": sheeting.batch_no,
+				"sheeting_qty_meters": sheeting.qty,
+			},
+			update_modified=False,
+		)
+		updated += 1
+
+	if updated:
+		frappe.db.commit()
+		print(
+			"[setup_migrations] Migrated {0} Quilting Record(s) from child inputs to parent material fields.".format(
+				updated
+			)
+		)
+	else:
+		print("[setup_migrations] No Quilting Record child-input migrations needed.")
+
+
 def repair_job_order_workflow_statuses():
 	"""Recompute Job Order workflow_status from linked conversion/assembly docs."""
 	from pu_foam_master.pufm_manufacturing.doctype.pufm_job_order.pufm_job_order import (

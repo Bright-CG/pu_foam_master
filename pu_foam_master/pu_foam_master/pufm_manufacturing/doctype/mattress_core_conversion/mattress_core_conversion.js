@@ -30,8 +30,15 @@ frappe.ui.form.on("Mattress Core Conversion", {
 		}));
 	},
 	refresh(frm) {
-		// Sync read-only totals without dirtying (keeps Submit visible)
-		sync_summary_fields(frm, { silent: true });
+		// Prefill from Quilting JO sets item_code/qty without firing child events —
+		// hydrate CBM so Unit/Total CBM still populate.
+		if (frm.doc.docstatus === 0) {
+			hydrate_all_row_cbm(frm).then(() => {
+				sync_summary_fields(frm, { silent: true });
+			});
+		} else {
+			sync_summary_fields(frm, { silent: true });
+		}
 		if (frm.doc.job_order) {
 			pufm_fetch_job_instructions(frm);
 		}
@@ -53,6 +60,7 @@ frappe.ui.form.on("Mattress Core Conversion", {
 			frm.set_value("processed_by", frappe.session.user);
 		}
 		set_conversion_rate(frm);
+		hydrate_all_row_cbm(frm);
 	},
 	company(frm) {
 		if (frm.doc.target_warehouse) {
@@ -94,16 +102,7 @@ frappe.ui.form.on("Mattress Core Conversion", {
 
 frappe.ui.form.on("Block Conversion Input", {
 	item_code(frm, cdt, cdn) {
-		const row = locals[cdt][cdn];
-		if (!row.item_code) {
-			return;
-		}
-		frappe.db.get_value("Item", row.item_code, "custom_cbm_value").then((r) => {
-			const unitCbm = flt((r.message || {}).custom_cbm_value);
-			frappe.model.set_value(cdt, cdn, "unit_cbm", unitCbm).then(() => {
-				recalculate_input_row(frm, cdt, cdn);
-			});
-		});
+		hydrate_input_row_cbm(frm, cdt, cdn);
 	},
 	qty(frm, cdt, cdn) {
 		recalculate_input_row(frm, cdt, cdn);
@@ -112,26 +111,7 @@ frappe.ui.form.on("Block Conversion Input", {
 
 frappe.ui.form.on("Block Conversion Output", {
 	item_code(frm, cdt, cdn) {
-		const row = locals[cdt][cdn];
-		if (!row.item_code) {
-			return;
-		}
-		frappe.call({
-			method: "frappe.client.get",
-			args: {
-				doctype: "Item",
-				name: row.item_code,
-			},
-			callback: function (res) {
-				const item = res.message || {};
-				frappe.model.set_value(cdt, cdn, "uom", item.stock_uom || null);
-				frappe.model.set_value(cdt, cdn, "width", flt(item.custom_width));
-				frappe.model.set_value(cdt, cdn, "height", flt(item.custom_height));
-				frappe.model.set_value(cdt, cdn, "length", flt(item.custom_length)).then(() => {
-					recalculate_output_row(frm, cdt, cdn);
-				});
-			},
-		});
+		hydrate_output_row_cbm(frm, cdt, cdn);
 	},
 	qty(frm, cdt, cdn) {
 		recalculate_output_row(frm, cdt, cdn);
@@ -172,25 +152,120 @@ function get_cbm_factor() {
 	});
 }
 
+function hydrate_all_row_cbm(frm) {
+	const tasks = [];
+	(frm.doc.inputs || []).forEach((row) => {
+		if (row.item_code) {
+			tasks.push(hydrate_input_row_cbm(frm, row.doctype, row.name, { silent: true }));
+		}
+	});
+	(frm.doc.outputs || []).forEach((row) => {
+		if (row.item_code) {
+			tasks.push(hydrate_output_row_cbm(frm, row.doctype, row.name, { silent: true }));
+		}
+	});
+	return Promise.all(tasks).then(() => {
+		sync_summary_fields(frm, { silent: true });
+	});
+}
+
+function hydrate_input_row_cbm(frm, cdt, cdn, opts) {
+	const silent = opts && opts.silent;
+	const row = locals[cdt][cdn];
+	if (!row || !row.item_code) {
+		return Promise.resolve();
+	}
+	return frappe.db.get_value("Item", row.item_code, "custom_cbm_value").then((r) => {
+		const unitCbm = flt((r && r.message && r.message.custom_cbm_value) || 0);
+		const apply = silent
+			? Promise.resolve().then(() => {
+					row.unit_cbm = unitCbm;
+					row.total_cbm = flt(row.qty) * unitCbm;
+					frm.refresh_field("inputs");
+			  })
+			: frappe.model.set_value(cdt, cdn, "unit_cbm", unitCbm).then(() => {
+					return recalculate_input_row(frm, cdt, cdn);
+			  });
+		return apply;
+	});
+}
+
+function hydrate_output_row_cbm(frm, cdt, cdn, opts) {
+	const silent = opts && opts.silent;
+	const row = locals[cdt][cdn];
+	if (!row || !row.item_code) {
+		return Promise.resolve();
+	}
+	return frappe.db
+		.get_value("Item", row.item_code, [
+			"stock_uom",
+			"custom_width",
+			"custom_height",
+			"custom_length",
+			"custom_cbm_value",
+		])
+		.then((r) => {
+			const item = (r && r.message) || {};
+			const width = flt(item.custom_width);
+			const height = flt(item.custom_height);
+			const length = flt(item.custom_length);
+			if (silent) {
+				row.uom = item.stock_uom || row.uom;
+				row.width = width;
+				row.height = height;
+				row.length = length;
+				return get_cbm_factor().then((cbmFactor) => {
+					let unit =
+						width > 0 && height > 0 && length > 0
+							? (width * height * length) / cbmFactor
+							: flt(item.custom_cbm_value);
+					row.unit_cbm = unit;
+					row.total_cbm = flt(row.qty) * unit;
+					frm.refresh_field("outputs");
+				});
+			}
+			return frappe.model
+				.set_value(cdt, cdn, {
+					uom: item.stock_uom || null,
+					width: width,
+					height: height,
+					length: length,
+				})
+				.then(() => recalculate_output_row(frm, cdt, cdn));
+		});
+}
+
 function recalculate_input_row(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 	const total = flt(row.qty) * flt(row.unit_cbm);
-	frappe.model.set_value(cdt, cdn, "total_cbm", total).then(() => {
+	return frappe.model.set_value(cdt, cdn, "total_cbm", total).then(() => {
 		sync_summary_fields(frm);
 	});
 }
 
 function recalculate_output_row(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
-	get_cbm_factor().then((cbmFactor) => {
+	return get_cbm_factor().then((cbmFactor) => {
 		const width = flt(row.width);
 		const height = flt(row.height);
 		const length = flt(row.length);
-		const unit = width > 0 && height > 0 && length > 0 ? (width * height * length) / cbmFactor : 0;
-		const total = flt(row.qty) * unit;
-		frappe.model.set_value(cdt, cdn, "unit_cbm", unit);
-		frappe.model.set_value(cdt, cdn, "total_cbm", total).then(() => {
-			sync_summary_fields(frm);
+		let unit =
+			width > 0 && height > 0 && length > 0 ? (width * height * length) / cbmFactor : 0;
+		// Fall back to Item CBM when dimensions are missing (e.g. sheeting roll SKUs).
+		const finish = () => {
+			const total = flt(row.qty) * unit;
+			return frappe.model.set_value(cdt, cdn, "unit_cbm", unit).then(() => {
+				return frappe.model.set_value(cdt, cdn, "total_cbm", total).then(() => {
+					sync_summary_fields(frm);
+				});
+			});
+		};
+		if (unit > 0 || !row.item_code) {
+			return finish();
+		}
+		return frappe.db.get_value("Item", row.item_code, "custom_cbm_value").then((r) => {
+			unit = flt((r && r.message && r.message.custom_cbm_value) || 0);
+			return finish();
 		});
 	});
 }

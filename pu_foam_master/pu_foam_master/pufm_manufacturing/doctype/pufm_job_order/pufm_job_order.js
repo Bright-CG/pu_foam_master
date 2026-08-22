@@ -58,6 +58,7 @@ frappe.ui.form.on("Pufm Job Order", {
 										d.qty = row.qty;
 									});
 									frappe.set_route("Form", "Mattress Core Conversion", doc.name);
+									// CBM hydrate runs on form refresh (child events do not fire for add_child).
 								});
 							},
 						});
@@ -76,18 +77,14 @@ frappe.ui.form.on("Pufm Job Order", {
 					args: { job_order: frm.doc.name },
 					callback(r) {
 						const prefill = r.message || {};
-						frappe.model.with_doctype("Quilting Record", () => {
-							const doc = frappe.model.get_new_doc("Quilting Record");
-							doc.job_order = prefill.job_order;
-							if (prefill.sales_order) {
-								doc.sales_order = prefill.sales_order;
-							}
-							doc.finished_item = prefill.finished_item;
-							(prefill.inputs || []).forEach((row) => {
-								const d = frappe.model.add_child(doc, "inputs");
-								d.item_code = row.item_code;
-							});
-							frappe.set_route("Form", "Quilting Record", doc.name);
+						frappe.new_doc("Quilting Record", {
+							job_order: prefill.job_order,
+							core_conversion: prefill.core_conversion,
+							sales_order: prefill.sales_order || undefined,
+							fabric_item: prefill.fabric_item,
+							sheeting_roll_item: prefill.sheeting_roll_item,
+							finished_item: prefill.finished_item,
+							planned_qty_meters: prefill.planned_qty_meters || undefined,
 						});
 					},
 				});

@@ -22,9 +22,18 @@ PRECISION = 5
 
 
 def get_stock_valuation_rate(item_code, warehouse=None, batch_no=None):
-	"""Best available outgoing rate for an item at a warehouse (never prefer empty Batch.VR)."""
+	"""Best available outgoing rate for an item at a warehouse (never prefer empty Batch.VR).
+
+	When batch_no is set, batch-specific valuation wins over warehouse Bin average so
+	pre-submit Stock Entry rates match ERPNext batch consumption on submit.
+	"""
 	if not item_code:
 		return 0.0
+
+	if batch_no:
+		batch_rate = _batch_valuation_rate(item_code, warehouse, batch_no)
+		if batch_rate > 0:
+			return batch_rate
 
 	if item_code and warehouse:
 		bin_rate = flt(
@@ -37,22 +46,70 @@ def get_stock_valuation_rate(item_code, warehouse=None, batch_no=None):
 		if bin_rate > 0:
 			return bin_rate
 
-	if batch_no:
-		sle_rate = _latest_sle_rate(item_code=item_code, warehouse=warehouse, batch_no=batch_no)
-		if sle_rate > 0:
-			return sle_rate
-		meta = frappe.get_meta("Batch")
-		if meta.has_field("valuation_rate"):
-			batch_rate = flt(frappe.db.get_value("Batch", batch_no, "valuation_rate"))
-			if batch_rate > 0:
-				return batch_rate
-
 	if item_code and warehouse:
 		sle_rate = _latest_sle_rate(item_code=item_code, warehouse=warehouse, batch_no=None)
 		if sle_rate > 0:
 			return sle_rate
 
 	return flt(frappe.db.get_value("Item", item_code, "valuation_rate"))
+
+
+def _batch_valuation_rate(item_code, warehouse=None, batch_no=None):
+	"""Batch-specific rate from inbound SLE (v15 bundles) or Batch master."""
+	if not batch_no:
+		return 0.0
+
+	warehouse_clause = "AND sle.warehouse = %s" if warehouse else ""
+	values = [batch_no, batch_no]
+	if warehouse:
+		values.append(warehouse)
+
+	rows = frappe.db.sql(
+		"""
+		SELECT sle.incoming_rate, sle.valuation_rate,
+			sle.stock_value_difference, sle.actual_qty
+		FROM `tabStock Ledger Entry` sle
+		LEFT JOIN `tabSerial and Batch Entry` sbe
+			ON sbe.parent = sle.serial_and_batch_bundle
+		WHERE IFNULL(sle.is_cancelled, 0) = 0
+			AND sle.item_code = %s
+			AND (sle.batch_no = %s OR sbe.batch_no = %s)
+			{warehouse_clause}
+		ORDER BY
+			CASE WHEN sle.actual_qty > 0 THEN 0 ELSE 1 END,
+			sle.posting_date DESC, sle.posting_time DESC, sle.creation DESC
+		LIMIT 10
+		""".format(warehouse_clause=warehouse_clause),
+		[item_code, batch_no, batch_no] + ([warehouse] if warehouse else []),
+		as_dict=True,
+	)
+	for row in rows or []:
+		rate = _sle_economic_rate(row, prefer_incoming=True)
+		if rate > 0:
+			return rate
+
+	meta = frappe.get_meta("Batch")
+	if meta.has_field("valuation_rate"):
+		batch_rate = flt(frappe.db.get_value("Batch", batch_no, "valuation_rate"))
+		if batch_rate > 0:
+			return batch_rate
+
+	return 0.0
+
+
+def _sle_economic_rate(row, prefer_incoming=False):
+	"""Extract per-unit rate from an SLE row; prefer true batch cost over bin-blended VR."""
+	qty = flt(row.get("actual_qty"))
+	incoming_rate = flt(row.get("incoming_rate"))
+	if prefer_incoming and qty > 0 and incoming_rate > 0:
+		return incoming_rate
+	if qty:
+		economic = abs(flt(row.get("stock_value_difference")) / qty)
+		if economic > 0:
+			return economic
+	if incoming_rate > 0:
+		return incoming_rate
+	return flt(row.get("valuation_rate"))
 
 
 def _latest_sle_rate(item_code, warehouse=None, batch_no=None):
@@ -79,15 +136,9 @@ def _latest_sle_rate(item_code, warehouse=None, batch_no=None):
 		as_dict=True,
 	)
 	for row in rows or []:
-		qty = flt(row.actual_qty)
-		if qty:
-			rate = abs(flt(row.stock_value_difference) / qty)
-			if rate > 0:
-				return rate
-		for field in ("incoming_rate", "valuation_rate"):
-			rate = flt(row.get(field))
-			if rate > 0:
-				return rate
+		rate = _sle_economic_rate(row)
+		if rate > 0:
+			return rate
 	return 0.0
 
 
@@ -103,6 +154,13 @@ def row_amount(row):
 	)
 	if amount:
 		return flt(amount, PRECISION)
+	basic_amount = flt(
+		row.get("basic_amount")
+		if isinstance(row, dict)
+		else getattr(row, "basic_amount", None)
+	)
+	if basic_amount:
+		return flt(basic_amount, PRECISION)
 	return flt(qty * rate, PRECISION)
 
 
@@ -125,25 +183,45 @@ def stock_entry_target_amount(entry):
 def stock_entry_additional_amount(entry):
 	total = 0.0
 	for row in entry.get("additional_costs") or []:
-		total = flt(total + flt(row.amount), PRECISION)
+		# ERPNext stores company currency on base_amount after landed-cost init
+		amt = flt(getattr(row, "base_amount", None) or row.amount)
+		total = flt(total + amt, PRECISION)
 	return total
 
 
 def apply_manual_rate(row, rate, precision=PRECISION):
-	"""Stamp qty×rate onto a Stock Entry Item (dict or child doc)."""
+	"""Stamp qty×rate onto a Stock Entry Item (dict or child doc).
+
+	ERPNext Repack/Manufacture totals use ``basic_amount`` (not only ``amount``).
+	When ``set_basic_rate_manually`` is set on incoming rows, ``validate`` skips
+	auto-pricing — so ``basic_amount`` must be populated here.
+	"""
 	rate = flt(rate, precision)
 	qty = flt(row.get("qty") if isinstance(row, dict) else row.qty)
-	amount = flt(qty * rate, precision)
+	transfer_qty = flt(
+		row.get("transfer_qty")
+		if isinstance(row, dict)
+		else getattr(row, "transfer_qty", None)
+	)
+	if transfer_qty <= 0:
+		transfer_qty = qty
+	basic_amount = flt(transfer_qty * rate, precision)
+	amount = basic_amount
+
 	if isinstance(row, dict):
 		row["basic_rate"] = rate
 		row["valuation_rate"] = rate
+		row["basic_amount"] = basic_amount
 		row["amount"] = amount
+		row["transfer_qty"] = transfer_qty
 		row["set_basic_rate_manually"] = 1
 		row["allow_zero_valuation_rate"] = 1 if rate <= 0 else 0
 	else:
 		row.basic_rate = rate
 		row.valuation_rate = rate
+		row.basic_amount = basic_amount
 		row.amount = amount
+		row.transfer_qty = transfer_qty
 		row.set_basic_rate_manually = 1
 		row.allow_zero_valuation_rate = 1 if rate <= 0 else 0
 	return amount
@@ -161,12 +239,16 @@ def balance_stock_entry_targets(
 	Residual is absorbed into the last non-scrap finished row.
 	Raises if sources have value but no FG row can absorb, or balance fails.
 	"""
-	# Sync amount fields from rates first
+	# Sync amount fields from rates first (ERPNext uses basic_amount on Repack/MFG)
 	for row in entry.get("items") or []:
 		qty = flt(row.qty)
+		transfer_qty = flt(row.transfer_qty) or qty
 		rate = flt(row.basic_rate or row.valuation_rate)
 		if qty and (row.s_warehouse or row.t_warehouse):
-			row.amount = flt(qty * rate, PRECISION)
+			row.transfer_qty = transfer_qty
+			row.basic_amount = flt(transfer_qty * rate, PRECISION)
+			additional = flt(getattr(row, "additional_cost", 0))
+			row.amount = flt(row.basic_amount + additional, PRECISION)
 			row.set_basic_rate_manually = 1
 			if rate > 0:
 				row.allow_zero_valuation_rate = 0
@@ -207,10 +289,19 @@ def balance_stock_entry_targets(
 		)
 
 	qty = flt(absorb_row.qty)
-	new_amount = flt(flt(absorb_row.basic_rate) * qty + residual, PRECISION)
-	if qty <= 0:
+	transfer_qty = flt(absorb_row.transfer_qty) or qty
+	if transfer_qty <= 0:
 		frappe.throw(_("{0}: absorb row has zero qty.").format(context))
-	new_rate = flt(new_amount / qty, PRECISION)
+
+	# Prefer current row amount (may already include distributed additional_cost)
+	current_amount = flt(row_amount(absorb_row), PRECISION)
+	if not current_amount:
+		current_amount = flt(
+			flt(absorb_row.basic_rate) * transfer_qty
+			+ flt(getattr(absorb_row, "additional_cost", 0)),
+			PRECISION,
+		)
+	new_amount = flt(current_amount + residual, PRECISION)
 	if new_amount < 0 and abs(new_amount) > flt(tolerance):
 		frappe.throw(
 			_(
@@ -222,11 +313,23 @@ def balance_stock_entry_targets(
 				frappe.format_value(new_amount, {"fieldtype": "Currency"}),
 			)
 		)
-	absorb_row.basic_rate = new_rate
-	absorb_row.valuation_rate = new_rate
+
+	# Fold residual into basic_amount; keep row.additional_cost so amount =
+	# basic_amount + additional_cost (ERPNext convention after distribute).
+	line_additional = flt(getattr(absorb_row, "additional_cost", 0))
+	new_basic_amount = flt(new_amount - line_additional, PRECISION)
+	if new_basic_amount < 0 and abs(new_basic_amount) > flt(tolerance):
+		line_additional = 0.0
+		absorb_row.additional_cost = 0
+		new_basic_amount = new_amount
+	new_basic_rate = flt(new_basic_amount / transfer_qty, PRECISION)
+	new_valuation_rate = flt(new_amount / transfer_qty, PRECISION)
+	absorb_row.basic_rate = new_basic_rate
+	absorb_row.valuation_rate = new_valuation_rate
+	absorb_row.basic_amount = new_basic_amount
 	absorb_row.amount = new_amount
 	absorb_row.set_basic_rate_manually = 1
-	absorb_row.allow_zero_valuation_rate = 1 if new_rate <= 0 else 0
+	absorb_row.allow_zero_valuation_rate = 1 if new_valuation_rate <= 0 else 0
 
 	source_total = stock_entry_source_amount(entry)
 	additional_total = stock_entry_additional_amount(entry)
@@ -269,6 +372,28 @@ def _assert_fg_not_zero_when_sources_valued(entry, source_total, context, scrap_
 					frappe.format_value(source_total, {"fieldtype": "Currency"}),
 				)
 			)
+
+
+def finalize_pufm_stock_entry_balance(entry, scrap_item=None, context=None):
+	"""Re-sync row amounts and enforce source + overhead == targets (call before submit)."""
+	for row in entry.get("items") or []:
+		qty = flt(row.qty)
+		transfer_qty = flt(row.transfer_qty) or qty
+		rate = flt(row.basic_rate or row.valuation_rate)
+		if qty and (row.s_warehouse or row.t_warehouse):
+			row.transfer_qty = transfer_qty
+			row.basic_amount = flt(transfer_qty * rate, PRECISION)
+			additional = flt(getattr(row, "additional_cost", 0))
+			row.amount = flt(row.basic_amount + additional, PRECISION)
+			if rate > 0:
+				row.set_basic_rate_manually = 1
+				row.allow_zero_valuation_rate = 0
+
+	return balance_stock_entry_targets(
+		entry,
+		scrap_item=scrap_item,
+		context=context or getattr(entry, "name", None) or "Stock Entry",
+	)
 
 
 def set_finished_unit_rate_from_pool(entry, finished_item_code, pool_amount, scrap_item=None):

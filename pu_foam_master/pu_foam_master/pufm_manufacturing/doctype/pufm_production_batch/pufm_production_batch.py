@@ -15,7 +15,7 @@ from pu_foam_master.pufm_manufacturing.utils.density_bom import (
 )
 from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	apply_manual_rate,
-	balance_stock_entry_targets,
+	finalize_pufm_stock_entry_balance,
 	get_stock_valuation_rate,
 )
 from pu_foam_master.pufm_manufacturing.utils.settings import get_scrap_output_rate
@@ -336,7 +336,9 @@ class PufmProductionBatch(Document):
 					).format(run.name, company)
 				)
 
-			cost_per_cbm = flt(costing["cost_per_cbm"], PRECISION)
+			net_run_cost = flt(costing["net_run_cost"], PRECISION)
+			run_total_cbm = flt(costing["run_total_cbm"], PRECISION)
+			block_specs = []
 			for block in costing["blocks"]:
 				qty = flt(block["quantity"], PRECISION)
 				if qty <= 0:
@@ -353,13 +355,38 @@ class PufmProductionBatch(Document):
 				batch_no = self._ensure_block_batch(item_code)
 
 				unit_cbm = flt(block["unit_cbm"], PRECISION)
-				block_unit_cost = flt(cost_per_cbm * unit_cbm, PRECISION)
+				line_cbm = flt(block["total_cbm"], PRECISION) or flt(unit_cbm * qty, PRECISION)
+				block_specs.append(
+					{
+						"item_code": item_code,
+						"qty": qty,
+						"unit_cbm": unit_cbm,
+						"line_cbm": line_cbm,
+						"batch_no": batch_no,
+					}
+				)
+
+			allocated_block_cost = 0.0
+			for idx, spec in enumerate(block_specs):
+				qty = spec["qty"]
+				line_cbm = spec["line_cbm"]
+				if idx == len(block_specs) - 1:
+					line_amount = flt(net_run_cost - allocated_block_cost, PRECISION)
+				else:
+					line_amount = flt(
+						net_run_cost * (line_cbm / run_total_cbm) if run_total_cbm else 0,
+						PRECISION,
+					)
+					allocated_block_cost = flt(allocated_block_cost + line_amount, PRECISION)
+
+				block_unit_cost = flt(line_amount / qty, PRECISION) if qty else 0
 				block_row = {
-					"item_code": item_code,
+					"item_code": spec["item_code"],
 					"qty": qty,
 					"t_warehouse": target_wh,
 					"use_serial_batch_fields": 1,
-					"batch_no": batch_no,
+					"batch_no": spec["batch_no"],
+					"is_finished_item": 1,
 				}
 				apply_manual_rate(block_row, block_unit_cost, precision=PRECISION)
 				entry.append("items", block_row)
@@ -368,7 +395,7 @@ class PufmProductionBatch(Document):
 		if not entry.get("items"):
 			frappe.throw(_("Nothing to post — no chemicals or finished blocks found on Density Runs."))
 
-		balance_stock_entry_targets(
+		finalize_pufm_stock_entry_balance(
 			entry,
 			scrap_item=scrap_item,
 			context="Production Batch {0}".format(self.name),
@@ -493,17 +520,17 @@ class PufmProductionBatch(Document):
 				{"item_code": bom_item.item_code, "qty": qty, "rate": rate, "uom": uom}
 			)
 
-		# 2) Operating cost from Active BOM operations (fallback: Density bom_operations)
+		# 2) Operating cost from Density BOM operations (Workstation hour rate fallback)
 		operations = list(active_bom.get("operations") or [])
 		if not operations:
 			density_doc = frappe.get_doc("Density Configuration", run_doc.density_config)
 			operations = list(density_doc.get("bom_operations") or [])
 
-		minutes_run = flt(run_doc.minutes_run)
-		run_op_cost = 0.0
-		for op in operations:
-			hour_rate = flt(op.get("hour_rate") if isinstance(op, dict) else getattr(op, "hour_rate", 0))
-			run_op_cost = flt(run_op_cost + (minutes_run / 60.0) * hour_rate, PRECISION)
+		run_op_cost = self._calculate_run_operating_cost(
+			run_doc=run_doc,
+			operations=operations,
+			expected_cbm=expected_cbm,
+		)
 
 		# 3) Scrap value (by-product credit)
 		scrap_qty = flt(run_doc.scrap_weight_kg)
@@ -556,6 +583,37 @@ class PufmProductionBatch(Document):
 			"cost_per_cbm": cost_per_cbm,
 			"blocks": blocks,
 		}
+
+	@staticmethod
+	def _calculate_run_operating_cost(run_doc, operations, expected_cbm):
+		"""Pour operating cost: BOM operation hour rates × run minutes (expected pour duration)."""
+		minutes_run = flt(run_doc.minutes_run)
+		if minutes_run <= 0:
+			return 0.0
+
+		run_op_cost = 0.0
+		for op in operations or []:
+			if isinstance(op, dict):
+				hour_rate = flt(op.get("hour_rate"))
+				workstation = op.get("workstation")
+				time_per_cbm = flt(op.get("time"))
+			else:
+				hour_rate = flt(getattr(op, "hour_rate", 0))
+				workstation = getattr(op, "workstation", None)
+				time_per_cbm = flt(getattr(op, "time", 0))
+
+			if hour_rate <= 0 and workstation:
+				hour_rate = flt(frappe.db.get_value("Workstation", workstation, "hour_rate"))
+
+			# bom_operations.time = minutes per 1 CBM at machine output rate
+			if time_per_cbm > 0 and expected_cbm > 0:
+				op_minutes = flt(time_per_cbm * expected_cbm, PRECISION)
+			else:
+				op_minutes = minutes_run
+
+			run_op_cost = flt(run_op_cost + (op_minutes / 60.0) * hour_rate, PRECISION)
+
+		return run_op_cost
 
 	@staticmethod
 	def _expected_cbm_for_consumption(run_doc):

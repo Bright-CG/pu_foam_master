@@ -5,6 +5,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import cint, flt
 
+from pu_foam_master.pufm_manufacturing.utils.item_cbm import batch_belongs_to_conversion
 from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	apply_manual_rate,
 	balance_stock_entry_targets,
@@ -17,12 +18,15 @@ class QuiltingRecord(Document):
 		if not self.company:
 			frappe.throw("Company is required.")
 		self._validate_job_order()
-		self._validate_inputs()
+		self._validate_core_conversion()
+		self._validate_materials()
 		self._calculate_variance_fields()
+		# Draft save must show cost; submit uses the same formula with strict valuation.
+		self.total_production_cost = self._calculate_total_cost(strict=False)
 
 	def before_submit(self):
 		self._calculate_variance_fields()
-		self.total_production_cost = self._calculate_total_cost()
+		self.total_production_cost = self._calculate_total_cost(strict=True)
 
 	def on_submit(self):
 		stock_entry = self._create_manufacture_stock_entry()
@@ -53,6 +57,33 @@ class QuiltingRecord(Document):
 				)
 			)
 
+	def _validate_core_conversion(self):
+		if not self.job_order:
+			return
+		if not self.core_conversion:
+			frappe.throw(
+				"Core Conversion is required when quilting from a Quilting Job Order "
+				"(so sheeting roll batches can be traced)."
+			)
+		if not frappe.db.exists("Mattress Core Conversion", self.core_conversion):
+			frappe.throw("Core Conversion {0} was not found.".format(self.core_conversion))
+		conv = frappe.db.get_value(
+			"Mattress Core Conversion",
+			self.core_conversion,
+			["job_order", "docstatus"],
+			as_dict=True,
+		)
+		if not conv or conv.job_order != self.job_order:
+			frappe.throw(
+				"Core Conversion {0} does not belong to Job Order {1}.".format(
+					self.core_conversion, self.job_order
+				)
+			)
+		if cint(conv.docstatus) != 1:
+			frappe.throw(
+				"Core Conversion {0} must be submitted before quilting.".format(self.core_conversion)
+			)
+
 	def _sync_job_order_on_change(self):
 		if not self.job_order:
 			return
@@ -62,75 +93,132 @@ class QuiltingRecord(Document):
 
 		reconcile_job_order_workflow(self.job_order)
 
-	def _validate_inputs(self):
+	def _material_lines(self):
+		return [
+			{
+				"label": "Fabric",
+				"item_code": self.fabric_item,
+				"warehouse": self.fabric_warehouse,
+				"batch_no": self.fabric_batch,
+				"qty": flt(self.fabric_qty_meters),
+			},
+			{
+				"label": "Sheeting Roll",
+				"item_code": self.sheeting_roll_item,
+				"warehouse": self.sheeting_warehouse,
+				"batch_no": self.sheeting_batch,
+				"qty": flt(self.sheeting_qty_meters),
+			},
+		]
+
+	def _validate_materials(self):
 		if flt(self.output_qty_meters) <= 0:
 			frappe.throw("Output Qty (Meters) must be greater than zero.")
-		if len(self.get("inputs") or []) != 2:
-			frappe.throw("Exactly two input rows are required (1 fabric and 1 foam roll).")
-		for row in self.inputs:
-			if flt(row.qty) <= 0:
-				frappe.throw(f"Row {row.idx}: Qty must be greater than zero.")
-			if not row.batch_no:
-				frappe.throw(f"Row {row.idx}: Batch No is required.")
-			if not row.source_warehouse:
-				frappe.throw(f"Row {row.idx}: Source Warehouse is required.")
+		if not self.finished_item:
+			frappe.throw("Finished Quilted Item is required.")
+		if not self.target_warehouse:
+			frappe.throw("Target Warehouse is required.")
+		if self.fabric_item and self.sheeting_roll_item and self.fabric_item == self.sheeting_roll_item:
+			frappe.throw("Fabric Item and Sheeting Roll Item must be different.")
+
+		for line in self._material_lines():
+			if not line["item_code"]:
+				frappe.throw("{0} Item is required.".format(line["label"]))
+			if not line["warehouse"]:
+				frappe.throw("{0} Warehouse is required.".format(line["label"]))
+			if not line["batch_no"]:
+				frappe.throw("{0} Batch is required.".format(line["label"]))
+			if line["qty"] <= 0:
+				frappe.throw("{0} Qty (Meters) must be greater than zero.".format(line["label"]))
+			batch_item = frappe.db.get_value("Batch", line["batch_no"], "item")
+			if batch_item and batch_item != line["item_code"]:
+				frappe.throw(
+					"{0} Batch {1} belongs to {2}, not {3}.".format(
+						line["label"], line["batch_no"], batch_item, line["item_code"]
+					)
+				)
+
+		if self.core_conversion and self.sheeting_batch:
+			if not batch_belongs_to_conversion(self.sheeting_batch, self.core_conversion):
+				frappe.throw(
+					"Sheeting Batch {0} was not produced by Core Conversion {1}.".format(
+						self.sheeting_batch, self.core_conversion
+					)
+				)
 
 	def _calculate_variance_fields(self):
-		total_input = 0.0
-		for row in self.get("inputs") or []:
-			if flt(row.qty) > total_input:
-				total_input = flt(row.qty)
+		# Variance uses the larger of the two input meters (same rule as before).
+		total_input = max(flt(self.fabric_qty_meters), flt(self.sheeting_qty_meters))
 		self.total_input_meters = total_input
 		self.variance_meters = (
 			flt(total_input) - flt(self.output_qty_meters) if self.output_qty_meters else 0
 		)
 
 	def _get_quilting_overhead(self):
+		"""
+		Quilting overhead from Pufm Manufacturing Settings:
+		  (gum + thread + non-woven + labor) × output meters
+		plus depreciation × output meters (separate; often 0).
+		Component sum is preferred so a stale total_quilting_rate_per_m cannot zero out cost.
+		"""
 		settings = frappe.get_single("Pufm Manufacturing Settings")
-		rate = flt(getattr(settings, "total_quilting_rate_per_m", 0) or 0)
-		if not rate:
-			rate = (
-				flt(settings.gum_cost_per_m)
-				+ flt(settings.thread_cost_per_m_quilt)
-				+ flt(settings.non_woven_cost_per_m)
-				+ flt(settings.quilting_labor_per_m)
-			)
+		component_rate = (
+			flt(settings.gum_cost_per_m)
+			+ flt(settings.thread_cost_per_m_quilt)
+			+ flt(settings.non_woven_cost_per_m)
+			+ flt(settings.quilting_labor_per_m)
+		)
+		stored_total = flt(getattr(settings, "total_quilting_rate_per_m", 0) or 0)
+		rate = component_rate if component_rate > 0 else stored_total
 		meters = flt(self.output_qty_meters)
-		overhead_cost = rate * meters
+		overhead_cost = flt(rate) * meters
 		depreciation_cost = flt(getattr(settings, "quilting_depreciation_per_m", 0) or 0) * meters
 		absorption_account = getattr(settings, "quilting_absorption_account", None)
 		return overhead_cost, depreciation_cost, absorption_account
 
-	def _input_rates(self):
-		"""Outgoing rates from the warehouse each input actually issues from."""
-		rates = {}
-		for row in self.inputs:
-			rate = get_stock_valuation_rate(
-				row.item_code,
-				warehouse=row.source_warehouse,
-				batch_no=row.batch_no,
-			)
-			if rate <= 0:
-				frappe.throw(
-					"Valuation rate missing for quilting input {0} in warehouse {1} "
-					"(batch {2}). Receive / revalue stock before submitting.".format(
-						row.item_code, row.source_warehouse, row.batch_no or "—"
-					)
+	def _material_rates(self, strict=True):
+		"""Outgoing rates from each material warehouse/batch.
+
+		strict=True (submit): missing/zero rate throws.
+		strict=False (draft): missing rate treated as 0 so overhead still shows on save.
+		"""
+		rates = []
+		for line in self._material_lines():
+			rate = 0.0
+			if line["item_code"] and line["warehouse"]:
+				rate = get_stock_valuation_rate(
+					line["item_code"],
+					warehouse=line["warehouse"],
+					batch_no=line["batch_no"],
 				)
-			rates[row.idx] = rate
+			if rate <= 0:
+				if strict:
+					frappe.throw(
+						"Valuation rate missing for {0} {1} in warehouse {2} "
+						"(batch {3}). Receive / revalue stock before submitting.".format(
+							line["label"].lower(),
+							line["item_code"],
+							line["warehouse"],
+							line["batch_no"] or "—",
+						)
+					)
+				rate = 0.0
+			rates.append(flt(rate))
 		return rates
 
-	def _calculate_total_cost(self):
+	def _calculate_total_cost(self, strict=True):
+		"""
+		Total Production Cost =
+		  fabric_qty × fabric_rate
+		+ sheeting_qty × sheeting_rate
+		+ quilting overhead (settings rate × output_qty_meters)
+		+ quilting depreciation (settings × output_qty_meters)
+		"""
 		overhead_cost, depreciation_cost, _ = self._get_quilting_overhead()
-		input_cost = 0.0
-		for row in self.inputs:
-			rate = get_stock_valuation_rate(
-				row.item_code,
-				warehouse=row.source_warehouse,
-				batch_no=row.batch_no,
-			)
-			input_cost += flt(row.qty) * rate
-		return input_cost + overhead_cost + depreciation_cost
+		rates = self._material_rates(strict=strict)
+		lines = self._material_lines()
+		input_cost = sum(flt(line["qty"]) * flt(rate) for line, rate in zip(lines, rates))
+		return flt(input_cost + overhead_cost + depreciation_cost, 2)
 
 	def _create_manufacture_stock_entry(self):
 		overhead_cost, depreciation_cost, absorption_account = self._get_quilting_overhead()
@@ -140,8 +228,9 @@ class QuiltingRecord(Document):
 				"to post quilting overhead."
 			)
 
-		source_rates = self._input_rates()
-		input_cost = sum(flt(row.qty) * flt(source_rates[row.idx]) for row in self.inputs)
+		rates = self._material_rates(strict=True)
+		lines = self._material_lines()
+		input_cost = sum(flt(line["qty"]) * flt(rate) for line, rate in zip(lines, rates))
 		output_qty = flt(self.output_qty_meters)
 		# Materials only in basic rate; overhead via additional_costs then balance absorbs both.
 		material_unit_rate = (input_cost / output_qty) if output_qty else 0
@@ -174,14 +263,13 @@ class QuiltingRecord(Document):
 				},
 			)
 
-		for row in self.inputs:
-			item_doc = frappe.get_cached_doc("Item", row.item_code)
-			valuation_rate = flt(source_rates.get(row.idx))
+		for line, valuation_rate in zip(lines, rates):
+			item_doc = frappe.get_cached_doc("Item", line["item_code"])
 			se_row = {
-				"item_code": row.item_code,
-				"s_warehouse": row.source_warehouse,
-				"qty": flt(row.qty),
-				"batch_no": row.batch_no,
+				"item_code": line["item_code"],
+				"s_warehouse": line["warehouse"],
+				"qty": flt(line["qty"]),
+				"batch_no": line["batch_no"],
 				"uom": item_doc.stock_uom,
 				"stock_uom": item_doc.stock_uom,
 				"conversion_factor": 1,
@@ -203,6 +291,7 @@ class QuiltingRecord(Document):
 		apply_manual_rate(fg_row, material_unit_rate)
 		if cint(finished_doc.has_batch_no):
 			fg_row["batch_no"] = fg_batch
+			fg_row["use_serial_batch_fields"] = 1
 		entry.append("items", fg_row)
 
 		balance_stock_entry_targets(entry, context="Quilting Record {0}".format(self.name))

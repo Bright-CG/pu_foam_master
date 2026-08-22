@@ -373,19 +373,63 @@ def get_quilting_record_prefill(job_order):
 	row = get_quilting_instruction_row(doc)
 	if not row:
 		frappe.throw(_("Quilting Job Order has no instruction row."))
+	conversion = _get_submitted_conversion_name(job_order)
+	if not conversion:
+		frappe.throw(
+			_("Submit a Mattress Core Conversion for Job Order {0} before starting quilting.").format(
+				job_order
+			)
+		)
 	sales_order = None
 	if doc.source_doctype == "Sales Order" and doc.source_document:
 		sales_order = doc.source_document
 	return {
 		"job_order": job_order,
+		"core_conversion": conversion,
 		"sales_order": sales_order,
+		"fabric_item": row.fabric_item,
+		"sheeting_roll_item": row.output_sheeting_item,
 		"finished_item": row.target_quilted_item,
-		"inputs": [
-			{
-				"item_code": row.fabric_item,
-			}
-		],
+		"planned_qty_meters": flt(row.planned_qty_meters),
 	}
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def sheeting_batch_query_for_conversion(doctype, txt, searchfield, start, page_len, filters):
+	"""Batch picker: sheeting/foam-roll batches produced by the linked conversion."""
+	conversion = (filters or {}).get("core_conversion")
+	item_code = (filters or {}).get("item_code")
+	if not conversion or not item_code:
+		return []
+
+	txt = (txt or "").strip()
+	like = "%{0}%".format(txt) if txt else "%"
+	# Batches stamped by conversion submit (CONV-...-ITEM or reference_name).
+	return frappe.db.sql(
+		"""
+		SELECT name, item
+		FROM `tabBatch`
+		WHERE item = %(item)s
+			AND IFNULL(disabled, 0) = 0
+			AND (
+				reference_name = %(conversion)s
+				OR batch_id LIKE %(prefix)s
+				OR name LIKE %(prefix)s
+			)
+			AND (name LIKE %(txt)s OR IFNULL(batch_id, '') LIKE %(txt)s)
+		ORDER BY creation DESC
+		LIMIT %(start)s, %(page_len)s
+		""",
+		{
+			"item": item_code,
+			"conversion": conversion,
+			"prefix": "{0}-%".format(conversion),
+			"txt": like,
+			"start": start,
+			"page_len": page_len,
+		},
+	)
 
 
 @frappe.whitelist()

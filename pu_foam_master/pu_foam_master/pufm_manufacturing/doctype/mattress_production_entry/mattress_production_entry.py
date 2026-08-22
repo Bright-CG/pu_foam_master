@@ -776,22 +776,23 @@ def _item_in_group(item_code, item_group):
 
 
 def _batch_stock_qty(item_code, warehouse, batch_no):
+	"""Available qty for item+warehouse+batch (ERPNext v15 Serial/Batch Bundle aware).
+
+	Do not sum SLE.batch_no — v15 often leaves batch_no blank on SLE and stores
+	the batch only on Serial and Batch Bundle.
+	"""
 	if not item_code or not warehouse or not batch_no:
 		return 0.0
-	conditions = "item_code = %s AND warehouse = %s AND batch_no = %s"
-	if frappe.db.has_column("Stock Ledger Entry", "is_cancelled"):
-		conditions += " AND IFNULL(is_cancelled, 0) = 0"
-	qty = frappe.db.sql(
-		"""
-		SELECT COALESCE(SUM(actual_qty), 0)
-		FROM `tabStock Ledger Entry`
-		WHERE {conditions}
-		""".format(
-			conditions=conditions
-		),
-		(item_code, warehouse, batch_no),
+	from erpnext.stock.doctype.batch.batch import get_batch_qty
+
+	return flt(
+		get_batch_qty(
+			batch_no=batch_no,
+			warehouse=warehouse,
+			item_code=item_code,
+		)
+		or 0
 	)
-	return flt(qty[0][0] if qty else 0)
 
 
 def _quilted_fabric_requirement_errors(row):
@@ -922,20 +923,38 @@ def _get_batch_valuation_rate(batch_no):
 
 	meta = frappe.get_meta("Batch")
 	if meta.has_field("valuation_rate"):
-		return flt(frappe.db.get_value("Batch", batch_no, "valuation_rate"))
+		rate = flt(frappe.db.get_value("Batch", batch_no, "valuation_rate"))
+		if rate > 0:
+			return rate
 
+	# Prefer direct SLE.batch_no (older postings), then Serial and Batch Bundle link (v15).
 	row = frappe.db.sql(
 		"""
-		SELECT valuation_rate
-		FROM `tabStock Ledger Entry`
-		WHERE batch_no = %s
-		ORDER BY posting_date DESC, posting_time DESC, creation DESC
+		SELECT sle.valuation_rate, sle.incoming_rate, sle.stock_value_difference, sle.actual_qty
+		FROM `tabStock Ledger Entry` sle
+		LEFT JOIN `tabSerial and Batch Entry` sbe
+			ON sbe.parent = sle.serial_and_batch_bundle
+		WHERE IFNULL(sle.is_cancelled, 0) = 0
+			AND (sle.batch_no = %s OR sbe.batch_no = %s)
+		ORDER BY sle.posting_date DESC, sle.posting_time DESC, sle.creation DESC
 		LIMIT 1
 		""",
-		(batch_no,),
+		(batch_no, batch_no),
 		as_dict=True,
 	)
-	return flt(row[0].valuation_rate) if row else 0
+	if not row:
+		return 0
+	r = row[0]
+	for field in ("valuation_rate", "incoming_rate"):
+		rate = flt(r.get(field))
+		if rate > 0:
+			return rate
+	qty = flt(r.get("actual_qty"))
+	if qty:
+		rate = abs(flt(r.get("stock_value_difference")) / qty)
+		if rate > 0:
+			return rate
+	return 0
 
 
 def _get_batch_item(batch_no):

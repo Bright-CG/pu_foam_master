@@ -10,17 +10,32 @@
   "company",
   "posting_date",
   "job_order",
+  "core_conversion",
   "sales_order",
   "material_request",
+  "amended_from",
+  "job_instructions_sb",
+  "fetch_job_instructions",
+  "job_instructions_html",
+  "fabric_sb",
+  "fabric_item",
+  "fabric_warehouse",
+  "fabric_batch",
+  "fabric_qty_meters",
+  "sheeting_sb",
+  "sheeting_roll_item",
+  "sheeting_warehouse",
+  "sheeting_batch",
+  "sheeting_qty_meters",
+  "finished_sb",
   "finished_item",
   "output_qty_meters",
+  "planned_qty_meters",
+  "target_warehouse",
   "total_input_meters",
   "variance_meters",
-  "target_warehouse",
   "total_production_cost",
-  "stock_entry",
-  "amended_from",
-  "inputs"
+  "stock_entry"
  ],
  "fields": [
   {
@@ -57,6 +72,13 @@
    "options": "Pufm Job Order"
   },
   {
+   "description": "Submitted Core Conversion for this Quilting Job Order — used to filter sheeting roll batches.",
+   "fieldname": "core_conversion",
+   "fieldtype": "Link",
+   "label": "Core Conversion",
+   "options": "Mattress Core Conversion"
+  },
+  {
    "fieldname": "sales_order",
    "fieldtype": "Link",
    "label": "Sales Order",
@@ -67,6 +89,103 @@
    "fieldtype": "Link",
    "label": "Material Request",
    "options": "Material Request"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Quilting Record",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "job_instructions_sb",
+   "fieldtype": "Section Break",
+   "label": "Job Order Traveler"
+  },
+  {
+   "fieldname": "fetch_job_instructions",
+   "fieldtype": "Button",
+   "label": "Fetch Instructions"
+  },
+  {
+   "fieldname": "job_instructions_html",
+   "fieldtype": "HTML",
+   "label": "Job Instructions",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fabric_sb",
+   "fieldtype": "Section Break",
+   "label": "1. Fabric"
+  },
+  {
+   "fieldname": "fabric_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Fabric Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "fabric_warehouse",
+   "fieldtype": "Link",
+   "label": "Fabric Warehouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "fabric_batch",
+   "fieldtype": "Link",
+   "label": "Fabric Batch",
+   "options": "Batch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "fabric_qty_meters",
+   "fieldtype": "Float",
+   "label": "Fabric Qty (Meters)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sheeting_sb",
+   "fieldtype": "Section Break",
+   "label": "2. Sheeting / Foam Roll"
+  },
+  {
+   "fieldname": "sheeting_roll_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Sheeting Roll Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sheeting_warehouse",
+   "fieldtype": "Link",
+   "label": "Sheeting Warehouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sheeting_batch",
+   "fieldtype": "Link",
+   "label": "Sheeting Batch",
+   "options": "Batch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sheeting_qty_meters",
+   "fieldtype": "Float",
+   "label": "Sheeting Qty (Meters)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "finished_sb",
+   "fieldtype": "Section Break",
+   "label": "3. Finished Quilted Output"
   },
   {
    "fieldname": "finished_item",
@@ -84,6 +203,21 @@
    "reqd": 1
   },
   {
+   "description": "Planning reference from the Job Order — not posted as stock.",
+   "fieldname": "planned_qty_meters",
+   "fieldtype": "Float",
+   "label": "Planned Qty (Meters)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "target_warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Target Warehouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
    "fieldname": "total_input_meters",
    "fieldtype": "Float",
    "label": "Total Input Qty (Meters)",
@@ -94,14 +228,6 @@
    "fieldtype": "Float",
    "label": "Variance / Scrap (Meters)",
    "read_only": 1
-  },
-  {
-   "fieldname": "target_warehouse",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Target Warehouse",
-   "options": "Warehouse",
-   "reqd": 1
   },
   {
    "fieldname": "total_production_cost",
@@ -116,27 +242,11 @@
    "no_copy": 1,
    "options": "Stock Entry",
    "read_only": 1
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Quilting Record",
-   "print_hide": 1,
-   "read_only": 1
-  },
-  {
-   "fieldname": "inputs",
-   "fieldtype": "Table",
-   "label": "Quilting Inputs",
-   "options": "Quilting Input",
-   "reqd": 1
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-08-17 14:30:00.000000",
+ "modified": "2026-08-21 16:30:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Quilting Record",

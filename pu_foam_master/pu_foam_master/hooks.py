@@ -73,6 +73,7 @@ after_migrate = [
 	"pu_foam_master.setup_migrations.backfill_mattress_item_brand_and_finish",
 	"pu_foam_master.setup_migrations.ensure_labels_item_group",
 	"pu_foam_master.setup_migrations.repair_job_order_workflow_statuses",
+	"pu_foam_master.setup_migrations.migrate_quilting_record_parent_materials",
 	"pu_foam_master.custom_fields.ensure_sales_invoice_rebate_fields",
 	"pu_foam_master.setup_defaults.ensure_customer_rebate_fields",
 	"pu_foam_master.setup_defaults.ensure_default_rebate_tiers",
@@ -104,5 +105,10 @@ doc_events = {
 	},
 	"Item": {
 		"validate": "pu_foam_master.pufm_manufacturing.utils.item_cbm.on_item_validate",
+	},
+	"Stock Entry": {
+		"before_submit": (
+			"pu_foam_master.pufm_manufacturing.utils.stock_entry_hooks.balance_pufm_stock_entry_before_submit"
+		),
 	},
 }

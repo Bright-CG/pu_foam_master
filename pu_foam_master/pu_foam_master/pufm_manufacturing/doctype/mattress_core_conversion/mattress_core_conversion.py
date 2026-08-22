@@ -20,6 +20,7 @@ class MattressCoreConversion(Document):
 			self.processed_by = frappe.session.user
 		self._validate_job_order_type()
 		self._set_conversion_rate()
+		self._hydrate_row_cbm()
 		self._recalculate_totals()
 		self._validate_rows()
 
@@ -79,6 +80,44 @@ class MattressCoreConversion(Document):
 	def _set_conversion_rate(self):
 		settings = frappe.get_single("Pufm Manufacturing Settings")
 		self.conversion_rate = flt(getattr(settings, "conversion_rate_per_cbm", 0) or 0)
+
+	def _hydrate_row_cbm(self):
+		"""Fill unit/total CBM when rows were prefilled without client-side events."""
+		from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor
+
+		cbm_factor = get_cbm_factor() or 61023.74
+		for row in self.get("inputs") or []:
+			if not row.item_code:
+				continue
+			if flt(row.unit_cbm) <= 0:
+				row.unit_cbm = flt(
+					frappe.db.get_value("Item", row.item_code, "custom_cbm_value") or 0
+				)
+			row.total_cbm = flt(flt(row.qty) * flt(row.unit_cbm), 5)
+
+		for row in self.get("outputs") or []:
+			if not row.item_code:
+				continue
+			item = frappe.db.get_value(
+				"Item",
+				row.item_code,
+				["stock_uom", "custom_width", "custom_height", "custom_length", "custom_cbm_value"],
+				as_dict=True,
+			) or {}
+			if not row.uom and item.get("stock_uom"):
+				row.uom = item.stock_uom
+			if flt(row.width) <= 0:
+				row.width = flt(item.get("custom_width"))
+			if flt(row.height) <= 0:
+				row.height = flt(item.get("custom_height"))
+			if flt(row.length) <= 0:
+				row.length = flt(item.get("custom_length"))
+			width, height, length = flt(row.width), flt(row.height), flt(row.length)
+			if width > 0 and height > 0 and length > 0:
+				row.unit_cbm = flt((width * height * length) / cbm_factor, 5)
+			elif flt(row.unit_cbm) <= 0:
+				row.unit_cbm = flt(item.get("custom_cbm_value") or 0)
+			row.total_cbm = flt(flt(row.qty) * flt(row.unit_cbm), 5)
 
 	def _recalculate_totals(self):
 		self.total_input_cbm = sum(flt(row.total_cbm) for row in self.get("inputs") or [])
