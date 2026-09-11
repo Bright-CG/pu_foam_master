@@ -12,6 +12,13 @@
   "column_break_meta",
   "valid_from",
   "valid_upto",
+  "dollar_rate_sb",
+  "base_dollar_rate",
+  "current_dollar_rate",
+  "dollar_exposure_percent",
+  "column_break_dollar",
+  "dollar_rate_adjustment_percent",
+  "effective_price_adjustment_percent",
   "margins_sb",
   "freight_percent",
   "advert_percent",
@@ -69,6 +76,52 @@
    "fieldname": "valid_upto",
    "fieldtype": "Date",
    "label": "Valid Upto"
+  },
+  {
+   "fieldname": "dollar_rate_sb",
+   "fieldtype": "Section Break",
+   "label": "Dollar Rate Adjustment"
+  },
+  {
+   "description": "Exchange rate (NGN per USD) that the Proposed Selling Price was built against. Stored as the baseline for FX moves.",
+   "fieldname": "base_dollar_rate",
+   "fieldtype": "Float",
+   "label": "Base Dollar Rate (NGN/$)",
+   "precision": "2"
+  },
+  {
+   "description": "Current / proposed exchange rate. Changing this recalculates Dollar-Adjusted Price on each row.",
+   "fieldname": "current_dollar_rate",
+   "fieldtype": "Float",
+   "label": "Current Dollar Rate (NGN/$)",
+   "precision": "2"
+  },
+  {
+   "default": "50",
+   "description": "Share of product cost/price exposed to USD movement (e.g. chemicals). Effective adjustment = Dollar Rate Change % × Exposure %.",
+   "fieldname": "dollar_exposure_percent",
+   "fieldtype": "Percent",
+   "label": "Dollar Exposure %"
+  },
+  {
+   "fieldname": "column_break_dollar",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "(Current / Base - 1) × 100. Read-only.",
+   "fieldname": "dollar_rate_adjustment_percent",
+   "fieldtype": "Percent",
+   "label": "Dollar Rate Adjustment %",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Dollar Rate Adjustment % × Dollar Exposure %. Applied to Proposed Selling Price.",
+   "fieldname": "effective_price_adjustment_percent",
+   "fieldtype": "Percent",
+   "label": "Effective Price Adjustment %",
+   "read_only": 1
   },
   {
    "fieldname": "margins_sb",
@@ -151,7 +204,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-08-05 02:55:00.000000",
+ "modified": "2026-09-10 15:35:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Pufm Price Engine",

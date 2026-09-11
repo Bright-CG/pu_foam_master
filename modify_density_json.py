@@ -43,7 +43,7 @@ for field in fields:
             "fieldname": "bom_operations",
             "fieldtype": "Table",
             "label": "BOM Operations",
-            "options": "BOM Operation"
+            "options": "PUFM BOM Operation"
         })
 
 data['fields'] = new_fields

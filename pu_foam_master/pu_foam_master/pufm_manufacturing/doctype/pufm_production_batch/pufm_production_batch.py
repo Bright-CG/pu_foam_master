@@ -18,7 +18,10 @@ from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	finalize_pufm_stock_entry_balance,
 	get_stock_valuation_rate,
 )
-from pu_foam_master.pufm_manufacturing.utils.settings import get_scrap_output_rate
+from pu_foam_master.pufm_manufacturing.utils.settings import (
+	get_chemical_consumption_basis,
+	get_scrap_output_rate,
+)
 
 
 # workflow_state -> roles allowed to enter that state (status only; stock uses docstatus)
@@ -467,7 +470,7 @@ class PufmProductionBatch(Document):
 		return "\n".join(serial_nos)
 
 	def _calculate_run_costing(self, run_doc, wip_warehouse, scrap_output_rate):
-		"""Issue RM on Expected CBM; absorb net pool into Actual (produced) CBM."""
+		"""Issue RM on Settings CBM basis; absorb net pool into Actual (produced) CBM."""
 		if not run_doc.density_config:
 			frappe.throw(_("Density Run {0} has no Density Configuration.").format(run_doc.name))
 
@@ -483,63 +486,8 @@ class PufmProductionBatch(Document):
 			)
 
 		active_bom = get_active_bom(density_config=run_doc.density_config)
-		expected_cbm = self._expected_cbm_for_consumption(run_doc)
-		if expected_cbm <= 0:
-			frappe.throw(
-				_(
-					"Density Run {0} has no Expected CBM for chemical consumption. "
-					"Set Minutes Run and Density Configuration output rate."
-				).format(run_doc.name)
-			)
 
-		# 1) Raw material: drain WIP for the full theoretical pour (Expected CBM)
-		chemicals = []
-		run_rm_cost = 0.0
-		for bom_item in active_bom.items:
-			if not bom_item.item_code:
-				continue
-			qty = flt(flt(bom_item.qty) * expected_cbm, PRECISION)
-			if qty <= 0:
-				continue
-			rate = get_stock_valuation_rate(bom_item.item_code, warehouse=wip_warehouse)
-			if rate <= 0:
-				frappe.throw(
-					_(
-						"Valuation Rate missing for {0} in warehouse {1}. "
-						"Inject WIP stock before submitting the batch."
-					).format(bom_item.item_code, wip_warehouse)
-				)
-			uom = (
-				bom_item.uom
-				or frappe.db.get_value("Item", bom_item.item_code, "stock_uom")
-				or "Nos"
-			)
-			amount = flt(qty * rate, PRECISION)
-			run_rm_cost = flt(run_rm_cost + amount, PRECISION)
-			chemicals.append(
-				{"item_code": bom_item.item_code, "qty": qty, "rate": rate, "uom": uom}
-			)
-
-		# 2) Operating cost from Density BOM operations (Workstation hour rate fallback)
-		operations = list(active_bom.get("operations") or [])
-		if not operations:
-			density_doc = frappe.get_doc("Density Configuration", run_doc.density_config)
-			operations = list(density_doc.get("bom_operations") or [])
-
-		run_op_cost = self._calculate_run_operating_cost(
-			run_doc=run_doc,
-			operations=operations,
-			expected_cbm=expected_cbm,
-		)
-
-		# 3) Scrap value (by-product credit)
-		scrap_qty = flt(run_doc.scrap_weight_kg)
-		run_scrap_value = flt(scrap_qty * flt(scrap_output_rate), PRECISION)
-
-		# 4) Net cost to capitalize onto actual (good) blocks — includes yield loss
-		net_run_cost = flt(run_rm_cost + run_op_cost - run_scrap_value, PRECISION)
-
-		# 5) Produced blocks / Actual CBM (allocation denominator)
+		# Produced blocks / Actual CBM first (allocation denominator + optional chem basis)
 		blocks = []
 		run_total_cbm = 0.0
 		for block in run_doc.get("produced_blocks_table") or []:
@@ -569,6 +517,68 @@ class PufmProductionBatch(Document):
 				)
 			)
 
+		consumption_basis = get_chemical_consumption_basis()
+		if consumption_basis == "Actual CBM":
+			consumption_cbm = run_total_cbm
+		else:
+			consumption_cbm = self._expected_cbm_for_consumption(run_doc)
+
+		if consumption_cbm <= 0:
+			frappe.throw(
+				_(
+					"Density Run {0} has no {1} for chemical consumption. "
+					"Set Minutes Run / Density output rate (Expected) or produced blocks (Actual)."
+				).format(run_doc.name, consumption_basis)
+			)
+
+		# 1) Raw material: drain WIP for selected CBM basis
+		chemicals = []
+		run_rm_cost = 0.0
+		for bom_item in active_bom.items:
+			if not bom_item.item_code:
+				continue
+			qty = flt(flt(bom_item.qty) * consumption_cbm, PRECISION)
+			if qty <= 0:
+				continue
+			rate = get_stock_valuation_rate(bom_item.item_code, warehouse=wip_warehouse)
+			if rate <= 0:
+				frappe.throw(
+					_(
+						"Valuation Rate missing for {0} in warehouse {1}. "
+						"Inject WIP stock before submitting the batch."
+					).format(bom_item.item_code, wip_warehouse)
+				)
+			uom = (
+				bom_item.uom
+				or frappe.db.get_value("Item", bom_item.item_code, "stock_uom")
+				or "Nos"
+			)
+			amount = flt(qty * rate, PRECISION)
+			run_rm_cost = flt(run_rm_cost + amount, PRECISION)
+			chemicals.append(
+				{"item_code": bom_item.item_code, "qty": qty, "rate": rate, "uom": uom}
+			)
+
+		# 2) Operating cost from Density BOM operations (Workstation hour rate fallback)
+		operations = list(active_bom.get("operations") or [])
+		if not operations:
+			density_doc = frappe.get_doc("Density Configuration", run_doc.density_config)
+			operations = list(density_doc.get("bom_operations") or [])
+
+		# Op cost still keyed to pour duration / expected machine CBM for time_per_cbm ops
+		op_cbm = self._expected_cbm_for_consumption(run_doc) or consumption_cbm
+		run_op_cost = self._calculate_run_operating_cost(
+			run_doc=run_doc,
+			operations=operations,
+			expected_cbm=op_cbm,
+		)
+
+		# 3) Scrap value (by-product credit)
+		scrap_qty = flt(run_doc.scrap_weight_kg)
+		run_scrap_value = flt(scrap_qty * flt(scrap_output_rate), PRECISION)
+
+		# 4) Net cost to capitalize onto actual (good) blocks — includes yield loss
+		net_run_cost = flt(run_rm_cost + run_op_cost - run_scrap_value, PRECISION)
 		cost_per_cbm = flt(net_run_cost / run_total_cbm, PRECISION)
 
 		return {
@@ -579,7 +589,8 @@ class PufmProductionBatch(Document):
 			"run_scrap_value": run_scrap_value,
 			"net_run_cost": net_run_cost,
 			"run_total_cbm": run_total_cbm,
-			"expected_cbm": expected_cbm,
+			"expected_cbm": consumption_cbm,
+			"consumption_basis": consumption_basis,
 			"cost_per_cbm": cost_per_cbm,
 			"blocks": blocks,
 		}

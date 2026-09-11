@@ -26,7 +26,7 @@ E2E_CHEMICALS = (
 )
 E2E_CONSUMABLES = (
 	{"item_code": "Tape Edge", "aliases": ("Tape Edge",), "qty": 10000, "uom": "Meter", "rate": 50, "settings_field": "default_tape_edge_item"},
-	{"item_code": "PVC Nylon", "aliases": ("PVC Nylon", "PVC/Nylon", "PVC-NYLON"), "qty": 5000, "uom": "Sqm", "rate": 350, "settings_field": "default_pvc_nylon_item"},
+	{"item_code": "PVC Nylon", "aliases": ("PVC Nylon", "PVC/Nylon", "PVC-NYLON"), "qty": 5000, "uom": "Kg", "rate": 350, "settings_field": "default_pvc_nylon_item"},
 	{"item_code": "Thread", "aliases": ("Thread",), "qty": 5000, "uom": "Nos", "rate": 25, "settings_field": "default_thread_item"},
 	{"item_code": "Labels", "aliases": ("Labels", "Label"), "qty": 5000, "uom": "Nos", "rate": 15, "settings_field": "default_label_item"},
 )

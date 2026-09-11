@@ -168,7 +168,7 @@
             "fieldname": "bom_operations",
             "fieldtype": "Table",
             "label": "BOM Operations",
-            "options": "BOM Operation"
+            "options": "PUFM BOM Operation"
         },
         {
             "fieldname": "variants_sb",

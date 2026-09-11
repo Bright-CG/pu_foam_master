@@ -16,6 +16,8 @@ FACTORY_FORMULA_DEFAULTS = {
 	"fabric_side_panels_factor": 2,
 	"tape_edge_perimeter_multiplier": 4.0,
 	"tape_edge_waste_percentage": 0,
+	"tape_edge_usage_allowance": 25,
+	"pvc_usage_allowance": 25,
 	"pvc_nylon_divisor": 1550,
 	"pvc_nylon_faces": 1,
 	"thread_qty_per_mattress": 1.0,

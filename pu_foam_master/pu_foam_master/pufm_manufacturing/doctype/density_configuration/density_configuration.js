@@ -96,7 +96,7 @@ frappe.ui.form.on("Production Inputs", {
     },
 });
 
-frappe.ui.form.on("BOM Operation", {
+frappe.ui.form.on("PUFM BOM Operation", {
     workstation: function(frm, cdt, cdn) {
         apply_operation_time(frm, cdt, cdn);
         calculate_operation_row(frm, cdt, cdn);
@@ -266,7 +266,7 @@ function clone_density_recipe(frm) {
                         (data.bom_operations || []).forEach((row) => {
                             const child = frappe.model.add_child(
                                 doc,
-                                "BOM Operation",
+                                "PUFM BOM Operation",
                                 "bom_operations"
                             );
                             Object.keys(row).forEach((key) => {

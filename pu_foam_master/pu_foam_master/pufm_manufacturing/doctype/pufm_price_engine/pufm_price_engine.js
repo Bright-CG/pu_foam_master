@@ -23,6 +23,23 @@ frappe.ui.form.on("Pufm Price Engine", {
 	profit_margin_percent(frm) {
 		recalculate_matrix(frm, { field: "profit_margin_percent" });
 	},
+	base_dollar_rate(frm) {
+		recalculate_matrix(frm);
+	},
+	current_dollar_rate(frm) {
+		recalculate_matrix(frm);
+	},
+	dollar_exposure_percent(frm) {
+		recalculate_matrix(frm);
+	},
+});
+
+frappe.ui.form.on("Pufm Price Engine Item", {
+	selling_price(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		row.gross_profit_amount = flt(flt(row.selling_price) - flt(row.current_cost), 2);
+		frm.refresh_field("items");
+	},
 });
 
 function fetch_item_matrix(frm) {
@@ -54,9 +71,11 @@ function fetch_item_matrix(frm) {
 				child.material_breakdown = row.material_breakdown;
 				child.current_cost = flt(row.current_cost);
 				child.proposed_selling_price = 0;
+				child.dollar_adjusted_price = 0;
+				child.selling_price = 0;
 				child.gross_profit_amount = 0;
 			});
-			recalculate_matrix(frm, { silent: true });
+			recalculate_matrix(frm, { silent: true, seed_selling_price: true });
 			frm.refresh_field("items");
 			frappe.show_alert({
 				message: __("Loaded {0} items into the price matrix.", [(r.message || []).length]),
@@ -64,6 +83,18 @@ function fetch_item_matrix(frm) {
 			});
 		},
 	});
+}
+
+function dollar_adjustment_percents(frm) {
+	const base = flt(frm.doc.base_dollar_rate);
+	const current = flt(frm.doc.current_dollar_rate);
+	const exposure = Math.max(flt(frm.doc.dollar_exposure_percent), 0);
+	if (base <= 0 || current <= 0) {
+		return { rate_adj: 0, effective: 0 };
+	}
+	const rate_adj = (current / base - 1) * 100;
+	const effective = rate_adj * (exposure / 100);
+	return { rate_adj, effective };
 }
 
 function recalculate_matrix(frm, opts) {
@@ -98,16 +129,44 @@ function recalculate_matrix(frm, opts) {
 	frm.doc.total_deduction_percent = flt(total, 2);
 	frm.refresh_field("total_deduction_percent");
 
+	const { rate_adj, effective } = dollar_adjustment_percents(frm);
+	frm.doc.dollar_rate_adjustment_percent = flt(rate_adj, 4);
+	frm.doc.effective_price_adjustment_percent = flt(effective, 4);
+	frm.refresh_field("dollar_rate_adjustment_percent");
+	frm.refresh_field("effective_price_adjustment_percent");
+
 	const denominator = 1 - total / 100;
+	const effective_factor = 1 + effective / 100;
+	const force_seed = !!opts.seed_selling_price;
+
 	(frm.doc.items || []).forEach((row) => {
 		const cost = flt(row.current_cost);
+		const previous_adjusted = flt(row.dollar_adjusted_price);
+		const previous_selling = flt(row.selling_price);
+
 		if (cost <= 0 || denominator <= 0) {
 			row.proposed_selling_price = 0;
-			row.gross_profit_amount = 0;
+			row.dollar_adjusted_price = 0;
+			if (force_seed || previous_selling <= 0) {
+				row.selling_price = 0;
+			}
+			row.gross_profit_amount = flt(flt(row.selling_price) - cost, 2);
 			return;
 		}
-		row.proposed_selling_price = flt(cost / denominator, 2);
-		row.gross_profit_amount = flt(row.proposed_selling_price - cost, 2);
+
+		const proposed = flt(cost / denominator, 2);
+		const adjusted = flt(proposed * effective_factor, 2);
+		row.proposed_selling_price = proposed;
+		row.dollar_adjusted_price = adjusted;
+
+		// Seed blank Selling Price, or keep tracking adjusted when MD has not overridden
+		if (force_seed || previous_selling <= 0) {
+			row.selling_price = adjusted;
+		} else if (Math.abs(previous_selling - previous_adjusted) < 0.005) {
+			row.selling_price = adjusted;
+		}
+
+		row.gross_profit_amount = flt(flt(row.selling_price) - cost, 2);
 	});
 	frm.refresh_field("items");
 }

@@ -78,6 +78,8 @@ after_migrate = [
 	"pu_foam_master.setup_migrations.ensure_labels_item_group",
 	"pu_foam_master.setup_migrations.repair_job_order_workflow_statuses",
 	"pu_foam_master.setup_migrations.migrate_quilting_record_parent_materials",
+	"pu_foam_master.setup_migrations.migrate_mattress_pvc_and_pour_settings",
+	"pu_foam_master.setup_migrations.migrate_pufm_bom_operation_rename",
 	"pu_foam_master.custom_fields.ensure_sales_invoice_rebate_fields",
 	"pu_foam_master.setup_defaults.ensure_customer_rebate_fields",
 	"pu_foam_master.setup_defaults.ensure_default_rebate_tiers",

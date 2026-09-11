@@ -3,8 +3,8 @@
 
 """Pufm Price Engine — visual price matrix with BOM material breakdown.
 
-MD reviews proposed prices and BOM summaries in the child table before submit.
-On submit, upserts ERPNext Item Price records from the reviewed matrix rows.
+MD reviews proposed / dollar-adjusted prices, sets final Selling Price per row,
+then on submit upserts ERPNext Item Price from Selling Price.
 """
 
 from __future__ import annotations
@@ -31,20 +31,35 @@ class PufmPriceEngine(Document):
 			frappe.throw(_("Valid Upto cannot be before Valid From."))
 		if not self.items:
 			frappe.throw(_("Fetch items and review the price matrix before saving."))
+		if flt(self.dollar_exposure_percent) < 0:
+			frappe.throw(_("Dollar Exposure % cannot be negative."))
+		if flt(self.base_dollar_rate) < 0 or flt(self.current_dollar_rate) < 0:
+			frappe.throw(_("Dollar rates cannot be negative."))
 
 		total = self._total_deduction_percent()
 		self.total_deduction_percent = flt(total, 2)
+		self._apply_dollar_adjustment_fields()
 		self._recalculate_item_prices(total)
 
 	def on_submit(self):
 		total = self._total_deduction_percent()
 		self.db_set("total_deduction_percent", flt(total, 2), update_modified=False)
+		self._apply_dollar_adjustment_fields()
+		self.db_set(
+			{
+				"dollar_rate_adjustment_percent": flt(self.dollar_rate_adjustment_percent, 4),
+				"effective_price_adjustment_percent": flt(
+					self.effective_price_adjustment_percent, 4
+				),
+			},
+			update_modified=False,
+		)
 		self._recalculate_item_prices(total)
 
 		updated = 0
 		skipped = 0
 		for row in self.items:
-			rate = flt(row.proposed_selling_price)
+			rate = flt(row.selling_price)
 			if rate <= 0 or not row.item_code:
 				skipped += 1
 				continue
@@ -64,7 +79,7 @@ class PufmPriceEngine(Document):
 		)
 		if skipped:
 			frappe.msgprint(
-				_("Skipped {0} rows with missing item or zero proposed price.").format(skipped),
+				_("Skipped {0} rows with missing item or zero Selling Price.").format(skipped),
 				indicator="orange",
 			)
 
@@ -80,20 +95,57 @@ class PufmPriceEngine(Document):
 			frappe.throw(_("Margin cannot be 100% or greater"))
 		return total
 
+	def _apply_dollar_adjustment_fields(self):
+		rate_adj, effective = _dollar_adjustment_percents(
+			base_rate=self.base_dollar_rate,
+			current_rate=self.current_dollar_rate,
+			exposure_percent=self.dollar_exposure_percent,
+		)
+		self.dollar_rate_adjustment_percent = flt(rate_adj, 4)
+		self.effective_price_adjustment_percent = flt(effective, 4)
+		return rate_adj, effective
+
 	def _recalculate_item_prices(self, total_deduction=None):
 		total = flt(total_deduction if total_deduction is not None else self._total_deduction_percent())
 		denominator = 1 - (total / 100.0)
 		if denominator <= 0:
 			frappe.throw(_("Margin cannot be 100% or greater"))
 
+		_, effective = self._apply_dollar_adjustment_fields()
+		effective_factor = 1 + (flt(effective) / 100.0)
+
 		for row in self.items:
 			cost = flt(row.current_cost)
 			if cost <= 0:
 				row.proposed_selling_price = 0
-				row.gross_profit_amount = 0
+				row.dollar_adjusted_price = 0
+				if flt(row.selling_price) <= 0:
+					row.selling_price = 0
+				row.gross_profit_amount = flt(flt(row.selling_price) - cost, 2)
 				continue
-			row.proposed_selling_price = flt(cost / denominator, 2)
-			row.gross_profit_amount = flt(row.proposed_selling_price - cost, 2)
+
+			proposed = flt(cost / denominator, 2)
+			adjusted = flt(proposed * effective_factor, 2)
+			row.proposed_selling_price = proposed
+			row.dollar_adjusted_price = adjusted
+
+			# Seed Selling Price from dollar-adjusted when blank; keep MD overrides
+			if flt(row.selling_price) <= 0:
+				row.selling_price = adjusted
+
+			row.gross_profit_amount = flt(flt(row.selling_price) - cost, 2)
+
+
+def _dollar_adjustment_percents(base_rate, current_rate, exposure_percent):
+	"""Return (dollar_rate_adjustment_%, effective_price_adjustment_%)."""
+	base = flt(base_rate)
+	current = flt(current_rate)
+	exposure = max(flt(exposure_percent), 0.0)
+	if base <= 0 or current <= 0:
+		return 0.0, 0.0
+	rate_adj = ((current / base) - 1.0) * 100.0
+	effective = rate_adj * (exposure / 100.0)
+	return rate_adj, effective
 
 
 def _get_item_group_bounds(item_group):
@@ -259,6 +311,8 @@ def fetch_item_matrix(item_group):
 					"material_breakdown": _build_material_breakdown(bom_name),
 					"current_cost": flt(bom_total, 2),
 					"proposed_selling_price": 0,
+					"dollar_adjusted_price": 0,
+					"selling_price": 0,
 					"gross_profit_amount": 0,
 				}
 			)
@@ -278,6 +332,8 @@ def fetch_item_matrix(item_group):
 						2,
 					),
 					"proposed_selling_price": 0,
+					"dollar_adjusted_price": 0,
+					"selling_price": 0,
 					"gross_profit_amount": 0,
 				}
 			)

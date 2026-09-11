@@ -1,4 +1,5 @@
 import frappe
+from frappe.utils import cint, flt
 
 
 def migrate_rebate_settlement_tool():
@@ -442,3 +443,204 @@ def drop_legacy_quilting_status_column():
 		frappe.db.commit()
 		frappe.clear_cache(doctype="Pufm Job Order")
 		print("[setup_migrations] Dropped legacy quilting_status from Pufm Job Order.")
+
+
+def migrate_mattress_pvc_and_pour_settings():
+	"""Defaults for tape/PVC usage allowance, chemical CBM basis; PVC item UOM Sqm → Kg."""
+	_ensure_uom("Kg")
+
+	if frappe.db.exists("DocType", "Pufm Manufacturing Settings"):
+		doc = frappe.get_single("Pufm Manufacturing Settings")
+		changed = False
+		if flt(doc.get("tape_edge_usage_allowance")) <= 0:
+			doc.tape_edge_usage_allowance = 25
+			changed = True
+		if flt(doc.get("pvc_usage_allowance")) <= 0:
+			doc.pvc_usage_allowance = 25
+			changed = True
+		basis = (doc.get("chemical_consumption_basis") or "").strip()
+		if basis not in ("Expected CBM", "Actual CBM"):
+			doc.chemical_consumption_basis = "Expected CBM"
+			changed = True
+		if changed:
+			doc.flags.ignore_mandatory = True
+			doc.flags.ignore_validate = True
+			doc.save(ignore_permissions=True)
+			frappe.db.commit()
+			print(
+				"[setup_migrations] Set mattress usage allowance / chemical consumption basis defaults."
+			)
+
+	item_codes = set()
+	pvc_item = frappe.db.get_single_value("Pufm Manufacturing Settings", "default_pvc_nylon_item")
+	if pvc_item:
+		item_codes.add(pvc_item)
+	for name in ("PVC Nylon", "PVC/Nylon", "PVC-NYLON"):
+		if frappe.db.exists("Item", name):
+			item_codes.add(name)
+
+	updated = []
+	for item_code in sorted(item_codes):
+		current_uom = frappe.db.get_value("Item", item_code, "stock_uom")
+		if not current_uom or current_uom == "Kg":
+			continue
+		frappe.db.set_value("Item", item_code, "stock_uom", "Kg", update_modified=False)
+		# Keep a 1:1 conversion row so stock transactions still resolve UOM
+		if not frappe.db.exists(
+			"UOM Conversion Detail", {"parent": item_code, "uom": "Kg"}
+		):
+			frappe.get_doc(
+				{
+					"doctype": "UOM Conversion Detail",
+					"parent": item_code,
+					"parenttype": "Item",
+					"parentfield": "uoms",
+					"uom": "Kg",
+					"conversion_factor": 1,
+				}
+			).insert(ignore_permissions=True)
+		updated.append(item_code)
+
+	if updated:
+		frappe.db.commit()
+		frappe.clear_cache(doctype="Item")
+		print(
+			"[setup_migrations] PVC stock UOM set to Kg on: {0}".format(", ".join(updated))
+		)
+	else:
+		print("[setup_migrations] PVC items already on Kg (or none found).")
+
+
+def _ensure_uom(uom):
+	if not uom or frappe.db.exists("UOM", uom):
+		return
+	doc = frappe.new_doc("UOM")
+	doc.uom_name = uom
+	doc.insert(ignore_permissions=True)
+
+
+def migrate_pufm_bom_operation_rename():
+	"""Unshadow ERPNext BOM Operation: move Density rows to PUFM BOM Operation."""
+	old_dt = "BOM Operation"
+	new_dt = "PUFM BOM Operation"
+
+	# Ensure new DocType exists (synced from app JSON)
+	if not frappe.db.exists("DocType", new_dt):
+		frappe.reload_doc("pufm_manufacturing", "doctype", "pufm_bom_operation", force=True)
+
+	# Density Configuration child table must point at the PUFM child DocType
+	frappe.db.sql(
+		"""
+		UPDATE `tabDocField`
+		SET options = %s
+		WHERE parent = 'Density Configuration'
+			AND fieldname = 'bom_operations'
+			AND IFNULL(options, '') != %s
+		""",
+		(new_dt, new_dt),
+	)
+
+	old_exists = frappe.db.exists("DocType", old_dt)
+	old_module = frappe.db.get_value("DocType", old_dt, "module") if old_exists else None
+	copied = 0
+
+	if old_exists and frappe.db.table_exists("tabBOM Operation"):
+		copied = _copy_child_table_rows(old_dt, new_dt, parenttype="Density Configuration")
+		frappe.db.sql(
+			"DELETE FROM `tabBOM Operation` WHERE parenttype = %s",
+			("Density Configuration",),
+		)
+
+	if old_exists and old_module == "pufm_manufacturing":
+		frappe.db.set_value(
+			"DocType",
+			old_dt,
+			{"module": "Manufacturing", "custom": 0},
+			update_modified=False,
+		)
+		frappe.reload_doc("manufacturing", "doctype", "bom_operation", force=True)
+		print(
+			"[setup_migrations] Restored ERPNext BOM Operation; moved {0} Density row(s) "
+			"to PUFM BOM Operation.".format(copied)
+		)
+	elif not old_exists:
+		frappe.reload_doc("manufacturing", "doctype", "bom_operation", force=True)
+		print("[setup_migrations] Restored missing ERPNext BOM Operation DocType.")
+	else:
+		print(
+			"[setup_migrations] BOM Operation module={0}; moved {1} Density row(s) "
+			"to PUFM BOM Operation.".format(old_module, copied)
+		)
+
+	# Drop legacy PUFM-only column if ERPNext reload left it behind
+	if frappe.db.exists("DocType", old_dt) and frappe.db.has_column(old_dt, "time"):
+		if frappe.db.has_column(old_dt, "time_in_mins"):
+			try:
+				frappe.db.sql_ddl("ALTER TABLE `tabBOM Operation` DROP COLUMN `time`")
+				print("[setup_migrations] Dropped legacy `time` column from ERPNext BOM Operation.")
+			except Exception as exc:
+				print("[setup_migrations] Could not drop legacy time column: {0}".format(exc))
+
+	frappe.clear_cache(doctype="Density Configuration")
+	frappe.clear_cache(doctype=new_dt)
+	frappe.clear_cache(doctype=old_dt)
+	frappe.db.commit()
+
+
+def _copy_child_table_rows(old_dt, new_dt, parenttype):
+	"""Copy Density Configuration child ops into PUFM BOM Operation. Returns moved count."""
+	old_table = "tab{0}".format(old_dt)
+	new_table = "tab{0}".format(new_dt)
+	if not frappe.db.table_exists(old_table) or not frappe.db.table_exists(new_table):
+		return 0
+
+	has_time = frappe.db.has_column(old_dt, "time")
+	has_time_in_mins = frappe.db.has_column(old_dt, "time_in_mins")
+	time_expr = "0"
+	if has_time and has_time_in_mins:
+		time_expr = "COALESCE(NULLIF(`time`, 0), `time_in_mins`, 0)"
+	elif has_time:
+		time_expr = "IFNULL(`time`, 0)"
+	elif has_time_in_mins:
+		time_expr = "IFNULL(`time_in_mins`, 0)"
+
+	rows = frappe.db.sql(
+		"""
+		SELECT
+			name, creation, modified, modified_by, owner, docstatus, idx,
+			operation, workstation, {time_expr} AS time,
+			IFNULL(hour_rate, 0) AS hour_rate,
+			IFNULL(operating_cost, 0) AS operating_cost,
+			parent, parentfield, parenttype
+		FROM `{old}`
+		WHERE parenttype = %s
+		""".format(time_expr=time_expr, old=old_table),
+		(parenttype,),
+		as_dict=True,
+	)
+	moved = 0
+	for row in rows:
+		if frappe.db.exists(new_dt, row.name):
+			continue
+		frappe.get_doc(
+			{
+				"doctype": new_dt,
+				"name": row.name,
+				"creation": row.creation,
+				"modified": row.modified,
+				"modified_by": row.modified_by,
+				"owner": row.owner,
+				"docstatus": cint(row.docstatus),
+				"idx": cint(row.idx),
+				"operation": row.operation,
+				"workstation": row.workstation,
+				"time": flt(row.time),
+				"hour_rate": flt(row.hour_rate),
+				"operating_cost": flt(row.operating_cost),
+				"parent": row.parent,
+				"parentfield": row.parentfield or "bom_operations",
+				"parenttype": row.parenttype,
+			}
+		).db_insert()
+		moved += 1
+	return moved

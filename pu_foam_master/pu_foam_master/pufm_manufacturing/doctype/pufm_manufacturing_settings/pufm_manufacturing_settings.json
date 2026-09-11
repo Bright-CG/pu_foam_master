@@ -38,10 +38,15 @@
         "quilting_absorption_account",
         "mattress_consumable_rates",
         "fabric_waste_factor",
+        "tape_edge_usage_allowance",
+        "pvc_usage_allowance",
+        "pvc_gsm",
         "mattress_depreciation_per_pc",
         "column_break_mattress",
         "mattress_labour_per_pc",
         "mattress_labour_absorption_account",
+        "virgin_pour_costing_section",
+        "chemical_consumption_basis",
         "sales_to_production_routing_section",
         "route_to_job_order_group",
         "route_to_material_request_group",
@@ -286,6 +291,27 @@
             "label": "Fabric Waste Factor (%)"
         },
         {
+            "default": "25",
+            "description": "Process-loss uplift applied after the base tape-edge meter calculation. If blank, 25% is used.",
+            "fieldname": "tape_edge_usage_allowance",
+            "fieldtype": "Percent",
+            "label": "Tape Edge Usage Allowance (%)"
+        },
+        {
+            "default": "25",
+            "description": "Process-loss uplift applied after the base PVC kg calculation. If blank, 25% is used.",
+            "fieldname": "pvc_usage_allowance",
+            "fieldtype": "Percent",
+            "label": "PVC Usage Allowance (%)"
+        },
+        {
+            "description": "PVC film grammage (g/m2). Mattress wrap kg = wrap area (m2) x GSM / 1000, then Usage Allowance is applied. Required for mattress PVC consumption.",
+            "fieldname": "pvc_gsm",
+            "fieldtype": "Float",
+            "label": "PVC GSM (g/m2)",
+            "precision": "2"
+        },
+        {
             "default": "0",
             "description": "Plant depreciation absorbed per finished mattress piece.",
             "fieldname": "mattress_depreciation_per_pc",
@@ -309,6 +335,19 @@
             "fieldtype": "Link",
             "label": "Mattress Labour Absorption Account",
             "options": "Account"
+        },
+        {
+            "fieldname": "virgin_pour_costing_section",
+            "fieldtype": "Section Break",
+            "label": "Virgin Pour Costing"
+        },
+        {
+            "default": "Expected CBM",
+            "description": "Basis for chemical qty on Production Batch submit. Expected CBM = machine pour (minutes x output rate). Actual CBM = good block volume produced. Finished-block cost absorption always uses Actual CBM.",
+            "fieldname": "chemical_consumption_basis",
+            "fieldtype": "Select",
+            "label": "Chemical Consumption Basis",
+            "options": "Expected CBM\nActual CBM"
         },
         {
             "fieldname": "sales_to_production_routing_section",
@@ -388,8 +427,10 @@
         },
         {
             "default": "0",
+            "description": "Legacy. Prefer Tape Edge Usage Allowance on the Mattress section.",
             "fieldname": "tape_edge_waste_percentage",
             "fieldtype": "Percent",
+            "hidden": 1,
             "label": "Tape Edge Waste %"
         },
         {
@@ -398,16 +439,19 @@
         },
         {
             "default": "1550",
-            "description": "Square inches per square meter used for PVC/Nylon area.",
+            "description": "Legacy sqm formula. PVC now uses PVC GSM wrap (kg).",
             "fieldname": "pvc_nylon_divisor",
             "fieldtype": "Float",
+            "hidden": 1,
             "label": "PVC Nylon Divisor",
             "precision": "2"
         },
         {
             "default": "1",
+            "description": "Legacy sqm formula. PVC now uses PVC GSM wrap (kg).",
             "fieldname": "pvc_nylon_faces",
             "fieldtype": "Int",
+            "hidden": 1,
             "label": "PVC Wrap Faces"
         },
         {

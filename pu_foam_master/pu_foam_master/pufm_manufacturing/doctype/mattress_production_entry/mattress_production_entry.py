@@ -5,7 +5,10 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import cint, flt, nowdate
 
-from pu_foam_master.pufm_manufacturing.utils.settings import get_formula_factor
+from pu_foam_master.pufm_manufacturing.utils.settings import (
+	get_formula_factor,
+	get_usage_allowance_percent,
+)
 from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	apply_manual_rate,
 	balance_stock_entry_targets,
@@ -643,10 +646,7 @@ def _row_cost_breakdown(row, settings, source_warehouse=None):
 
 	inches_per_meter = get_formula_factor("inches_per_meter", settings)
 	tape_meters = _tape_edge_meters(length, width, row.qty, settings)
-
-	pvc_divisor = get_formula_factor("pvc_nylon_divisor", settings)
-	pvc_faces = get_formula_factor("pvc_nylon_faces", settings)
-	pvc_sqm = ((length * width * pvc_faces) / pvc_divisor) * flt(row.qty)
+	pvc_kg = _pvc_kg(length, width, height, row.qty, settings, row_idx=row.idx)
 
 	thread_qty = get_formula_factor("thread_qty_per_mattress", settings) * flt(row.qty)
 	label_qty = get_formula_factor("label_qty_per_mattress", settings) * flt(row.qty)
@@ -707,7 +707,7 @@ def _row_cost_breakdown(row, settings, source_warehouse=None):
 	consumables = []
 	consumable_specs = (
 		(settings.default_tape_edge_item, tape_meters),
-		(settings.default_pvc_nylon_item, pvc_sqm),
+		(settings.default_pvc_nylon_item, pvc_kg),
 		(settings.default_thread_item, thread_qty),
 		(row.get("label_item"), label_qty),
 	)
@@ -736,6 +736,7 @@ def _row_cost_breakdown(row, settings, source_warehouse=None):
 
 	return {
 		"tape_meters": tape_meters,
+		"pvc_kg": pvc_kg,
 		"fabric_meters": fabric_meters,
 		"side_fabric_meters": side_fabric_meters,
 		"core_rate": core_rate,
@@ -874,18 +875,47 @@ def _fabric_panel_areas(length, width, height, settings):
 def _tape_edge_meters(length_inches, width_inches, qty, settings=None):
 	"""
 	Tape edge consumption in meters.
-	Default: two full perimeters (top + bottom edge) via perimeter multiplier.
+	Base: perimeter multiplier × (L+W) / inches_per_meter × qty,
+	then uplift by Tape Edge Usage Allowance % (default 25%).
 	"""
 	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
 	multiplier = get_formula_factor("tape_edge_perimeter_multiplier", settings)
 	inches_per_meter = get_formula_factor("inches_per_meter", settings)
-	waste_pct = flt(getattr(settings, "tape_edge_waste_percentage", None))
-	if waste_pct < 0:
-		waste_pct = 0
+	allowance_pct = get_usage_allowance_percent("tape_edge_usage_allowance", settings)
 
 	inches = multiplier * (flt(length_inches) + flt(width_inches))
 	meters = (inches / inches_per_meter) * flt(qty)
-	return meters * (1 + (waste_pct / 100.0))
+	return meters * (1 + (allowance_pct / 100.0))
+
+
+def _pvc_kg(length_inches, width_inches, height_inches, qty, settings=None, row_idx=None):
+	"""
+	PVC wrap weight (Kg).
+
+	W_in = width + height + width + height = 2*(W+H)
+	L_in = height + length
+	Convert inches → meters, then kg = W_m × L_m × GSM / 1000 × qty,
+	then uplift by PVC Usage Allowance % (default 25%).
+	"""
+	settings = settings or frappe.get_single("Pufm Manufacturing Settings")
+	gsm = flt(getattr(settings, "pvc_gsm", None))
+	if gsm <= 0:
+		prefix = "Row {0}: ".format(row_idx) if row_idx else ""
+		frappe.throw(
+			"{0}Set PVC GSM (g/m2) in Pufm Manufacturing Settings before consuming PVC.".format(
+				prefix
+			)
+		)
+
+	inches_per_meter = get_formula_factor("inches_per_meter", settings)
+	allowance_pct = get_usage_allowance_percent("pvc_usage_allowance", settings)
+
+	wrap_w_in = (2.0 * (flt(width_inches) + flt(height_inches)))
+	wrap_l_in = flt(height_inches) + flt(length_inches)
+	wrap_w_m = wrap_w_in / inches_per_meter
+	wrap_l_m = wrap_l_in / inches_per_meter
+	base_kg = (wrap_w_m * wrap_l_m * gsm / 1000.0) * flt(qty)
+	return base_kg * (1 + (allowance_pct / 100.0))
 
 
 def _get_item_valuation_rate(item_code, warehouse=None):

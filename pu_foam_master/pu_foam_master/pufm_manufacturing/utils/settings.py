@@ -49,6 +49,31 @@ def get_formula_factor(fieldname, settings=None):
 	return flt(value) or flt(baseline)
 
 
+DEFAULT_USAGE_ALLOWANCE_PCT = 25.0
+
+
+def get_usage_allowance_percent(fieldname, settings=None):
+	"""Process-loss %. Missing/blank/zero uses 25%; otherwise the provided value."""
+	settings = settings or get_settings()
+	if hasattr(settings, "get"):
+		raw = settings.get(fieldname)
+	else:
+		raw = getattr(settings, fieldname, None)
+	value = flt(raw)
+	if value <= 0:
+		return DEFAULT_USAGE_ALLOWANCE_PCT
+	return value
+
+
+def get_chemical_consumption_basis(settings=None):
+	"""Expected CBM (default) or Actual CBM for virgin-pour chemical issue qty."""
+	settings = settings or get_settings()
+	basis = (getattr(settings, "chemical_consumption_basis", None) or "").strip()
+	if basis == "Actual CBM":
+		return "Actual CBM"
+	return "Expected CBM"
+
+
 def get_cbm_factor(settings=None):
 	return get_formula_factor("cbm_factor", settings)
 

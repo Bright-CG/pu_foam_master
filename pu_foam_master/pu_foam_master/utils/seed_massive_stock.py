@@ -296,7 +296,7 @@ def _ensure_stock_item(item_code):
 	# Sensible UOM defaults for known factory codes
 	uom_map = {
 		"Tape Edge": "Meter",
-		"PVC Nylon": "Sqm",
+		"PVC Nylon": "Kg",
 		"Thread": "Nos",
 		"Labels": "Nos",
 	}
