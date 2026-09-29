@@ -17,8 +17,22 @@
   "desk_access": 1,
   "doctype": "Role",
   "is_custom": 1,
+  "name": "PUFM Production Manager",
+  "role_name": "PUFM Production Manager"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
   "name": "PUFM Conversion",
   "role_name": "PUFM Conversion"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Conversion Supervisor",
+  "role_name": "PUFM Conversion Supervisor"
  },
  {
   "desk_access": 1,
@@ -33,6 +47,27 @@
   "is_custom": 1,
   "name": "PUFM Assembly",
   "role_name": "PUFM Assembly"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Assembly Supervisor",
+  "role_name": "PUFM Assembly Supervisor"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Confirmation",
+  "role_name": "PUFM Confirmation"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Store",
+  "role_name": "PUFM Store"
  },
  {
   "desk_access": 1,

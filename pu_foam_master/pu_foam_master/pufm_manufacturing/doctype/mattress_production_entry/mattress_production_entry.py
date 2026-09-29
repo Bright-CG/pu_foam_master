@@ -5,6 +5,9 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import cint, flt, nowdate
 
+from pu_foam_master.pufm_manufacturing.utils.approval_workflows import (
+	assert_deletable_before_supervisor_approval,
+)
 from pu_foam_master.pufm_manufacturing.utils.settings import (
 	get_formula_factor,
 	get_usage_allowance_percent,
@@ -25,6 +28,9 @@ LABEL_ITEM_GROUP = "Labels"
 
 
 class MattressProductionEntry(Document):
+	def on_trash(self):
+		assert_deletable_before_supervisor_approval(self)
+
 	def validate(self):
 		if not self.company:
 			frappe.throw("Company is required.")

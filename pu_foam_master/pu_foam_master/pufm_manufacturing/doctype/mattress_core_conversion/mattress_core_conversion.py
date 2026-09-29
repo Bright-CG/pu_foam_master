@@ -3,6 +3,9 @@ from frappe.model.document import Document
 from frappe.model.naming import make_autoname
 from frappe.utils import cint, flt
 
+from pu_foam_master.pufm_manufacturing.utils.approval_workflows import (
+	assert_deletable_before_supervisor_approval,
+)
 from pu_foam_master.pufm_manufacturing.utils.settings import get_scrap_output_rate
 from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	apply_manual_rate,
@@ -14,6 +17,9 @@ from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 class MattressCoreConversion(Document):
 	def autoname(self):
 		self.name = make_autoname(self.naming_series or "CONV-.YYYY.-.MM.-.#####")
+
+	def on_trash(self):
+		assert_deletable_before_supervisor_approval(self)
 
 	def validate(self):
 		if not self.processed_by:

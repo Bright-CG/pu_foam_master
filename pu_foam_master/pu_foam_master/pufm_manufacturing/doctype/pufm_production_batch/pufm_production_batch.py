@@ -22,14 +22,9 @@ from pu_foam_master.pufm_manufacturing.utils.settings import (
 	get_chemical_consumption_basis,
 	get_scrap_output_rate,
 )
-
-
-# workflow_state -> roles allowed to enter that state (status only; stock uses docstatus)
-WORKFLOW_TRANSITION_ROLES = {
-	"Pending MD Approval": {"PUFM Manager", "System Manager"},
-	"Pending Store Confirmation": {"PUFM Manager", "System Manager"},
-	"Completed": {"PUFM Block Production", "PUFM Manager", "System Manager"},
-}
+from pu_foam_master.pufm_manufacturing.utils.approval_workflows import (
+	assert_deletable_before_supervisor_approval,
+)
 
 
 class PufmProductionBatch(Document):
@@ -42,7 +37,9 @@ class PufmProductionBatch(Document):
 			self.batch_id = self.name
 		self._ensure_company()
 		assert_user_can_access_company(self.company, action="save Production Batch for")
-		self._enforce_workflow_transition_security()
+
+	def on_trash(self):
+		assert_deletable_before_supervisor_approval(self)
 
 	def before_submit(self):
 		"""Validate readiness before docstatus flips — avoids submitted batches with no stock."""
@@ -55,7 +52,7 @@ class PufmProductionBatch(Document):
 			frappe.throw(_("No Density Runs linked to this Production Batch."))
 
 	def on_submit(self):
-		"""Stock posts only on formal Submit — never on Draft save or workflow status change."""
+		"""Stock posts only on formal Submit (Confirm Receipt / Bypass via Workflow)."""
 		self.create_manufacture_cost_entry()
 
 	def on_cancel(self):
@@ -85,41 +82,6 @@ class PufmProductionBatch(Document):
 			self.company = get_preferred_company()
 		if not self.company:
 			frappe.throw(_("Company is required."))
-
-	def _enforce_workflow_transition_security(self):
-		"""Block unauthorized workflow_state transitions (status machine only; not stock)."""
-		before = self.get_doc_before_save()
-		old_state = before.workflow_state if before else None
-		new_state = self.workflow_state
-
-		if new_state == old_state:
-			return
-
-		if not new_state or new_state == "Draft":
-			return
-
-		required_roles = WORKFLOW_TRANSITION_ROLES.get(new_state)
-		if not required_roles:
-			return
-
-		if self._user_has_any_role(required_roles):
-			return
-
-		roles_label = " or ".join(sorted(required_roles))
-		raise frappe.PermissionError(
-			_(
-				"You cannot move Production Batch to '{0}'. "
-				"Required role: {1}."
-			).format(new_state, roles_label)
-		)
-
-	@staticmethod
-	def _user_has_any_role(required_roles):
-		user = frappe.session.user
-		if user == "Administrator":
-			return True
-		user_roles = set(frappe.get_roles(user))
-		return bool(user_roles.intersection(required_roles))
 
 	def _get_linked_runs(self):
 		return frappe.get_all(

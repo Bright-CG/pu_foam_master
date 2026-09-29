@@ -11,6 +11,7 @@
   "company",
   "job_order",
   "processed_by",
+  "workflow_state",
   "column_break_meta",
   "scrap_weight_kg",
   "scrap_stock_entry",
@@ -61,6 +62,16 @@
    "in_list_view": 1,
    "label": "Processed By",
    "options": "User"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "Draft",
+   "fieldname": "workflow_state",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Workflow State",
+   "no_copy": 1,
+   "options": "Workflow State"
   },
   {
    "fieldname": "column_break_meta",
@@ -160,14 +171,34 @@
    "write": 1
   },
   {
-   "cancel": 1,
    "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Conversion Supervisor",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
    "role": "PUFM Conversion",
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Confirmation",
    "submit": 1,
    "write": 1
   }

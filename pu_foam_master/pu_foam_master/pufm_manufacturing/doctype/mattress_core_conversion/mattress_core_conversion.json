@@ -14,6 +14,7 @@
   "material_request",
   "target_warehouse",
   "processed_by",
+  "workflow_state",
   "job_instructions_sb",
   "fetch_job_instructions",
   "job_instructions_html",
@@ -91,6 +92,16 @@
    "fieldtype": "Link",
    "label": "Processed By",
    "options": "User"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "Draft",
+   "fieldname": "workflow_state",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Workflow State",
+   "no_copy": 1,
+   "options": "Workflow State"
   },
   {
    "collapsible": 1,
@@ -244,14 +255,34 @@
    "write": 1
   },
   {
-   "cancel": 1,
    "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Conversion Supervisor",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
    "role": "PUFM Conversion",
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Confirmation",
    "submit": 1,
    "write": 1
   }

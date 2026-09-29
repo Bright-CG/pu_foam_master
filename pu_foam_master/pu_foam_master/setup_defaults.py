@@ -5,9 +5,14 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 PUFM_ROLES = (
 	"PUFM Manager",
 	"PUFM Block Production",
+	"PUFM Production Manager",
 	"PUFM Conversion",
+	"PUFM Conversion Supervisor",
 	"PUFM Quilting",
 	"PUFM Assembly",
+	"PUFM Assembly Supervisor",
+	"PUFM Confirmation",
+	"PUFM Store",
 	"PUFM Rebound",
 	"PUFM Brand Policy",
 )

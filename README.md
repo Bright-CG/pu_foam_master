@@ -128,7 +128,7 @@ Sales Order (shortfall)
 ### Manufacturing — virgin pour
 
 - **Density Configuration** — density recipe, BOM/virtual item support, block variant generation
-- **Pufm Production Batch** — pour batch with approval-style workflow (`Draft` → `Pending MD Approval` → `Pending Store Confirmation` → `Completed`)
+- **Pufm Production Batch** — pour batch gated by Frappe Workflow (`Draft` → `Pending Supervisor Approval` → `Pending Store Confirmation` → `Completed`)
 - **Pufm Density Run** / **Pufm Produced Block** — runs and produced block lines per density
 
 ### Manufacturing — Job Orders and conversion
@@ -681,19 +681,45 @@ See required core fields in [Pre-installation](#13-pre-installation-business-set
 
 Created by `ensure_pufm_roles` (install/migrate) and exported as fixtures:
 
-| Role | Typical purpose (from DocType permissions) |
-|------|-----------------------------------------------|
-| **PUFM Manager** | Broad manufacturing + settings access |
-| **PUFM Block Production** | Production Batch / Density Run |
-| **PUFM Conversion** | Core / Sheeting conversion, Job Orders |
-| **PUFM Quilting** | Quilting Record, Job Orders |
-| **PUFM Assembly** | Mattress Production Entry, Job Orders |
-| **PUFM Rebound** | Rebound production / rebond generator |
+| Role | Typical purpose |
+|------|-----------------|
+| **PUFM Manager** | Broad manufacturing + settings; can confirm or **Bypass Submit** on any gated DocType |
+| **PUFM Block Production** | Pour entry on **Pufm Production Batch** (Send for Approval; no direct Submit) |
+| **PUFM Production Manager** | Pour supervisor: approve pour batches; may also create/enter and **Bypass Submit** |
+| **PUFM Conversion** | Core / Sheeting conversion entry |
+| **PUFM Conversion Supervisor** | Approve Core / Sheeting conversions; may also enter |
+| **PUFM Quilting** | Quilting Record, Job Orders (Quilting Record stays submit-as-today; no approval Workflow in v1) |
+| **PUFM Assembly** | Mattress Production Entry entry |
+| **PUFM Assembly Supervisor** | Approve Mattress Production Entry; may also enter |
+| **PUFM Confirmation** | Cross-dept **Confirm Receipt** (conversion/sheeting; also pour/assembly with Store) |
+| **PUFM Store** | Store **Confirm Receipt** on pour FG and mattress FG |
+| **PUFM Rebound** | Rebound production / rebond generator (unchanged; no approval Workflow in v1) |
 | **PUFM Brand Policy** | Mattress Brand Policy |
 
 System Manager retains full access. Some DocTypes also allow **Sales Manager** (e.g. Price Engine). Customer rebate fields use permission level `1` in setup code.
 
-Production Batch transitions also enforce role checks in Python for MD/Store/Completed steps (Manager / System Manager / Block Production as coded).
+### Approval Workflow (v1)
+
+Real Frappe Workflow gates **when** these four DocTypes may Submit. Existing `on_submit` stock / Job Order logic is unchanged.
+
+| DocType | Entry | Supervisor Approve | Confirm Receipt → Submit |
+|---------|-------|--------------------|--------------------------|
+| **Pufm Production Batch** | Block Production (+ Production Manager) | **PUFM Production Manager** | Store **or** Confirmation |
+| **Mattress Core Conversion** | Conversion (+ Supervisor) | **PUFM Conversion Supervisor** | Confirmation (**or** Manager) |
+| **Pufm Sheeting Conversion** | Conversion (+ Supervisor) | **PUFM Conversion Supervisor** | Confirmation only |
+| **Mattress Production Entry** | Assembly (+ Supervisor) | **PUFM Assembly Supervisor** | Store **or** Confirmation |
+
+**States:** `Draft` → `Pending Supervisor Approval` → `Pending Store Confirmation` → `Completed` (submitted; stock posts).
+
+**Actions (Desk → Actions menu):** Send for Approval → Approve / Reject → Confirm Receipt / Reject. **Bypass Submit** (Manager; also Production Manager on pour) jumps to Completed.
+
+**Notes:**
+- Cosmetic Production Batch status dropdown was removed; Workflow State is the single source of truth (hidden Link).
+- Conversion sets the target warehouse; Assembly later picks cores from that warehouse. Confirmation only affirms arrival — Assembly does **not** goods-in the conversion doc.
+- Sheeting Confirm Receipt runs existing `on_submit` (including Job Order completion).
+- Delete is allowed only in Draft / Pending Supervisor Approval; Store and Confirmation cannot delete.
+- Roles are global in v1; optional warehouse **User Permissions** can be added later if needed.
+- Assign roles under **User → Roles** after migrate. Workflows are ensured by `ensure_pufm_approval_workflows` on `after_migrate`.
 
 ---
 

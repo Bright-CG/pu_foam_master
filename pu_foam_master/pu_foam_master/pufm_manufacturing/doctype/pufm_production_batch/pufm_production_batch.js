@@ -22,11 +22,13 @@ frappe.ui.form.on("Pufm Production Batch", {
 			});
 		}
 
-		// Stock posts only on Submit / reverses on Cancel — not on Draft or workflow status.
+		// Stock posts only when Workflow reaches Completed (Confirm Receipt / Bypass Submit).
 		if (frm.dashboard && frm.dashboard.set_headline) {
 			if (frm.doc.docstatus === 0) {
 				frm.dashboard.set_headline(
-					__("Save as Draft freely. Submit to post the manufacture Stock Entry.")
+					__(
+						"Use Actions: Send for Approval → Supervisor Approve → Confirm Receipt. Stock posts only on Confirm Receipt (or Manager Bypass Submit)."
+					)
 				);
 			} else if (frm.doc.docstatus === 1) {
 				frm.dashboard.set_headline(
