@@ -10,7 +10,7 @@
 | **Installable app directory** | `pu_foam_master/` (contains the Python package `pu_foam_master`) |
 | **Frappe module** | `pufm_manufacturing` |
 | **Declared version** | `0.0.1` |
-| **License (declared in `hooks.py`)** | MIT *(no separate `LICENSE` file in the repository)* |
+| **License** | Proprietary source-available (view for evaluation; no redistribution or commercial use) |
 | **Primary stack** | Frappe / ERPNext (documented operational target: **v15**) |
 
 > This repository is the **custom app**. It expects an existing Frappe bench with ERPNext. It is not a standalone web framework project with its own `.env`, Docker Compose stack, or CI pipeline in-tree.
@@ -165,7 +165,7 @@ Sales Order (shortfall)
 - **Pufm Manufacturing Settings** — operational single DocType with validation for required core fields
 - Department roles created on install/migrate (see [Roles](#18-roles-and-permissions))
 - Custom fields on Item (dimensions, CBM, finish type), Customer (rebate), Sales Invoice (instant rebate / settlement link)
-- Desk workspace **PU Foam Master** (legacy “Happifoam Manufacturing” workspace removed on migrate if present)
+- Desk workspace **PU Foam Master** (an older Desk workspace label is removed on migrate if it still exists)
 
 ---
 
@@ -912,8 +912,7 @@ Restore using Frappe’s documented restore procedures for your version. Test re
 - **No in-repo CI/CD, Docker, or production web-server configs.**
 - **No screenshot / demo media** in git (images ignored).
 - **Empty `requirements.txt`** — depends entirely on the bench environment.
-- **License file missing** despite `app_license = "mit"` in hooks and “see license.txt” headers.
-- **Naming inconsistency** between GitHub repo layout and local bench symlink is reduced: the installable directory is now `pu_foam_master/` with Python package `pu_foam_master` (legacy `happifoam_manufacturing/` folder removed).
+- **Naming inconsistency** between GitHub repo layout and local bench symlink is reduced: the installable directory is now `pu_foam_master/` with Python package `pu_foam_master`.
 - **Sheeting Conversion does not deduct source blocks** by design (documented in code); operators must understand DN vs conversion responsibilities.
 - **Demo/factory CSV loaders** exist for manual use and are intentionally not auto-run.
 - Portfolio / multi-company edge cases may still need plant-specific configuration beyond Settings validation.
@@ -924,7 +923,6 @@ Restore using Frappe’s documented restore procedures for your version. Test re
 
 ### Short-term
 
-- Add a root `LICENSE` file matching the declared MIT license
 - Expand real unit/integration tests around stock submit/cancel and Job Order reconcile
 - Resolve install-name documentation to a single canonical `bench install-app` name
 - Add README screenshots under a tracked `docs/` path
@@ -1017,9 +1015,9 @@ For authorized developers:
 
 ## 32. License
 
-`hooks.py` declares **`app_license = "mit"`**.
+This project is **proprietary source-available**. See [`LICENSE`](LICENSE) and [`license.txt`](license.txt).
 
-There is **no `LICENSE` / `license.txt` file** in the repository at the time of writing, even though many source headers reference `license.txt`. Treat licensing as **MIT as declared in hooks**, and add a proper license file before public redistribution if required by your organisation.
+You may view the source for personal evaluation, including review by a prospective employer. You may not copy, redistribute, or use it commercially or in production without written permission from the copyright holder.
 
 ---
 

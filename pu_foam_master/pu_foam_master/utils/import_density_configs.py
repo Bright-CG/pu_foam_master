@@ -5,9 +5,9 @@
 
 Usage on the VPS (copy CSV onto the server first):
 
-  bench --site erp.happifoam.com execute \\
+  bench --site your.site execute \\
     pu_foam_master.utils.import_density_configs.run \\
-    --kwargs "{'csv_path': '/home/deployuser/Density Config.csv', 'company': 'Solar Foam and Chemical Industries Limited', 'submit': 1}"
+    --kwargs "{'csv_path': '/path/to/Density Config.csv', 'company': 'Your Company', 'submit': 1}"
 
 Rules:
   - Chemical Items must already exist (exact Item Code match).

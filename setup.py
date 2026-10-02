@@ -6,6 +6,7 @@ setup(
 	description="Foam Manufacturing Management",
 	author="Bright",
 	author_email="brightgodwin9@gmail.com",
+	license="Proprietary",
 	packages=find_packages(),
 	zip_safe=False,
 	include_package_data=True,

@@ -1,0 +1,8 @@
+PU Foam Master — Proprietary Source-Available License
+Copyright (c) 2026 Bright. All rights reserved.
+
+See the LICENSE file at the repository root for the full terms.
+
+Viewing this source for personal evaluation (including by a prospective
+employer) is permitted. Copying, redistribution, and commercial or production
+use are not permitted without prior written permission.

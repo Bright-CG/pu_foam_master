@@ -24,6 +24,14 @@ command.txt
 Account.csv
 Clean_Account.csv
 
+# Factory / client import dumps — never commit live company data
+Chart_of_Accounts*.csv
+Item_Import*.csv
+*_Import.csv
+*SolarFoam*
+*HappiFoam*
+*Happifoam*
+
 # Backups
 *_backup*
 backup/

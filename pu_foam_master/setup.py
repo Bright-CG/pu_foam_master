@@ -5,6 +5,7 @@ setup(
     version="0.0.1",
     description="PU Foam Master",
     author="Bright",
+    license="Proprietary",
     packages=find_packages(),
     zip_safe=False,
     include_package_data=True,

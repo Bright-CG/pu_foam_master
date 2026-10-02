@@ -29,7 +29,7 @@ $ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
 The site should serve the ERPNext login page on the published port (for example `http://localhost:8000` or `http://localhost:8080` depending on compose).
 
 ### Workspace Persistence
-The **PU Foam Master** workspace is created by `pu_foam_master.setup_workspace.create_workspace` on install/migrate. A legacy Desk label **Happifoam Manufacturing** is deleted on migrate if it still exists.
+The **PU Foam Master** workspace is created by `pu_foam_master.setup_workspace.create_workspace` on install/migrate. An older Desk workspace label is deleted on migrate if it still exists.
 
 > [!IMPORTANT]
 > The operational target described here is **ERPNext v15**. Upgrading to v16 should be planned as a deliberate image/base upgrade, not a casual tag bump.

@@ -3,7 +3,7 @@ app_title = "PU Foam Master"
 app_publisher = "PU Foam Master"
 app_description = "Foam Manufacturing Management"
 app_email = "support@example.com"
-app_license = "mit"
+app_license = "proprietary"
 
 app_include_css = []
 app_include_js = []
