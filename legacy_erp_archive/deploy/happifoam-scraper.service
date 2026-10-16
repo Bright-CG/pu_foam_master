@@ -1,0 +1,18 @@
+[Unit]
+Description=Happifoam legacy ERP full archive scraper (VPS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=happifoam
+Group=happifoam
+WorkingDirectory=/home/happifoam/olderp
+EnvironmentFile=/home/happifoam/olderp/scraper/.env
+ExecStart=/home/happifoam/olderp/deploy/run_vps_scrape.sh
+Restart=on-failure
+RestartSec=300
+ReadWritePaths=/home/happifoam/olderp/data
+
+[Install]
+WantedBy=multi-user.target

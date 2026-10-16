@@ -36,6 +36,15 @@ Item_Import*.csv
 *_backup*
 backup/
 
+# Legacy ERP Archive — code is tracked; runtime data and secrets are not
+legacy_erp_archive/data/
+legacy_erp_archive/scraper/.venv/
+legacy_erp_archive/venv/
+legacy_erp_archive/scraper/.env
+legacy_erp_archive/laravel_archive/.env
+legacy_erp_archive/laravel_archive/vendor/
+legacy_erp_archive/laravel_archive/node_modules/
+
 # Specific files identified as unnecessary
 New module by module now.txt
 Production_Module_Final.txt

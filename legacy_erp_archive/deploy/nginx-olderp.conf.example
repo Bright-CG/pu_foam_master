@@ -1,0 +1,47 @@
+# Install by root on VPS:
+#   sudo cp deploy/nginx-olderp.conf.example /etc/nginx/sites-available/olderp.happifoam.com
+#   sudo ln -sf /etc/nginx/sites-available/olderp.happifoam.com /etc/nginx/sites-enabled/
+#   sudo certbot --nginx -d olderp.happifoam.com
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name olderp.happifoam.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name olderp.happifoam.com;
+
+    # ssl_certificate /etc/letsencrypt/live/olderp.happifoam.com/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/olderp.happifoam.com/privkey.pem;
+
+    root /home/happifoam/olderp/public;
+    index index.php;
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        # Dedicated pool (preferred):
+        fastcgi_pass unix:/run/php/php8.3-fpm-happifoam.sock;
+        # Fallback if using default pool:
+        # fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        # fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+    }
+
+    location ~ /\.(?!well-known) {
+        deny all;
+    }
+
+    location ~* \.(env|git|db|sqlite|sqlite3)$ {
+        deny all;
+    }
+}
