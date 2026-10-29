@@ -14,7 +14,7 @@ from pu_foam_master.pufm_manufacturing.utils.settings import (
 )
 from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	apply_manual_rate,
-	balance_stock_entry_targets,
+	finalize_pufm_stock_entry_balance,
 	get_stock_valuation_rate,
 )
 
@@ -356,7 +356,7 @@ class MattressProductionEntry(Document):
 		entry.append("items", target_row)
 		self._append_mattress_depreciation_cost(entry, settings, qty)
 		self._append_mattress_labour_cost(entry, settings, qty, row.idx)
-		balance_stock_entry_targets(
+		finalize_pufm_stock_entry_balance(
 			entry,
 			context="Mattress Production {0} row {1}".format(self.name, row.idx),
 		)

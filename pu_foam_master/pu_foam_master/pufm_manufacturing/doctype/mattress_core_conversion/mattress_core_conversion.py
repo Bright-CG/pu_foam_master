@@ -9,7 +9,7 @@ from pu_foam_master.pufm_manufacturing.utils.approval_workflows import (
 from pu_foam_master.pufm_manufacturing.utils.settings import get_scrap_output_rate
 from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	apply_manual_rate,
-	balance_stock_entry_targets,
+	finalize_pufm_stock_entry_balance,
 	get_stock_valuation_rate,
 )
 
@@ -195,8 +195,12 @@ class MattressCoreConversion(Document):
 
 	def _create_repack_stock_entry(self):
 		"""
-		Repack Stock Entry with volumetric cost apportionment:
-		  Total Input Cost = Sum(Core/Sheet Value) + Scrap Value
+		Repack Stock Entry with volumetric cost apportionment.
+
+		Material pool for FG (by CBM) = block cost − scrap credit only.
+		Conversion (slicing) overhead is posted only in additional_costs and
+		absorbed into finished rows by balance (never in the CBM pool — avoids
+		double-count when Stock Entry submit re-balances).
 		"""
 		PRECISION = 5
 		input_rows = self.get("inputs") or []
@@ -242,9 +246,17 @@ class MattressCoreConversion(Document):
 			source_rates[row.idx] = source_rate
 			total_input_cost = flt(total_input_cost + (flt(row.qty) * source_rate), PRECISION)
 
-		# --- Step 2: Scrap + conversion overhead → net cost per CBM ---
+		# --- Step 2: Scrap credit → net material pool per CBM (overhead separate) ---
 		scrap_value = flt(flt(self.scrap_weight) * scrap_output_rate, PRECISION)
-		net_slicing_cost = flt(total_input_cost + conversion_cost - scrap_value, PRECISION)
+		net_slicing_cost = flt(total_input_cost - scrap_value, PRECISION)
+		if net_slicing_cost < 0:
+			frappe.throw(
+				"Scrap credit ({0}) exceeds block input value ({1}). "
+				"Lower Scrap Output Rate or scrap weight.".format(
+					frappe.format_value(scrap_value, {"fieldtype": "Currency"}),
+					frappe.format_value(total_input_cost, {"fieldtype": "Currency"}),
+				)
+			)
 		total_output_cbm = flt(self.total_output_cbm)
 		cost_per_cbm = (
 			flt(net_slicing_cost / total_output_cbm, PRECISION) if total_output_cbm > 0 else 0.0
@@ -333,6 +345,7 @@ class MattressCoreConversion(Document):
 				"conversion_factor": 1,
 				"use_serial_batch_fields": 1,
 				"batch_no": batch_id,
+				"is_finished_item": 1,
 			}
 			apply_manual_rate(target_row, core_unit_cost, precision=PRECISION)
 			if serial_string:
@@ -340,7 +353,7 @@ class MattressCoreConversion(Document):
 
 			entry.append("items", target_row)
 
-		balance_stock_entry_targets(
+		finalize_pufm_stock_entry_balance(
 			entry,
 			scrap_item=scrap_item,
 			context="Mattress Core Conversion {0}".format(self.name),

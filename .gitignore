@@ -36,14 +36,24 @@ Item_Import*.csv
 *_backup*
 backup/
 
-# Legacy ERP Archive — code is tracked; runtime data and secrets are not
-legacy_erp_archive/data/
-legacy_erp_archive/scraper/.venv/
-legacy_erp_archive/venv/
-legacy_erp_archive/scraper/.env
-legacy_erp_archive/laravel_archive/.env
-legacy_erp_archive/laravel_archive/vendor/
-legacy_erp_archive/laravel_archive/node_modules/
+# Legacy ERP archive — local/VPS tooling only (not part of bench app install)
+legacy_erp_archive/
+
+# Doc / note formats not tracked in this repo
+*.rst
+
+# Root-level legacy ERP scrape and investigation artifacts
+all_customers_export.csv
+customer_*.html
+select_customer.html
+/fetch_samples.py
+/inspect_*.py
+/test_ar_and_search.py
+/test_customer_inquiry.py
+/test_cutover.py
+
+# Ad-hoc bench debug helpers
+pu_foam_master/**/_bench_*.py
 
 # Specific files identified as unnecessary
 New module by module now.txt

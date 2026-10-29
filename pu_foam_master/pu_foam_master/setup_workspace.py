@@ -76,6 +76,13 @@ def create_workspace():
 			"is_query_report": 1,
 		},
 		{
+			"label": "PUFM Production Cost Inquiry",
+			"link_to": "PUFM Production Cost Inquiry",
+			"type": "Report",
+			"icon": "accounting",
+			"is_query_report": 1,
+		},
+		{
 			"label": "Pufm Price Engine",
 			"link_to": "Pufm Price Engine",
 			"type": "DocType",
@@ -145,6 +152,7 @@ def create_workspace():
 		{"label": "Pufm Density Run", "link_to": "Pufm Density Run", "link_type": "DocType", "type": "Link"},
 		{"label": "Production Variance Report", "link_to": "Production Variance Report", "link_type": "Report", "is_query_report": 1, "type": "Link"},
 		{"label": "Pufm Stock Matrix", "link_to": "Pufm Stock Matrix", "link_type": "Report", "is_query_report": 1, "type": "Link"},
+		{"label": "PUFM Production Cost Inquiry", "link_to": "PUFM Production Cost Inquiry", "link_type": "Report", "is_query_report": 1, "type": "Link"},
 		{"label": "Rebound Production", "is_header": 1},
 		{"label": "Rebound Configuration", "link_to": "Rebound Configuration", "link_type": "DocType", "type": "Link"},
 		{"label": "Pufm Rebond Item Generator", "link_to": "Pufm Rebond Item Generator", "link_type": "DocType", "type": "Link"},
@@ -178,6 +186,7 @@ def create_workspace():
 		'{"id":"s0c","type":"shortcut","data":{"shortcut_name":"Pufm Density Run","col":3}},'
 		'{"id":"s0e","type":"shortcut","data":{"shortcut_name":"Production Variance Report","col":3}},'
 		'{"id":"s0m","type":"shortcut","data":{"shortcut_name":"Pufm Stock Matrix","col":3}},'
+		'{"id":"s0pci","type":"shortcut","data":{"shortcut_name":"PUFM Production Cost Inquiry","col":3}},'
 		'{"id":"h1","type":"header","data":{"text":"Rebound Production","col":12}},'
 		'{"id":"s2","type":"shortcut","data":{"shortcut_name":"Rebound Configuration","col":3}},'
 		'{"id":"s2b","type":"shortcut","data":{"shortcut_name":"Pufm Rebond Item Generator","col":3}},'
@@ -195,7 +204,8 @@ def create_workspace():
 		'{"id":"s0d","type":"shortcut","data":{"shortcut_name":"Mattress Core Conversion","col":3}},'
 		'{"id":"s0sh","type":"shortcut","data":{"shortcut_name":"Pufm Sheeting Conversion","col":3}},'
 		'{"id":"s7","type":"shortcut","data":{"shortcut_name":"Quilting Record","col":3}},'
-		'{"id":"s8","type":"shortcut","data":{"shortcut_name":"Mattress Production Entry","col":3}}'
+		'{"id":"s8","type":"shortcut","data":{"shortcut_name":"Mattress Production Entry","col":3}},'
+		'{"id":"s8pci","type":"shortcut","data":{"shortcut_name":"PUFM Production Cost Inquiry","col":3}}'
 		']'
 	)
 

@@ -8,7 +8,12 @@ INSTANT_REBATE_ROW_DESCRIPTION = "Instant Rebate"
 
 
 def apply_instant_rebate(doc, method=None):
-	if not doc.get("custom_apply_instant_rebate"):
+	if doc.get("custom_exclude_from_rebate") and doc.get("custom_apply_instant_rebate"):
+		frappe.throw(
+			_("Cannot apply Instant Rebate on a Non-Rebateable invoice. Choose one.")
+		)
+
+	if doc.get("custom_exclude_from_rebate") or not doc.get("custom_apply_instant_rebate"):
 		doc.custom_instant_rebate_amount = 0
 		return
 
@@ -24,7 +29,7 @@ def ensure_rebate_tax_row(doc, method=None):
 	]
 	doc.set("taxes", existing)
 
-	if not doc.get("custom_apply_instant_rebate"):
+	if doc.get("custom_exclude_from_rebate") or not doc.get("custom_apply_instant_rebate"):
 		return
 
 	amount = flt(doc.custom_instant_rebate_amount)

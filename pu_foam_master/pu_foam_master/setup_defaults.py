@@ -1,5 +1,6 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+from frappe.utils import flt
 
 
 PUFM_ROLES = (
@@ -94,6 +95,17 @@ def ensure_standard_mattress_sizes():
 	from pu_foam_master.utils.demo_data import seed_standard_mattress_sizes
 
 	seed_standard_mattress_sizes()
+
+
+def ensure_demo_pvc_gsm_default():
+	"""Demo PVC/nylon wrap GSM for mattress PVC consumption (only when unset)."""
+	if not frappe.db.exists("DocType", "Pufm Manufacturing Settings"):
+		return
+	current = flt(frappe.db.get_single_value("Pufm Manufacturing Settings", "pvc_gsm"))
+	if current > 0:
+		return
+	frappe.db.set_single_value("Pufm Manufacturing Settings", "pvc_gsm", 200)
+	frappe.db.commit()
 
 
 def migrate_rebate_expense_account():

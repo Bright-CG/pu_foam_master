@@ -766,18 +766,36 @@ There is **no** Swagger/OpenAPI spec in this repository.
 
 ## 21. Testing
 
-Automated test coverage is **minimal**.
-
-Present stubs (empty `pass` bodies):
-
-- `.../mattress_core_conversion/test_mattress_core_conversion.py`
-- `.../density_configuration/test_density_configuration.py`
-
-**How to run** (standard Frappe):
+**Automated tests** (run on staging before production releases):
 
 ```bash
 bench --site <site> run-tests --app pu_foam_master
 ```
+
+Covers stock-entry valuation, production cost inquiry, bulk invoice search, and related helpers.
+
+**Go-live / regression bundle** (creates real submitted documents on the site — use staging):
+
+```bash
+# DocType meta smoke
+bench --site <site> execute pu_foam_master.pufm_manufacturing.utils.smoke_pufm_doctypes.run
+
+# Full shop-floor E2E + Stock Entry value balance (sources + overhead = targets)
+bench --site <site> execute pu_foam_master.pufm_manufacturing.utils.e2e_audit.run
+
+# Pour + FQ assembly GL retest
+bench --site <site> execute pu_foam_master.pufm_manufacturing.utils.retest_costing.run
+
+# Combined report (smoke + unit tests + optional E2E)
+bench --site <site> execute pu_foam_master.pufm_manufacturing.utils.go_live_check.run
+```
+
+**Production updates (no data wipe):** pull app → `bench --site <site> migrate` → `bench build --app pu_foam_master` → restart. Do **not** run `uninstall-app` / `reinstall-app` on production. `after_migrate` hooks backfill roles, custom fields, workflows, and data repairs idempotently.
+
+Stub doctypes (extend when needed):
+
+- `.../mattress_core_conversion/test_mattress_core_conversion.py`
+- `.../density_configuration/test_density_configuration.py`
 
 **Recommended manual regression areas when changing code**
 

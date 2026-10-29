@@ -30,6 +30,7 @@ fixtures = [
 					"Customer-custom_rebate_percentage",
 					"Sales Invoice-custom_rebate_section",
 					"Sales Invoice-custom_apply_instant_rebate",
+					"Sales Invoice-custom_exclude_from_rebate",
 					"Sales Invoice-custom_instant_rebate_percentage",
 					"Sales Invoice-custom_instant_rebate_amount",
 					"Sales Invoice-custom_rebate_settlement",
@@ -77,6 +78,7 @@ after_migrate = [
 	"pu_foam_master.setup_migrations.disable_foam_block_serials",
 	"pu_foam_master.setup_migrations.disable_foam_core_serials",
 	"pu_foam_master.setup_defaults.migrate_rebate_expense_account",
+	"pu_foam_master.setup_defaults.ensure_demo_pvc_gsm_default",
 	"pu_foam_master.setup_defaults.ensure_pufm_roles",
 	"pu_foam_master.pufm_manufacturing.utils.approval_workflows.ensure_pufm_approval_workflows",
 	"pu_foam_master.custom_fields.ensure_item_custom_fields",
@@ -99,7 +101,10 @@ after_install = [
 ]
 
 doctype_js = {
-	"Sales Invoice": "public/js/sales_invoice.js",
+	"Sales Invoice": [
+		"public/js/sales_invoice.js",
+		"public/js/sales_invoice_bulk_lines.js",
+	],
 	"Sales Order": "public/js/sales_order.js",
 	"Item": "public/js/item.js",
 }
@@ -113,8 +118,8 @@ doc_events = {
 		"validate": "pu_foam_master.pufm_manufacturing.utils.item_cbm.on_item_validate",
 	},
 	"Stock Entry": {
-		"before_submit": (
-			"pu_foam_master.pufm_manufacturing.utils.stock_entry_hooks.balance_pufm_stock_entry_before_submit"
+		"validate": (
+			"pu_foam_master.pufm_manufacturing.utils.stock_entry_hooks.balance_pufm_stock_entry_on_validate"
 		),
 	},
 }

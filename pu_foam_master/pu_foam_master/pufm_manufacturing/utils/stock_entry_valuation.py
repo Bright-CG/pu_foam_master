@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 DEFAULT_TOLERANCE = 0.05
 PRECISION = 5
@@ -227,6 +227,200 @@ def apply_manual_rate(row, rate, precision=PRECISION):
 	return amount
 
 
+def stock_entry_target_material_basic(entry, scrap_item=None):
+	"""Sum of incoming basic_amount (excludes ERPNext line additional_cost overhead)."""
+	total = 0.0
+	for row in entry.get("items") or []:
+		if not row.t_warehouse or not flt(row.qty):
+			continue
+		basic = flt(getattr(row, "basic_amount", None))
+		if not basic:
+			basic = flt(flt(row.qty) * flt(row.basic_rate or row.valuation_rate), PRECISION)
+		total = flt(total + basic, PRECISION)
+	return total
+
+
+def mark_pufm_finished_items(entry, scrap_item=None):
+	"""ERPNext distributes Repack/Manufacture overhead only to is_finished_item rows."""
+	if entry.purpose not in ("Manufacture", "Repack"):
+		return
+	for row in entry.get("items") or []:
+		if not row.t_warehouse or not flt(row.qty):
+			continue
+		if scrap_item and row.item_code == scrap_item:
+			row.is_finished_item = 0
+		else:
+			row.is_finished_item = 1
+
+
+def reapply_pufm_outgoing_rates(entry):
+	"""Restore outgoing rates after ERPNext validate (which always calls get_incoming_rate)."""
+	for row in entry.get("items") or []:
+		if not row.s_warehouse or not flt(row.qty):
+			continue
+		if not cint(getattr(row, "set_basic_rate_manually", 0)):
+			continue
+		rate = get_stock_valuation_rate(
+			row.item_code,
+			warehouse=row.s_warehouse,
+			batch_no=getattr(row, "batch_no", None),
+		)
+		if rate <= 0:
+			continue
+		apply_manual_rate(row, rate)
+
+
+def _sync_row_amount_fields(entry):
+	for row in entry.get("items") or []:
+		qty = flt(row.qty)
+		transfer_qty = flt(row.transfer_qty) or qty
+		if not qty or not (row.s_warehouse or row.t_warehouse):
+			continue
+		row.transfer_qty = transfer_qty
+		rate = flt(row.basic_rate or row.valuation_rate)
+		row.basic_amount = flt(transfer_qty * rate, PRECISION)
+		additional = flt(getattr(row, "additional_cost", 0))
+		row.amount = flt(row.basic_amount + additional, PRECISION)
+		if rate > 0:
+			row.set_basic_rate_manually = 1
+			row.allow_zero_valuation_rate = 0
+
+
+def balance_stock_entry_material_only(
+	entry,
+	scrap_item=None,
+	tolerance=DEFAULT_TOLERANCE,
+	context="Stock Entry",
+):
+	"""Balance block/material only: sources == scrap + FG basic (overhead stays in additional_costs)."""
+	_sync_row_amount_fields(entry)
+
+	source_total = stock_entry_source_amount(entry)
+	target_basic = stock_entry_target_material_basic(entry, scrap_item=scrap_item)
+	residual = flt(source_total - target_basic, PRECISION)
+
+	if abs(residual) <= flt(tolerance):
+		return residual
+
+	absorb_row = None
+	for row in reversed(entry.get("items") or []):
+		if not row.t_warehouse or flt(row.qty) <= 0:
+			continue
+		if scrap_item and row.item_code == scrap_item:
+			continue
+		if not cint(getattr(row, "is_finished_item", 0)) and entry.purpose in (
+			"Manufacture",
+			"Repack",
+		):
+			continue
+		absorb_row = row
+		break
+	if not absorb_row:
+		for row in reversed(entry.get("items") or []):
+			if row.t_warehouse and flt(row.qty) > 0 and (
+				not scrap_item or row.item_code != scrap_item
+			):
+				absorb_row = row
+				break
+
+	if not absorb_row:
+		frappe.throw(
+			_(
+				"{0}: material pool unbalanced — sources {1} vs target basics {2}. "
+				"Check CBM apportionment or scrap credit."
+			).format(
+				context,
+				frappe.format_value(source_total, {"fieldtype": "Currency"}),
+				frappe.format_value(target_basic, {"fieldtype": "Currency"}),
+			)
+		)
+
+	transfer_qty = flt(absorb_row.transfer_qty) or flt(absorb_row.qty)
+	new_basic = flt(flt(absorb_row.basic_amount) + residual, PRECISION)
+	if new_basic < 0 and abs(new_basic) > flt(tolerance):
+		frappe.throw(
+			_(
+				"{0}: material balancing would make finished item {1} negative (basic {2}). "
+				"Check scrap valuation, CBM totals, and source rates."
+			).format(
+				context,
+				absorb_row.item_code,
+				frappe.format_value(new_basic, {"fieldtype": "Currency"}),
+			)
+		)
+
+	new_rate = flt(new_basic / transfer_qty, PRECISION) if transfer_qty else 0
+	absorb_row.basic_rate = new_rate
+	absorb_row.valuation_rate = new_rate
+	absorb_row.basic_amount = new_basic
+	absorb_row.amount = flt(new_basic + flt(getattr(absorb_row, "additional_cost", 0)), PRECISION)
+	absorb_row.set_basic_rate_manually = 1
+
+	target_basic = stock_entry_target_material_basic(entry, scrap_item=scrap_item)
+	if abs(source_total - target_basic) > flt(tolerance):
+		frappe.throw(
+			_(
+				"{0}: material pool still unbalanced after rounding absorb "
+				"(sources {1} vs target basics {2})."
+			).format(
+				context,
+				frappe.format_value(source_total, {"fieldtype": "Currency"}),
+				frappe.format_value(target_basic, {"fieldtype": "Currency"}),
+			)
+		)
+	return residual
+
+
+def assert_stock_entry_fully_balanced(entry, tolerance=DEFAULT_TOLERANCE, context="Stock Entry"):
+	left = flt(
+		stock_entry_source_amount(entry) + stock_entry_additional_amount(entry),
+		PRECISION,
+	)
+	right = flt(stock_entry_target_amount(entry), PRECISION)
+	if abs(left - right) > flt(tolerance):
+		frappe.throw(
+			_(
+				"{0}: Stock Entry unbalanced (sources+overhead {1} vs targets {2})."
+			).format(
+				context,
+				frappe.format_value(left, {"fieldtype": "Currency"}),
+				frappe.format_value(right, {"fieldtype": "Currency"}),
+			)
+		)
+
+
+# Match E2E / GL audit tolerance (currency rounding on multi-FG pour)
+SUBMIT_BALANCE_TOLERANCE = 1.0
+
+
+def sync_pufm_stock_entry_after_erpnext_validate(entry, scrap_item=None, context=None):
+	"""Run after Stock Entry validate: restore outgoing rates, flag FG rows, redistribute overhead."""
+	context = context or entry.name or "Stock Entry"
+	reapply_pufm_outgoing_rates(entry)
+	mark_pufm_finished_items(entry, scrap_item=scrap_item)
+	entry.calculate_rate_and_amount(reset_outgoing_rate=False, raise_error_if_no_rate=False)
+
+	left = flt(
+		stock_entry_source_amount(entry) + stock_entry_additional_amount(entry),
+		PRECISION,
+	)
+	right = flt(stock_entry_target_amount(entry), PRECISION)
+	residual = flt(left - right, PRECISION)
+	if abs(residual) > SUBMIT_BALANCE_TOLERANCE:
+		balance_stock_entry_targets(
+			entry, scrap_item=scrap_item, context=context, tolerance=SUBMIT_BALANCE_TOLERANCE
+		)
+	elif abs(residual) > DEFAULT_TOLERANCE:
+		# Penny-level drift after ERPNext distribute on multi-FG repack
+		balance_stock_entry_targets(
+			entry, scrap_item=scrap_item, context=context, tolerance=DEFAULT_TOLERANCE
+		)
+
+	assert_stock_entry_fully_balanced(
+		entry, tolerance=SUBMIT_BALANCE_TOLERANCE, context=context
+	)
+
+
 def balance_stock_entry_targets(
 	entry,
 	scrap_item=None,
@@ -374,25 +568,55 @@ def _assert_fg_not_zero_when_sources_valued(entry, source_total, context, scrap_
 			)
 
 
-def finalize_pufm_stock_entry_balance(entry, scrap_item=None, context=None):
-	"""Re-sync row amounts and enforce source + overhead == targets (call before submit)."""
+def _entry_has_priced_finished_material(entry, scrap_item=None):
 	for row in entry.get("items") or []:
-		qty = flt(row.qty)
-		transfer_qty = flt(row.transfer_qty) or qty
-		rate = flt(row.basic_rate or row.valuation_rate)
-		if qty and (row.s_warehouse or row.t_warehouse):
-			row.transfer_qty = transfer_qty
-			row.basic_amount = flt(transfer_qty * rate, PRECISION)
-			additional = flt(getattr(row, "additional_cost", 0))
-			row.amount = flt(row.basic_amount + additional, PRECISION)
-			if rate > 0:
-				row.set_basic_rate_manually = 1
-				row.allow_zero_valuation_rate = 0
+		if not row.t_warehouse or flt(row.qty) <= 0:
+			continue
+		if scrap_item and row.item_code == scrap_item:
+			continue
+		if flt(row.basic_rate or row.valuation_rate) > 0:
+			if cint(getattr(row, "is_finished_item", 0)) or entry.purpose == "Repack":
+				return True
+	return False
 
+
+def stamp_single_fg_material_from_sources(entry, scrap_item=None):
+	"""Manufacture with one FG row at rate 0 — set FG basic = total source value (overhead separate)."""
+	fg_rows = [
+		row
+		for row in entry.get("items") or []
+		if row.t_warehouse and cint(getattr(row, "is_finished_item", 0)) and flt(row.qty) > 0
+	]
+	if len(fg_rows) != 1:
+		return
+	fg = fg_rows[0]
+	if flt(fg.basic_rate or fg.valuation_rate) > 0:
+		return
+	source_total = stock_entry_source_amount(entry)
+	qty = flt(fg.qty)
+	if source_total <= 0 or qty <= 0:
+		return
+	apply_manual_rate(fg, flt(source_total / qty, PRECISION))
+
+
+def finalize_pufm_stock_entry_balance(entry, scrap_item=None, context=None):
+	"""Enforce material balance at build; overhead uses ERPNext Additional Costs on submit."""
+	context = context or getattr(entry, "name", None) or "Stock Entry"
+	mark_pufm_finished_items(entry, scrap_item=scrap_item)
+	has_overhead = stock_entry_additional_amount(entry) > 0
+	if has_overhead:
+		if not _entry_has_priced_finished_material(entry, scrap_item=scrap_item):
+			stamp_single_fg_material_from_sources(entry, scrap_item=scrap_item)
+		if _entry_has_priced_finished_material(entry, scrap_item=scrap_item):
+			return balance_stock_entry_material_only(
+				entry, scrap_item=scrap_item, context=context
+			)
+
+	_sync_row_amount_fields(entry)
 	return balance_stock_entry_targets(
 		entry,
 		scrap_item=scrap_item,
-		context=context or getattr(entry, "name", None) or "Stock Entry",
+		context=context,
 	)
 
 

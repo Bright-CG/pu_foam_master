@@ -60,11 +60,21 @@ def ensure_sales_invoice_rebate_fields():
 				"insert_after": "custom_rebate_section",
 			},
 			{
+				"fieldname": "custom_exclude_from_rebate",
+				"label": "Non-Rebateable",
+				"fieldtype": "Check",
+				"insert_after": "custom_apply_instant_rebate",
+				"description": (
+					"Exclude this invoice from period distributor rebate. "
+					"The customer still pays in full; cannot be combined with Instant Rebate."
+				),
+			},
+			{
 				"fieldname": "custom_instant_rebate_percentage",
 				"label": "Instant Rebate Percentage",
 				"fieldtype": "Float",
 				"depends_on": "eval:doc.custom_apply_instant_rebate",
-				"insert_after": "custom_apply_instant_rebate",
+				"insert_after": "custom_exclude_from_rebate",
 			},
 			{
 				"fieldname": "custom_instant_rebate_amount",

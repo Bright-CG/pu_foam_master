@@ -14,7 +14,7 @@ from pu_foam_master.pufm_manufacturing.utils.settings import (
 )
 from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	apply_manual_rate,
-	balance_stock_entry_targets,
+	finalize_pufm_stock_entry_balance,
 	get_stock_valuation_rate,
 )
 
@@ -159,7 +159,7 @@ class ReboundProductionEntry(Document):
 				},
 			)
 
-		balance_stock_entry_targets(
+		finalize_pufm_stock_entry_balance(
 			entry, context="Rebound Production Entry {0}".format(self.name)
 		)
 

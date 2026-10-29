@@ -84,10 +84,14 @@ class RebateSettlementTool(Document):
 			WHERE si.docstatus = 1
 				AND IFNULL(si.is_return, 0) = 0
 				AND IFNULL(si.custom_apply_instant_rebate, 0) = 0
+				{exclude_non_rebateable}
 				AND si.posting_date BETWEEN %s AND %s
 				AND si.customer IN ({customers})
 				AND IFNULL(si.custom_rebate_settlement, '') = ''
-			""".format(customers=", ".join(["%s"] * len(customers))),
+			""".format(
+				exclude_non_rebateable=_non_rebateable_sql("si"),
+				customers=", ".join(["%s"] * len(customers)),
+			),
 			tuple([self.name, self.from_date, self.to_date] + customers),
 		)
 
@@ -118,6 +122,8 @@ def get_customers(from_date, to_date, customer_group=None):
 		"IFNULL(c.custom_is_distributor, 0) = 1",
 		"IFNULL(si.custom_apply_instant_rebate, 0) = 0",
 	]
+	if frappe.db.has_column("Sales Invoice", "custom_exclude_from_rebate"):
+		conditions.append("IFNULL(si.custom_exclude_from_rebate, 0) = 0")
 	params = {"from_date": from_date, "to_date": to_date}
 
 	# Double-settlement guard: skip invoices already tagged to a submitted settlement
@@ -166,6 +172,13 @@ def get_customers(from_date, to_date, customer_group=None):
 		)
 
 	return results
+
+
+def _non_rebateable_sql(alias="si"):
+	"""AND clause so Non-Rebateable invoices are never tagged as settled."""
+	if not frappe.db.has_column("Sales Invoice", "custom_exclude_from_rebate"):
+		return ""
+	return f"AND IFNULL({alias}.custom_exclude_from_rebate, 0) = 0"
 
 
 def _get_settlement_item(company):

@@ -316,6 +316,8 @@ def _setup_hour_rates_and_preflight():
 
 	# Prefer chemical issue from warehouse that actually holds stock
 	settings = frappe.get_single("Pufm Manufacturing Settings")
+	out["pvc_gsm"] = _ensure_pvc_gsm_for_testing(settings)
+	out["quilt_stock_warehouse"] = _quilt_and_assembly_warehouse(settings)
 	out["chemical_issue_wh"] = settings.default_wip_warehouse
 	out["note"] = (
 		"Chemicals for pour are issued from Default WIP Warehouse "
@@ -328,6 +330,83 @@ def _setup_hour_rates_and_preflight():
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _quilt_and_assembly_warehouse(settings=None):
+	"""Quilted fabric / FQ assembly source stock is in Work In Progress (not GIT)."""
+	return WIP
+
+
+def _warehouse_with_stock(item_code, prefer):
+	for wh in prefer:
+		if _bin_qty(item_code, wh) > 0:
+			return wh
+	return prefer[0]
+
+
+def _ensure_pvc_gsm_for_testing(settings):
+	if not flt(getattr(settings, "pvc_gsm", None)):
+		settings.pvc_gsm = 200
+		settings.save(ignore_permissions=True)
+	return flt(settings.pvc_gsm)
+
+
+def _submit_quilting_to_wip(company, out_m=4.0):
+	"""Create quilted fabric batch in Work In Progress (for E2E / assembly)."""
+	settings = frappe.get_single("Pufm Manufacturing Settings")
+	fabric = "Raw Damask Fabric"
+	sheet = "Foam Sheet Roll - 0.5 Inch"
+	finished = "QUILTED-DAMASK-FLORA"
+	target_wh = _quilt_and_assembly_warehouse(settings)
+
+	if not frappe.db.exists("Item", finished):
+		frappe.throw("Finished quilt item {0} missing.".format(finished))
+
+	fabric_wh = _warehouse_with_stock(fabric, (WIP, STORES, GIT))
+	sheet_wh = _warehouse_with_stock(sheet, (WIP, STORES))
+	if _bin_qty(sheet, sheet_wh) < out_m + 0.5:
+		_seed_batch_receipt(sheet, WIP, company, qty=30, rate=1500)
+		sheet_wh = WIP
+	if _bin_qty(fabric, fabric_wh) < out_m + 0.5:
+		return None
+
+	fabric_batch, _ = _pick_batch_with_qty(fabric, fabric_wh, need=out_m + 0.5)
+	sheet_batch, _ = _pick_batch_with_qty(sheet, sheet_wh, need=out_m + 0.5)
+	if cint(frappe.db.get_value("Item", fabric, "has_batch_no")) and not fabric_batch:
+		return None
+	if cint(frappe.db.get_value("Item", sheet, "has_batch_no")) and not sheet_batch:
+		sheet_batch = _seed_batch_receipt(sheet, sheet_wh, company, qty=30, rate=1500)
+
+	doc = frappe.new_doc("Quilting Record")
+	doc.company = company
+	doc.posting_date = nowdate()
+	doc.fabric_item = fabric
+	doc.fabric_warehouse = fabric_wh
+	doc.fabric_batch = fabric_batch
+	doc.fabric_qty_meters = out_m + 0.2
+	doc.sheeting_roll_item = sheet
+	doc.sheeting_warehouse = sheet_wh
+	doc.sheeting_batch = sheet_batch
+	doc.sheeting_qty_meters = out_m + 0.2
+	doc.finished_item = finished
+	doc.output_qty_meters = out_m
+	doc.target_warehouse = target_wh
+	doc.insert(ignore_permissions=True)
+	doc.submit()
+	return doc
+
+
+def _ensure_quilted_fabric_batch(company, need_m=3.6):
+	fabric = "QUILTED-DAMASK-FLORA"
+	wh = _quilt_and_assembly_warehouse()
+	batch, qty = _pick_batch_with_qty(fabric, wh, need=need_m)
+	if batch:
+		return batch, wh, "existing"
+	doc = _submit_quilting_to_wip(company, out_m=max(need_m, 4.0))
+	if not doc:
+		return None, wh, "no_quilt_inputs"
+	batch, qty = _pick_batch_with_qty(fabric, wh, need=need_m)
+	return batch, wh, doc.name if batch else None
 
 
 def _gl_gap(stock_entry_name):
@@ -561,56 +640,28 @@ def _test_sheeting_conversion():
 def _test_quilting():
 	settings = frappe.get_single("Pufm Manufacturing Settings")
 	company = settings.default_company or COMPANY
-	fabric = "Raw Damask Fabric"
-	sheet = "Foam Sheet Roll - 0.5 Inch"
-	finished = "QUILTED-DAMASK-FLORA"
-	fabric_wh = WIP if _bin_qty(fabric, WIP) >= 5 else STORES
-	sheet_wh = WIP if _bin_qty(sheet, WIP) >= 5 else (STORES if _bin_qty(sheet, STORES) >= 5 else GIT)
-
-	# Enough quilt meters for a subsequent 1-pc FQ mattress (~3.6 m needed)
-	out_m = 4.0
-	if _bin_qty(fabric, fabric_wh) < out_m + 0.5:
-		return {"status": "skip", "reason": "Insufficient fabric in {0}".format(fabric_wh)}
-	if _bin_qty(sheet, sheet_wh) < out_m + 0.5:
-		return {"status": "skip", "reason": "Insufficient sheeting roll in {0}".format(sheet_wh)}
-	if not frappe.db.exists("Item", finished):
-		return {"status": "skip", "reason": "Finished quilt item missing"}
-
-	fabric_batch, _ = _pick_batch_with_qty(fabric, fabric_wh, need=out_m + 0.5)
-	sheet_batch, _ = _pick_batch_with_qty(sheet, sheet_wh, need=out_m + 0.5)
-	fabric_batch_req = cint(frappe.db.get_value("Item", fabric, "has_batch_no"))
-	sheet_batch_req = cint(frappe.db.get_value("Item", sheet, "has_batch_no"))
-	if fabric_batch_req and not fabric_batch:
-		return {"status": "skip", "reason": "No fabric batch"}
-	if sheet_batch_req and not sheet_batch:
-		sheet_batch = _seed_batch_receipt(sheet, sheet_wh, company, qty=20, rate=1500)
-
-	doc = frappe.new_doc("Quilting Record")
-	doc.company = company
-	doc.posting_date = nowdate()
-	doc.fabric_item = fabric
-	doc.fabric_warehouse = fabric_wh
-	doc.fabric_batch = fabric_batch
-	doc.fabric_qty_meters = out_m + 0.2
-	doc.sheeting_roll_item = sheet
-	doc.sheeting_warehouse = sheet_wh
-	doc.sheeting_batch = sheet_batch
-	doc.sheeting_qty_meters = out_m + 0.2
-	doc.finished_item = finished
-	doc.output_qty_meters = out_m
-	doc.target_warehouse = WIP
-	doc.insert(ignore_permissions=True)
-	doc.submit()
+	try:
+		doc = _submit_quilting_to_wip(company, out_m=4.0)
+	except Exception as e:
+		return {"status": "fail", "error": str(e)}
+	if not doc:
+		return {
+			"status": "skip",
+			"reason": "Insufficient fabric or sheeting in {0} / {1} (seed stock first)".format(
+				WIP, STORES
+			),
+		}
 
 	gl = _gl_gap(doc.stock_entry)
 	status = "pass" if gl.get("pass") else "fail"
 	return {
 		"status": status,
 		"name": doc.name,
-		"fabric": fabric,
-		"sheeting": sheet,
-		"finished": finished,
-		"output_m": out_m,
+		"fabric": doc.fabric_item,
+		"sheeting": doc.sheeting_roll_item,
+		"finished": doc.finished_item,
+		"target_warehouse": doc.target_warehouse,
+		"output_m": flt(doc.output_qty_meters),
 		"total_production_cost": flt(doc.total_production_cost, 2),
 		**gl,
 	}
@@ -648,8 +699,9 @@ def _seed_batch_receipt(item_code, warehouse, company, qty=10, rate=1000):
 
 def _test_mattress_assembly():
 	settings = frappe.get_single("Pufm Manufacturing Settings")
+	_ensure_pvc_gsm_for_testing(settings)
 	company = settings.default_company or COMPANY
-	src = WIP if _bin_qty("QUILTED-DAMASK-FLORA", WIP) > 0 else (settings.default_wip_warehouse or WIP)
+	src = _quilt_and_assembly_warehouse(settings)
 	fg = settings.default_fg_warehouse or FG
 
 	mattress = "D18-54x84x10-FQ"
@@ -658,17 +710,18 @@ def _test_mattress_assembly():
 	if not frappe.db.exists("Item", mattress):
 		return {"status": "skip", "reason": "FQ mattress missing"}
 
-	# ~3.58 m fabric for 54x84x10 FQ — require a batch that can cover it
 	need_fabric_m = 3.6
 	core_batch, _ = _pick_batch_with_qty(core, src, need=1)
 	if not core_batch:
 		core_batch = _seed_batch_receipt(core, src, company, qty=2, rate=50000)
 
-	fabric_batch, fabric_qty = _pick_batch_with_qty(fabric, src, need=need_fabric_m)
+	fabric_batch, fabric_qty, quilt_src = _ensure_quilted_fabric_batch(company, need_m=need_fabric_m)
 	if not fabric_batch:
 		return {
 			"status": "skip",
-			"reason": "No quilted fabric batch with >= {0} m in {1}".format(need_fabric_m, src),
+			"reason": "No quilted fabric batch with >= {0} m in {1} ({2})".format(
+				need_fabric_m, src, quilt_src
+			),
 		}
 
 	label = settings.default_label_item or "Labels"
@@ -714,6 +767,8 @@ def _test_mattress_assembly():
 		"status": status,
 		"name": doc.name,
 		"stock_entries": se_names,
+		"source_warehouse": src,
+		"quilted_fabric_from": quilt_src,
 		"fabric_batch": fabric_batch,
 		"fabric_batch_qty": flt(fabric_qty, 3),
 		"fabric_batch_rate": flt(batch_rate, 2),

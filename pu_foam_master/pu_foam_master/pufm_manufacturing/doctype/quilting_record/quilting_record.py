@@ -8,7 +8,7 @@ from frappe.utils import cint, flt
 from pu_foam_master.pufm_manufacturing.utils.item_cbm import batch_belongs_to_conversion
 from pu_foam_master.pufm_manufacturing.utils.stock_entry_valuation import (
 	apply_manual_rate,
-	balance_stock_entry_targets,
+	finalize_pufm_stock_entry_balance,
 	get_stock_valuation_rate,
 )
 
@@ -294,7 +294,9 @@ class QuiltingRecord(Document):
 			fg_row["use_serial_batch_fields"] = 1
 		entry.append("items", fg_row)
 
-		balance_stock_entry_targets(entry, context="Quilting Record {0}".format(self.name))
+		finalize_pufm_stock_entry_balance(
+			entry, context="Quilting Record {0}".format(self.name)
+		)
 
 		entry.insert(ignore_permissions=True)
 		entry.submit()

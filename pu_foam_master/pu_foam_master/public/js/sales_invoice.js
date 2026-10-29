@@ -1,6 +1,11 @@
 frappe.ui.form.on("Sales Invoice", {
 	refresh(frm) {
 		if (frm.doc.docstatus === 0) {
+			frm.add_custom_button(
+				__("Bulk add items"),
+				() => pu_foam_master.bulk_invoice_lines.open_dialog(frm),
+				__("PUFM")
+			);
 			return;
 		}
 		frm.add_custom_button(__("Create Job Order"), () => {
@@ -12,6 +17,15 @@ frappe.ui.form.on("Sales Invoice", {
 		}, __("Create"));
 	},
 	custom_apply_instant_rebate(frm) {
+		if (frm.doc.custom_apply_instant_rebate && frm.doc.custom_exclude_from_rebate) {
+			frm.set_value("custom_exclude_from_rebate", 0);
+		}
+		calculate_instant_rebate(frm);
+	},
+	custom_exclude_from_rebate(frm) {
+		if (frm.doc.custom_exclude_from_rebate && frm.doc.custom_apply_instant_rebate) {
+			frm.set_value("custom_apply_instant_rebate", 0);
+		}
 		calculate_instant_rebate(frm);
 	},
 	custom_instant_rebate_percentage(frm) {
@@ -26,7 +40,7 @@ frappe.ui.form.on("Sales Invoice", {
 });
 
 function calculate_instant_rebate(frm) {
-	if (!frm.doc.custom_apply_instant_rebate) {
+	if (!frm.doc.custom_apply_instant_rebate || frm.doc.custom_exclude_from_rebate) {
 		frm.set_value("custom_instant_rebate_amount", 0);
 		return;
 	}

@@ -539,8 +539,21 @@ class PufmProductionBatch(Document):
 		scrap_qty = flt(run_doc.scrap_weight_kg)
 		run_scrap_value = flt(scrap_qty * flt(scrap_output_rate), PRECISION)
 
-		# 4) Net cost to capitalize onto actual (good) blocks — includes yield loss
-		net_run_cost = flt(run_rm_cost + run_op_cost - run_scrap_value, PRECISION)
+		# 4) Net material pool for FG blocks (by actual CBM). Operating cost is
+		# posted only via additional_costs on the Stock Entry (not here — avoids
+		# double-count on submit re-balance).
+		net_run_cost = flt(run_rm_cost - run_scrap_value, PRECISION)
+		if net_run_cost < 0:
+			frappe.throw(
+				_(
+					"Scrap credit ({0}) exceeds chemical cost ({1}) on Density Run {2}. "
+					"Check scrap weight and Scrap Output Rate."
+				).format(
+					frappe.format_value(run_scrap_value, {"fieldtype": "Currency"}),
+					frappe.format_value(run_rm_cost, {"fieldtype": "Currency"}),
+					run_doc.name,
+				)
+			)
 		cost_per_cbm = flt(net_run_cost / run_total_cbm, PRECISION)
 
 		return {

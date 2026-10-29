@@ -16,6 +16,7 @@ AFTER_INSTALL_STEPS = (
 	("pu_foam_master.setup_defaults.ensure_customer_rebate_fields", "Customer rebate fields"),
 	("pu_foam_master.setup_defaults.ensure_default_rebate_tiers", "Rebate Tiers"),
 	("pu_foam_master.setup_defaults.ensure_standard_mattress_sizes", "Mattress sizes"),
+	("pu_foam_master.setup_defaults.ensure_demo_pvc_gsm_default", "Demo PVC GSM default"),
 	("pu_foam_master.setup_workspace.create_workspace", "Workspace"),
 )
 
