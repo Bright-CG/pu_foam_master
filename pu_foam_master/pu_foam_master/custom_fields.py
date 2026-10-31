@@ -38,6 +38,14 @@ def ensure_item_custom_fields():
 				"insert_after": "custom_cbm_value",
 				"description": "Mattress cover style. Used by assembly; do not infer from the Item name.",
 			},
+			{
+				"fieldname": "custom_product_line",
+				"label": "Product Line",
+				"fieldtype": "Data",
+				"insert_after": "custom_finish_type",
+				"read_only": 1,
+				"description": "Mattress product line (SKU prefix). Used for fabric brand policy.",
+			},
 		]
 	}
 	create_custom_fields(item_fields, update=True)

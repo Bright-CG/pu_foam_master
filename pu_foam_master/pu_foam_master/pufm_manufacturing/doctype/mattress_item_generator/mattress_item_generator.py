@@ -2,6 +2,10 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import cint, flt
 
+from pu_foam_master.pufm_manufacturing.utils.mattress_sku import (
+	build_item_code,
+	sanitize_sku_token,
+)
 from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor
 
 DEFAULT_SUFFIXES = {
@@ -11,16 +15,52 @@ DEFAULT_SUFFIXES = {
 	"fully_quilted_suffix": "-FQ",
 }
 
+FINISHED_VARIANTS = (
+	("generate_plain", "plain_suffix", "Plain"),
+	("generate_side_quilted", "side_quilted_suffix", "Side Quilted"),
+	("generate_fully_quilted", "fully_quilted_suffix", "Fully Quilted"),
+)
+
 
 class MattressItemGenerator(Document):
 	def validate(self):
 		self._ensure_suffix_defaults()
+		self._normalize_variant_flags()
 		self._recompute_cbm()
+		self._validate_generation_flags()
 
 	def _ensure_suffix_defaults(self):
 		for fieldname, default in DEFAULT_SUFFIXES.items():
 			if not (self.get(fieldname) or "").strip():
 				self.set(fieldname, default)
+
+	def _normalize_variant_flags(self):
+		for flag in (
+			"generate_core",
+			"generate_plain",
+			"generate_side_quilted",
+			"generate_fully_quilted",
+		):
+			if self.get(flag) is None:
+				self.set(flag, 1)
+		if cint(self.get("generate_core_only")):
+			self.generate_plain = 0
+			self.generate_side_quilted = 0
+			self.generate_fully_quilted = 0
+
+	def _validate_generation_flags(self):
+		if not (self.get("product_line") or "").strip():
+			frappe.throw("Product Line (SKU Prefix) is required.")
+		if not any(
+			cint(self.get(flag))
+			for flag in (
+				"generate_core",
+				"generate_plain",
+				"generate_side_quilted",
+				"generate_fully_quilted",
+			)
+		):
+			frappe.throw("Select at least one variant to generate (Core, Plain, SQ, or FQ).")
 
 	def _recompute_cbm(self):
 		cbm_factor = get_cbm_factor()
@@ -36,56 +76,83 @@ class MattressItemGenerator(Document):
 def generate_mattress_items(docname):
 	doc = frappe.get_doc("Mattress Item Generator", docname)
 	doc._ensure_suffix_defaults()
+	doc._normalize_variant_flags()
+	doc._validate_generation_flags()
 
 	if not doc.sizes:
 		frappe.throw("Please fetch/add at least one size row.")
 
+	product_line = sanitize_sku_token(doc.product_line)
+	if not product_line:
+		frappe.throw("Product Line (SKU Prefix) is required.")
+
 	safe_core_group = get_or_create_item_group(doc.core_item_group)
-	core_only = cint(doc.get("generate_core_only"))
+	generate_core = cint(doc.generate_core)
+	generate_finished = any(
+		cint(doc.get(flag)) for flag, _, _ in FINISHED_VARIANTS
+	)
 	safe_mattress_group = None
-	if not core_only:
+	if generate_finished:
 		safe_mattress_group = get_or_create_item_group(doc.mattress_item_group)
 
 	core_suffix = (doc.core_suffix or DEFAULT_SUFFIXES["core_suffix"]).strip()
-	plain_suffix = (doc.plain_suffix or DEFAULT_SUFFIXES["plain_suffix"]).strip()
-	sq_suffix = (doc.side_quilted_suffix or DEFAULT_SUFFIXES["side_quilted_suffix"]).strip()
-	fq_suffix = (doc.fully_quilted_suffix or DEFAULT_SUFFIXES["fully_quilted_suffix"]).strip()
+	suffix_map = {
+		"plain_suffix": (doc.plain_suffix or DEFAULT_SUFFIXES["plain_suffix"]).strip(),
+		"side_quilted_suffix": (
+			doc.side_quilted_suffix or DEFAULT_SUFFIXES["side_quilted_suffix"]
+		).strip(),
+		"fully_quilted_suffix": (
+			doc.fully_quilted_suffix or DEFAULT_SUFFIXES["fully_quilted_suffix"]
+		).strip(),
+	}
 
 	created_or_verified = []
-	brand_token = _resolve_brand_token(doc)
-	brand_link = _resolve_brand_link(doc)
+	brand_link = _resolve_erp_brand_link(doc)
 	for row in doc.sizes:
-		size = _format_size(row.width, row.length, row.height)
-		core_code = _branded_item_code(brand_token, size, core_suffix)
+		row.core_item = None
+		row.mattress_item = None
+		primary_finished = None
 
-		_ensure_item(
-			core_code, safe_core_group, row, brand=brand_link, serial_tracked=False
-		)
-		row.core_item = core_code
-		created_or_verified.append(core_code)
+		if generate_core:
+			core_code = build_item_code(
+				product_line, row.width, row.length, row.height, core_suffix
+			)
+			_ensure_item(
+				core_code,
+				safe_core_group,
+				row,
+				brand=brand_link,
+				product_line=product_line,
+				finish_type=None,
+				serial_tracked=False,
+			)
+			row.core_item = core_code
+			created_or_verified.append(core_code)
 
-		if not core_only:
-			plain_code = _branded_item_code(brand_token, size, plain_suffix)
-			sq_code = _branded_item_code(brand_token, size, sq_suffix)
-			fq_code = _branded_item_code(brand_token, size, fq_suffix)
-			for code, finish_type in (
-				(plain_code, "Plain"),
-				(sq_code, "Side Quilted"),
-				(fq_code, "Fully Quilted"),
-			):
-				_ensure_item(
-					code,
-					safe_mattress_group,
-					row,
-					brand=brand_link,
-					finish_type=finish_type,
-					serial_tracked=True,
-				)
-				created_or_verified.append(code)
-			# Primary finished SKU shown on the size row is the Plain mattress
-			row.mattress_item = plain_code
-		else:
-			row.mattress_item = None
+		for flag, suffix_field, finish_type in FINISHED_VARIANTS:
+			if not cint(doc.get(flag)):
+				continue
+			code = build_item_code(
+				product_line,
+				row.width,
+				row.length,
+				row.height,
+				suffix_map[suffix_field],
+			)
+			_ensure_item(
+				code,
+				safe_mattress_group,
+				row,
+				brand=brand_link,
+				product_line=product_line,
+				finish_type=finish_type,
+				serial_tracked=True,
+			)
+			created_or_verified.append(code)
+			if primary_finished is None:
+				primary_finished = code
+
+		row.mattress_item = primary_finished
 
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()
@@ -93,12 +160,13 @@ def generate_mattress_items(docname):
 	return {
 		"count": len(created_or_verified),
 		"items": created_or_verified,
-		"brand": brand_token,
+		"product_line": product_line,
+		"erp_brand": brand_link,
 	}
 
 
-def _resolve_brand_link(doc):
-	"""ERPNext Brand linked on generated Items (must exist as Brand)."""
+def _resolve_erp_brand_link(doc):
+	"""ERPNext Brand on Items (e.g. HappiFoam) — not the SKU product line."""
 	if doc.density_configuration:
 		density_brand = frappe.db.get_value(
 			"Density Configuration", doc.density_configuration, "brand"
@@ -109,48 +177,6 @@ def _resolve_brand_link(doc):
 	if brand and frappe.db.exists("Brand", brand):
 		return brand
 	return None
-
-
-def _resolve_brand_token(doc):
-	"""Prefer Density Configuration.brand, then brand_name field, then density name."""
-	brand = (doc.get("brand_name") or "").strip()
-	if doc.density_configuration:
-		density_brand = frappe.db.get_value(
-			"Density Configuration", doc.density_configuration, "brand"
-		)
-		if density_brand:
-			brand = density_brand
-		elif not brand:
-			brand = frappe.db.get_value(
-				"Density Configuration", doc.density_configuration, "density_name"
-			)
-	return _sanitize_brand_token(brand)
-
-
-def _sanitize_brand_token(brand):
-	token = "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in (brand or "").strip())
-	token = "-".join(part for part in token.split("-") if part)
-	return token
-
-
-def _branded_item_code(brand_token, size, suffix):
-	"""Naming standard: {brand}-{size}{suffix} e.g. Galaxy-42x84x8-FQ."""
-	suffix = (suffix or "").strip()
-	if brand_token:
-		return f"{brand_token}-{size}{suffix}"
-	return f"{size}{suffix}"
-
-
-def _format_size(width, length, height):
-	"""Build size token like 75x42x8 (drop trailing .0)."""
-
-	def _fmt(value):
-		number = flt(value)
-		if float(number).is_integer():
-			return str(int(number))
-		return f"{number:g}"
-
-	return f"{_fmt(width)}x{_fmt(length)}x{_fmt(height)}"
 
 
 def get_or_create_item_group(group_name):
@@ -171,7 +197,15 @@ def get_or_create_item_group(group_name):
 	return group_name
 
 
-def _ensure_item(item_code, item_group, row, brand=None, finish_type=None, serial_tracked=True):
+def _ensure_item(
+	item_code,
+	item_group,
+	row,
+	brand=None,
+	product_line=None,
+	finish_type=None,
+	serial_tracked=True,
+):
 	from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
 		apply_core_traceability,
 		apply_finished_good_traceability,
@@ -187,6 +221,8 @@ def _ensure_item(item_code, item_group, row, brand=None, finish_type=None, seria
 		item.custom_length = flt(row.length)
 		item.custom_height = flt(row.height)
 		item.custom_cbm_value = flt(row.unit_cbm)
+		if product_line:
+			item.custom_product_line = product_line
 		if brand:
 			item.brand = brand
 		if finish_type:
@@ -224,6 +260,8 @@ def _ensure_item(item_code, item_group, row, brand=None, finish_type=None, seria
 		"custom_cbm_value": flt(row.unit_cbm),
 		**defaults,
 	}
+	if product_line:
+		payload["custom_product_line"] = product_line
 	if finish_type:
 		payload["custom_finish_type"] = finish_type
 	item = frappe.get_doc(payload)

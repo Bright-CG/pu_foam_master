@@ -999,7 +999,7 @@ def _get_batch_item(batch_no):
 
 @frappe.whitelist()
 def get_allowed_fabric_items_for_mattress(mattress_item):
-	"""Resolve fabrics from the mattress Item's Brand field + Brand Policy."""
+	"""Resolve fabrics from Item ERP Brand + product line (Mattress Brand Policy)."""
 	if not mattress_item:
 		return []
 
@@ -1010,8 +1010,10 @@ def get_allowed_fabric_items_for_mattress(mattress_item):
 	from pu_foam_master.pufm_manufacturing.doctype.mattress_brand_policy.mattress_brand_policy import (
 		get_allowed_fabric_items,
 	)
+	from pu_foam_master.pufm_manufacturing.utils.mattress_sku import get_product_line_for_item
 
-	return get_allowed_fabric_items(item_brand)
+	product_line = get_product_line_for_item(mattress_item)
+	return get_allowed_fabric_items(item_brand, product_line)
 
 
 def _filter_fabrics_by_group(item_codes, item_group):

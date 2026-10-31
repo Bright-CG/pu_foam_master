@@ -21,6 +21,7 @@ fixtures = [
 					"Item-custom_length",
 					"Item-custom_cbm_value",
 					"Item-custom_finish_type",
+					"Item-custom_product_line",
 					"Customer-custom_rebate_configuration_section",
 					"Customer-custom_is_distributor",
 					"Customer-custom_rebate_tier",

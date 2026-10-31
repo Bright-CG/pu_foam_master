@@ -144,7 +144,8 @@ Sales Order (shortfall)
 - **Quilting Record** — Manufacture stock entry for quilted fabric; Quilting Job Orders only
 - **Mattress Production Entry** — finished mattress manufacture with fabric/core/consumable consumption; optional **Core Conversion** link for Quilting Job Order assembly; server validation that core batch Item matches the mattress SKU naming rule (`-PLAIN` / `-SQ` / `-FQ` → `-CORE`)
 - **Mattress Brand Policy** — allowed fabrics per Brand
-- **Mattress Item Generator** / **Standard Mattress Size** — generate CORE / PLAIN / SQ / FQ variants
+- **Mattress Item Generator** / **Standard Mattress Size** — generate CORE / PLAIN / SQ / FQ variants; **Product Line** drives SKU prefix; **ERP Brand** (e.g. HappiFoam) is stored on Items; variant checkboxes control which SKUs are created
+- **Mattress Brand Policy** — allowed fabrics per **ERP Brand** + optional **Product Line** (e.g. `HappiFoam-Orthopedic`)
 
 ### Rebound and scrap
 
@@ -737,6 +738,39 @@ Real Frappe Workflow gates **when** these four DocTypes may Submit. Existing `on
 | Rebate tiers + distributor Customers | Commercial rebates | Before invoice rebates |
 | Absorption / rebate accounts | GL posting | Settings |
 | Item groups for SO routing | Request Production | Before sales routing |
+
+### Density Configuration — demo → live (Draft import)
+
+**Why ERPNext Data Import does not list Density Configuration:** the DocType has child tables (`production_inputs`, `bom_operations`). Standard Data Import is poor at nested rows; the app ships **bench execute** helpers instead. After migrate, `allow_import` is enabled on the DocType, but the JSON transfer below is the supported path.
+
+**BOM rule:** Saving or importing creates **Draft** documents only. **Submit** creates the virtual pour Item and active BOM (and can generate block Items from target lengths). Import with `submit: 0`, let Happifoam adjust recipes, then Submit each density when ready.
+
+**1. Export from demo** (copy `/tmp/density_configs.json` to the live server):
+
+```bash
+bench --site <demo-site> execute pu_foam_master.utils.density_config_transfer.export_json \
+  --kwargs "{'json_path': '/tmp/density_configs.json'}"
+```
+
+**2. On live — list prerequisites** (Items, Operations, Workstations, Brands; shows what is missing):
+
+```bash
+bench --site <live-site> execute pu_foam_master.utils.density_config_transfer.list_prerequisites \
+  --kwargs "{'json_path': '/tmp/density_configs.json'}"
+```
+
+Create every **missing Item** (and Brand / Workstation if listed) before import. Chemicals must exist with **exact Item Code** match.
+
+**3. Import as Draft** (replace company name):
+
+```bash
+bench --site <live-site> execute pu_foam_master.utils.density_config_transfer.import_json \
+  --kwargs "{'json_path': '/tmp/density_configs.json', 'company': 'Happifoam', 'submit': 0}"
+```
+
+**Alternative (CSV):** `pu_foam_master/demo_data/Density Config.csv` via `pu_foam_master.utils.import_density_configs.run` with `submit: 0` — fewer fields (no `target_block_lengths` / `brand` unless extended).
+
+**Demo CSV chemical Items (19 densities in sample file):** `15_POLYMERIC`, `TDI`, `MC`, `SILICON`, `STANNOUS`, `A33`, `SMP`, `HARDNER`, `FILLER`, `Pigment Blue`, `PIGMENT - YELLOW`, `PIGMENT - BLACK`, `PIGMENT - RED`, `BASE PAPER`, `SIDE NYLON`, `RS NYLON`. Operation: **Foaming**. Your demo site may have additional densities (e.g. D18, D40) — always run `list_prerequisites` on the export file you actually use.
 
 Item Groups such as **Labels**, **Quilted Fabric**, **Finished Mattresses** appear in application logic; **Labels** is ensured on migrate. Other groups may be created manually or via demo seed helpers.
 

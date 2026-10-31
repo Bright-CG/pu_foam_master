@@ -1,25 +1,31 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:brand_name",
  "creation": "2026-04-21 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "brand_name",
+  "product_line",
   "description",
   "allowed_fabrics"
  ],
  "fields": [
   {
-   "description": "Native ERPNext Brand (works for Density-poured and Rebound foam brands).",
+   "description": "Corporate ERPNext Brand on mattress/core Items (e.g. HappiFoam).",
    "fieldname": "brand_name",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Brand",
+   "label": "ERP Brand",
    "options": "Brand",
-   "reqd": 1,
-   "unique": 1
+   "reqd": 1
+  },
+  {
+   "description": "Product line for fabric rules (e.g. Orthopedic, Celefina). Leave blank for a default policy for the whole brand.",
+   "fieldname": "product_line",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Product Line"
   },
   {
    "fieldname": "description",
@@ -35,7 +41,7 @@
  ],
  "index_pages": [],
  "links": [],
- "modified": "2026-08-16 17:10:00.000000",
+ "modified": "2026-10-31 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Mattress Brand Policy",

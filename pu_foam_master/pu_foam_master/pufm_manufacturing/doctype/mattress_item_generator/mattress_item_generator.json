@@ -6,16 +6,22 @@
  "engine": "InnoDB",
  "field_order": [
   "density_configuration",
+  "product_line",
   "brand_name",
   "core_item_group",
   "mattress_item_group",
+  "variants_section",
+  "generate_core",
+  "generate_plain",
+  "generate_side_quilted",
+  "generate_fully_quilted",
+  "generate_core_only",
   "naming_suffixes_section",
   "core_suffix",
   "plain_suffix",
   "side_quilted_suffix",
   "fully_quilted_suffix",
   "fetch_sizes",
-  "generate_core_only",
   "generate_items",
   "sizes"
  ],
@@ -29,11 +35,19 @@
    "reqd": 1
   },
   {
+   "description": "Product line prefix in item codes (e.g. Celefina, Orthopedic, Legend). Not the ERPNext Brand.",
+   "fieldname": "product_line",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Product Line (SKU Prefix)",
+   "reqd": 1
+  },
+  {
    "fetch_from": "density_configuration.brand",
    "fieldname": "brand_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Brand Name",
+   "label": "ERP Brand (on Items)",
    "read_only": 1
   },
   {
@@ -45,11 +59,47 @@
   },
   {
    "default": "Finished Mattresses",
-   "depends_on": "eval:!doc.generate_core_only",
+   "depends_on": "eval:doc.generate_plain || doc.generate_side_quilted || doc.generate_fully_quilted",
    "fieldname": "mattress_item_group",
    "fieldtype": "Data",
    "label": "Finished Mattress Item Group",
-   "mandatory_depends_on": "eval:!doc.generate_core_only"
+   "mandatory_depends_on": "eval:doc.generate_plain || doc.generate_side_quilted || doc.generate_fully_quilted"
+  },
+  {
+   "fieldname": "variants_section",
+   "fieldtype": "Section Break",
+   "label": "Variants to Generate"
+  },
+  {
+   "default": "1",
+   "fieldname": "generate_core",
+   "fieldtype": "Check",
+   "label": "Generate Core (-CORE)"
+  },
+  {
+   "default": "1",
+   "fieldname": "generate_plain",
+   "fieldtype": "Check",
+   "label": "Generate Plain (-PLAIN)"
+  },
+  {
+   "default": "1",
+   "fieldname": "generate_side_quilted",
+   "fieldtype": "Check",
+   "label": "Generate Side Quilted (-SQ)"
+  },
+  {
+   "default": "1",
+   "fieldname": "generate_fully_quilted",
+   "fieldtype": "Check",
+   "label": "Generate Fully Quilted (-FQ)"
+  },
+  {
+   "default": "0",
+   "description": "Shortcut: unchecks all finished mattress variants (Plain, SQ, FQ).",
+   "fieldname": "generate_core_only",
+   "fieldtype": "Check",
+   "label": "Generate Core Only (No Finished Mattress)"
   },
   {
    "fieldname": "naming_suffixes_section",
@@ -58,28 +108,28 @@
   },
   {
    "default": "-CORE",
-   "description": "Naked sliced core. Example: Galaxy-75x42x8-CORE",
+   "description": "Example: Celefina-75x42x8-CORE",
    "fieldname": "core_suffix",
    "fieldtype": "Data",
    "label": "Core Suffix"
   },
   {
    "default": "-PLAIN",
-   "description": "Unquilted tape-edge mattress. Example: Galaxy-75x42x8-PLAIN",
+   "description": "Example: Celefina-75x42x8-PLAIN",
    "fieldname": "plain_suffix",
    "fieldtype": "Data",
    "label": "Plain Suffix"
   },
   {
    "default": "-SQ",
-   "description": "Side-quilted mattress. Example: Galaxy-75x42x8-SQ",
+   "description": "Example: Celefina-75x42x8-SQ",
    "fieldname": "side_quilted_suffix",
    "fieldtype": "Data",
    "label": "Side Quilted Suffix"
   },
   {
    "default": "-FQ",
-   "description": "Fully quilted mattress. Example: Galaxy-75x42x8-FQ",
+   "description": "Example: Celefina-75x42x8-FQ",
    "fieldname": "fully_quilted_suffix",
    "fieldtype": "Data",
    "label": "Fully Quilted Suffix"
@@ -88,13 +138,6 @@
    "fieldname": "fetch_sizes",
    "fieldtype": "Button",
    "label": "Fetch Standard Sizes"
-  },
-  {
-   "default": "0",
-   "description": "For furniture/upholstery foams: create CORE items only (skip finished mattress variants).",
-   "fieldname": "generate_core_only",
-   "fieldtype": "Check",
-   "label": "Generate Core Only (No Finished Mattress)"
   },
   {
    "fieldname": "generate_items",
@@ -110,7 +153,7 @@
  ],
  "index_pages": [],
  "links": [],
- "modified": "2026-07-30 10:00:00.000000",
+ "modified": "2026-10-31 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Mattress Item Generator",

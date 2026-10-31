@@ -8,6 +8,28 @@ frappe.ui.form.on("Mattress Item Generator", {
 	},
 	generate_items(frm) {
 		trigger_item_generation(frm);
+	},
+	generate_core_only(frm) {
+		if (frm.doc.generate_core_only) {
+			frm.set_value("generate_plain", 0);
+			frm.set_value("generate_side_quilted", 0);
+			frm.set_value("generate_fully_quilted", 0);
+			frm.set_value("generate_core", 1);
+		}
+	},
+	density_configuration(frm) {
+		if (frm.doc.density_configuration && !frm.doc.product_line) {
+			frappe.db.get_value(
+				"Density Configuration",
+				frm.doc.density_configuration,
+				"density_name"
+			).then((r) => {
+				const name = (r && r.message) || "";
+				if (name && !frm.doc.product_line) {
+					frm.set_value("product_line", name);
+				}
+			});
+		}
 	}
 });
 
