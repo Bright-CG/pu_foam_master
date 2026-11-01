@@ -7,8 +7,7 @@ NOT wired into after_install / after_migrate. Run explicitly, e.g.:
 
     bench --site <site> execute pu_foam_master.utils.demo_data.seed_test_items
     bench --site <site> execute pu_foam_master.utils.demo_data.seed_e2e_test_stock
-    bench --site <site> execute pu_foam_master.utils.demo_data.seed_raw_materials_stock \\
-        --kwargs '{"company":null,"target_warehouse":null}'
+    bench --site <site> execute pu_foam_master.utils.demo_data.seed_standard_mattress_sizes
 """
 
 from __future__ import annotations
@@ -479,21 +478,81 @@ def seed_raw_materials_stock(
 	}
 
 
-def seed_standard_mattress_sizes():
-	"""Optional: seed Standard Mattress Size rows for local QA. Idempotent."""
-	sizes = [
-		("7x6x10", 75, 84, 10),
-		("6x6x10", 72, 84, 10),
-		("5x6x10", 60, 84, 10),
-		("4.5x6x10", 54, 84, 10),
-		("3.5x6x8", 42, 84, 8),
-		("3x6x6", 36, 84, 6),
-	]
+# Width × length × height (inches). Happifoam price list (Mar 2025).
+# Two-number sheet sizes use standard length 75; three-number rows are W × L × H.
+HAPPIFOAM_STANDARD_MATTRESS_SIZES = (
+	("30x75x3", 30, 75, 3),
+	("30x75x4", 30, 75, 4),
+	("36x75x6", 36, 75, 6),
+	("42x75x6", 42, 75, 6),
+	("42x75x8", 42, 75, 8),
+	("42x75x10", 42, 75, 10),
+	("42x75x12", 42, 75, 12),
+	("42x75x14", 42, 75, 14),
+	("42x75x16", 42, 75, 16),
+	("54x75x6", 54, 75, 6),
+	("54x75x8", 54, 75, 8),
+	("54x75x10", 54, 75, 10),
+	("54x75x12", 54, 75, 12),
+	("54x75x14", 54, 75, 14),
+	("54x75x16", 54, 75, 16),
+	("54x75x18", 54, 75, 18),
+	("54x75x20", 54, 75, 20),
+	("54x75x22", 54, 75, 22),
+	("54x75x24", 54, 75, 24),
+	("72x75x8", 72, 75, 8),
+	("72x75x10", 72, 75, 10),
+	("72x75x12", 72, 75, 12),
+	("72x75x14", 72, 75, 14),
+	("72x75x16", 72, 75, 16),
+	("72x75x18", 72, 75, 18),
+	("72x75x20", 72, 75, 20),
+	("72x75x22", 72, 75, 22),
+	("72x75x24", 72, 75, 24),
+	("84x75x8", 84, 75, 8),
+	("84x75x10", 84, 75, 10),
+	("84x75x12", 84, 75, 12),
+	("84x75x14", 84, 75, 14),
+	("84x75x16", 84, 75, 16),
+	("84x75x18", 84, 75, 18),
+	("84x75x20", 84, 75, 20),
+	("71x79x8", 71, 79, 8),
+	("71x79x10", 71, 79, 10),
+	("71x79x12", 71, 79, 12),
+	("79x79x8", 79, 79, 8),
+	("79x79x10", 79, 79, 10),
+	("79x79x12", 79, 79, 12),
+)
 
-	count = 0
-	for size_name, width, length, height in sizes:
+
+def seed_standard_mattress_sizes(update_existing=1):
+	"""Seed Standard Mattress Size catalog (Happifoam list). Idempotent."""
+	if not frappe.db.exists("DocType", "Standard Mattress Size"):
+		return {"created": 0, "updated": 0, "skipped": 0}
+
+	created = updated = skipped = 0
+	for size_name, width, length, height in HAPPIFOAM_STANDARD_MATTRESS_SIZES:
 		if frappe.db.exists("Standard Mattress Size", size_name):
+			if not cint(update_existing):
+				skipped += 1
+				continue
+			doc = frappe.get_doc("Standard Mattress Size", size_name)
+			changed = False
+			for field, val in (
+				("width_inches", width),
+				("length_inches", length),
+				("height_inches", height),
+			):
+				if flt(doc.get(field)) != flt(val):
+					doc.set(field, val)
+					changed = True
+			if changed:
+				doc.save(ignore_permissions=True)
+				updated += 1
+			else:
+				skipped += 1
 			continue
+
 		frappe.get_doc(
 			{
 				"doctype": "Standard Mattress Size",
@@ -501,13 +560,19 @@ def seed_standard_mattress_sizes():
 				"width_inches": width,
 				"length_inches": length,
 				"height_inches": height,
+				"description": "Happifoam price list (Mar 2025)",
 			}
 		).insert(ignore_permissions=True)
-		count += 1
+		created += 1
 
 	frappe.db.commit()
-	print(f"Successfully generated {count} standard mattress sizes.")
-	return count
+	summary = {"created": created, "updated": updated, "skipped": skipped}
+	print(
+		"Standard Mattress Size seed: created={0}, updated={1}, skipped={2}".format(
+			created, updated, skipped
+		)
+	)
+	return summary
 
 
 def _link_rebound_settings_items():
