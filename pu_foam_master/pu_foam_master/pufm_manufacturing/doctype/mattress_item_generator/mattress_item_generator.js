@@ -2,6 +2,9 @@ frappe.ui.form.on("Mattress Item Generator", {
 	refresh(frm) {
 		ensure_cbm_factor(() => {});
 		frm.add_custom_button(__("Generate Items"), () => trigger_item_generation(frm));
+		const leaf_group_filters = { is_group: 0 };
+		frm.set_query("core_item_group", () => ({ filters: leaf_group_filters }));
+		frm.set_query("mattress_item_group", () => ({ filters: leaf_group_filters }));
 	},
 	fetch_sizes(frm) {
 		fetch_standard_sizes(frm);

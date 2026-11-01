@@ -53,16 +53,18 @@
   {
    "default": "Foam Cores",
    "fieldname": "core_item_group",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Core Item Group",
+   "options": "Item Group",
    "reqd": 1
   },
   {
    "default": "Finished Mattresses",
    "depends_on": "eval:doc.generate_plain || doc.generate_side_quilted || doc.generate_fully_quilted",
    "fieldname": "mattress_item_group",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Finished Mattress Item Group",
+   "options": "Item Group",
    "mandatory_depends_on": "eval:doc.generate_plain || doc.generate_side_quilted || doc.generate_fully_quilted"
   },
   {
@@ -153,7 +155,7 @@
  ],
  "index_pages": [],
  "links": [],
- "modified": "2026-10-31 19:00:00.000000",
+ "modified": "2026-11-01 14:50:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Mattress Item Generator",
