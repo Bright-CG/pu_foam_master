@@ -217,6 +217,8 @@ def _ensure_item(
 
 	if frappe.db.exists("Item", item_code):
 		item = frappe.get_doc("Item", item_code)
+		if item_group and item.item_group != item_group:
+			item.item_group = item_group
 		item.custom_width = flt(row.width)
 		item.custom_length = flt(row.length)
 		item.custom_height = flt(row.height)
