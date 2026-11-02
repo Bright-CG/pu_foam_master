@@ -25,12 +25,16 @@
   </div>
   <table class="table table-bordered">
     <tr>
-      <th>Customer</th>
+      <th>Main Customer</th>
       <td>{{ row.customer }}</td>
     </tr>
     <tr>
-      <th>Total Turnover</th>
-      <td>{{ frappe.format(row.total_turnover, {"fieldtype": "Currency"}) }}</td>
+      <th>Rebate Wallet Customer</th>
+      <td>{{ row.rebate_customer or "-" }}</td>
+    </tr>
+    <tr>
+      <th>Rebatable Turnover (Ex-VAT)</th>
+      <td>{{ frappe.format(row.rebatable_turnover or row.total_turnover, {"fieldtype": "Currency"}) }}</td>
     </tr>
     <tr>
       <th>Rebate Percentage</th>

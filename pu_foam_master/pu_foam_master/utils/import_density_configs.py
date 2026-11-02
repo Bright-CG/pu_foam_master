@@ -29,7 +29,7 @@ def run(csv_path=None, company=None, submit=1, create_missing_items=0):
 	"""
 	:param csv_path: absolute path to Density Config.csv on the server
 	:param company: Company name to stamp on every density (required on fresh site)
-	:param submit: 1 = submit after insert (creates BOM); 0 = leave Draft
+	:param submit: 1 = submit after insert (creates BOM); 0 = leave Draft (recommended for live cutover)
 	:param create_missing_items: 1 = auto-create missing chemical Items as Raw Material stock items
 	"""
 	frappe.connect()

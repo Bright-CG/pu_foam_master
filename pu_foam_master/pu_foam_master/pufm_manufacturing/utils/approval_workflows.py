@@ -19,7 +19,16 @@ STATE_SUPERVISOR = "Pending Supervisor Approval"
 STATE_STORE = "Pending Store Confirmation"
 STATE_COMPLETED = "Completed"
 
+# Rebate Settlement Tool — finance approval only (no store step)
+STATE_PENDING_APPROVAL = "Pending Approval"
+STATE_APPROVED = "Approved"
+
 WORKFLOW_STATES = (STATE_DRAFT, STATE_SUPERVISOR, STATE_STORE, STATE_COMPLETED)
+REBATE_SETTLEMENT_WORKFLOW_STATES = (
+	STATE_DRAFT,
+	STATE_PENDING_APPROVAL,
+	STATE_APPROVED,
+)
 
 # document_type -> workflow definition (role lists; expanded to one Link row each)
 WORKFLOW_SPECS = {
@@ -115,13 +124,22 @@ WORKFLOW_SPECS = {
 	},
 }
 
+REBATE_SETTLEMENT_WORKFLOW = {
+	"name": "PUFM Rebate Settlement Approval",
+	"draft_roles": ["Accounts Manager", "PUFM Manager", "System Manager"],
+	"pending_roles": ["PUFM Manager", "System Manager"],
+	"approved_edit_roles": ["PUFM Manager", "System Manager"],
+	"bypass_roles": ["PUFM Manager", "System Manager"],
+}
+
 
 def ensure_pufm_approval_workflows():
-	"""Idempotent: Workflow States + active Workflows for the four production DocTypes."""
+	"""Idempotent: Workflow States + active Workflows for PUFM DocTypes."""
 	from pu_foam_master.setup_defaults import ensure_pufm_roles
 
 	ensure_pufm_roles()
 	_ensure_workflow_states()
+	_ensure_rebate_settlement_workflow_states()
 	_ensure_workflow_actions(
 		(
 			"Send for Approval",
@@ -136,6 +154,10 @@ def ensure_pufm_approval_workflows():
 			continue
 		_ensure_workflow_state_field(doctype)
 		_ensure_workflow(doctype, spec)
+	if frappe.db.exists("DocType", "Rebate Settlement Tool"):
+		_ensure_workflow_state_field("Rebate Settlement Tool")
+		_ensure_rebate_settlement_workflow(REBATE_SETTLEMENT_WORKFLOW)
+		_migrate_rebate_settlement_workflow_states()
 	_migrate_legacy_production_batch_states()
 	frappe.clear_cache()
 	print("[approval_workflows] Ensured PUFM approval Workflows.")
@@ -162,6 +184,107 @@ def _ensure_workflow_states():
 			}
 		)
 		doc.insert(ignore_permissions=True)
+
+
+def _ensure_rebate_settlement_workflow_states():
+	for state in REBATE_SETTLEMENT_WORKFLOW_STATES:
+		if frappe.db.exists("Workflow State", state):
+			continue
+		doc = frappe.get_doc(
+			{
+				"doctype": "Workflow State",
+				"workflow_state_name": state,
+				"style": "Success" if state == STATE_APPROVED else "",
+			}
+		)
+		doc.insert(ignore_permissions=True)
+
+
+def _ensure_rebate_settlement_workflow(spec):
+	"""Draft → Pending Approval → Approved (Submit enabled in Approved)."""
+	doctype = "Rebate Settlement Tool"
+	name = spec["name"]
+	draft = spec["draft_roles"]
+	pending = spec["pending_roles"]
+	approved_edit = spec["approved_edit_roles"]
+	bypass = spec["bypass_roles"]
+
+	states = []
+	states.extend(_state_rows(STATE_DRAFT, "0", draft))
+	states.extend(_state_rows(STATE_PENDING_APPROVAL, "0", pending))
+	states.extend(_state_rows(STATE_APPROVED, "1", approved_edit))
+
+	transitions = []
+	transitions.extend(
+		_transition_rows(STATE_DRAFT, "Send for Approval", STATE_PENDING_APPROVAL, draft)
+	)
+	transitions.extend(
+		_transition_rows(STATE_PENDING_APPROVAL, "Approve", STATE_APPROVED, pending)
+	)
+	transitions.extend(
+		_transition_rows(STATE_PENDING_APPROVAL, "Reject", STATE_DRAFT, pending)
+	)
+	for from_state in (STATE_DRAFT, STATE_PENDING_APPROVAL):
+		transitions.extend(
+			_transition_rows(from_state, "Bypass Submit", STATE_APPROVED, bypass)
+		)
+
+	payload = {
+		"doctype": "Workflow",
+		"workflow_name": name,
+		"document_type": doctype,
+		"is_active": 1,
+		"override_status": 0,
+		"send_email_alert": 0,
+		"workflow_state_field": "workflow_state",
+	}
+
+	if frappe.db.exists("Workflow", name):
+		doc = frappe.get_doc("Workflow", name)
+		doc.update(payload)
+		doc.states = []
+		doc.transitions = []
+		for row in states:
+			doc.append("states", row)
+		for row in transitions:
+			doc.append("transitions", row)
+		doc.save(ignore_permissions=True)
+	else:
+		doc = frappe.get_doc(payload)
+		for row in states:
+			doc.append("states", row)
+		for row in transitions:
+			doc.append("transitions", row)
+		doc.insert(ignore_permissions=True)
+
+	others = frappe.get_all(
+		"Workflow",
+		filters={"document_type": doctype, "is_active": 1, "name": ["!=", name]},
+		pluck="name",
+	)
+	for other in others:
+		frappe.db.set_value("Workflow", other, "is_active", 0)
+
+
+def _migrate_rebate_settlement_workflow_states():
+	if not frappe.db.has_column("Rebate Settlement Tool", "workflow_state"):
+		return
+	mapping = {
+		STATE_SUPERVISOR: STATE_PENDING_APPROVAL,
+		STATE_STORE: STATE_PENDING_APPROVAL,
+		STATE_COMPLETED: STATE_APPROVED,
+		"Pending MD Approval": STATE_PENDING_APPROVAL,
+	}
+	for old, new in mapping.items():
+		frappe.db.sql(
+			"""
+			UPDATE `tabRebate Settlement Tool`
+			SET workflow_state = %s
+			WHERE workflow_state = %s
+			""",
+			(new, old),
+		)
+	frappe.db.commit()
 
 
 def _ensure_workflow_state_field(doctype):

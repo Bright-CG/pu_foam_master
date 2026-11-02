@@ -194,6 +194,41 @@ def ensure_customer_rebate_fields():
 				"permlevel": 1,
 				"read_only": 1,
 			},
+			{
+				"fieldname": "custom_rebate_account_links_section",
+				"label": "Rebate Wallet Links",
+				"fieldtype": "Section Break",
+				"insert_after": "custom_rebate_percentage",
+				"permlevel": 1,
+			},
+			{
+				"fieldname": "custom_is_rebate_account",
+				"label": "Rebate Wallet Account",
+				"fieldtype": "Check",
+				"insert_after": "custom_rebate_account_links_section",
+				"permlevel": 1,
+				"description": "Secondary Customer used to hold quarterly rebate credits (separate receivable).",
+			},
+			{
+				"fieldname": "custom_linked_rebate_customer",
+				"label": "Linked Rebate Customer",
+				"fieldtype": "Link",
+				"options": "Customer",
+				"insert_after": "custom_is_rebate_account",
+				"permlevel": 1,
+				"depends_on": "eval:!doc.custom_is_rebate_account",
+				"description": "Where period rebate settlements post credit notes (rebate wallet).",
+			},
+			{
+				"fieldname": "custom_linked_main_customer",
+				"label": "Linked Main Customer",
+				"fieldtype": "Link",
+				"options": "Customer",
+				"insert_after": "custom_linked_rebate_customer",
+				"permlevel": 1,
+				"depends_on": "eval:doc.custom_is_rebate_account",
+				"description": "Trade distributor account paired with this rebate wallet.",
+			},
 		]
 	}
 	create_custom_fields(custom_fields, update=True)

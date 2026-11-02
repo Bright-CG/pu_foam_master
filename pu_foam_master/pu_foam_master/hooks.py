@@ -29,6 +29,9 @@ fixtures = [
 					"Customer-custom_rebate_override_percentage",
 					"Customer-custom_freight_rebate_percentage",
 					"Customer-custom_rebate_percentage",
+					"Customer-custom_is_rebate_account",
+					"Customer-custom_linked_rebate_customer",
+					"Customer-custom_linked_main_customer",
 					"Sales Invoice-custom_rebate_section",
 					"Sales Invoice-custom_apply_instant_rebate",
 					"Sales Invoice-custom_exclude_from_rebate",
@@ -108,9 +111,13 @@ doctype_js = {
 	],
 	"Sales Order": "public/js/sales_order.js",
 	"Item": "public/js/item.js",
+	"Rebate Balance Transfer": "pufm_manufacturing/doctype/rebate_balance_transfer/rebate_balance_transfer.js",
 }
 
 doc_events = {
+	"Customer": {
+		"validate": "pu_foam_master.rebate.customer_links.validate_customer_rebate_links",
+	},
 	"Sales Invoice": {
 		"validate": "pu_foam_master.rebate.sales_invoice.apply_instant_rebate",
 		"before_submit": "pu_foam_master.rebate.sales_invoice.ensure_rebate_tax_row",

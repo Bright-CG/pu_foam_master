@@ -119,6 +119,12 @@ def create_workspace():
 			"icon": "money",
 		},
 		{
+			"label": "Rebate Balance Transfer",
+			"link_to": "Rebate Balance Transfer",
+			"type": "DocType",
+			"icon": "exchange",
+		},
+		{
 			"label": "Standard Mattress Size",
 			"link_to": "Standard Mattress Size",
 			"type": "DocType",
@@ -171,6 +177,7 @@ def create_workspace():
 		{"label": "Financials & Rebates", "is_header": 1},
 		{"label": "Pufm Price Engine", "link_to": "Pufm Price Engine", "link_type": "DocType", "type": "Link"},
 		{"label": "Rebate Settlement Tool", "link_to": "Rebate Settlement Tool", "link_type": "DocType", "type": "Link"},
+		{"label": "Rebate Balance Transfer", "link_to": "Rebate Balance Transfer", "link_type": "DocType", "type": "Link"},
 		{"label": "Sales Invoice", "link_to": "Sales Invoice", "link_type": "DocType", "type": "Link"},
 	]
 
@@ -195,6 +202,7 @@ def create_workspace():
 		'{"id":"h2","type":"header","data":{"text":"Financials & Rebates","col":12}},'
 		'{"id":"spe","type":"shortcut","data":{"shortcut_name":"Pufm Price Engine","col":4}},'
 		'{"id":"s5","type":"shortcut","data":{"shortcut_name":"Rebate Settlement Tool","col":4}},'
+		'{"id":"s5b","type":"shortcut","data":{"shortcut_name":"Rebate Balance Transfer","col":4}},'
 		'{"id":"s6","type":"shortcut","data":{"shortcut_name":"Sales Invoice","col":4}},'
 		'{"id":"h3","type":"header","data":{"text":"Mattress Production","col":12}},'
 		'{"id":"s7a","type":"shortcut","data":{"shortcut_name":"Standard Mattress Size","col":3}},'
