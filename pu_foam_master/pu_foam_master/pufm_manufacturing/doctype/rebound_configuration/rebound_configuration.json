@@ -7,19 +7,47 @@
  "engine": "InnoDB",
  "field_order": [
   "density_name",
+  "parent_density_grade",
+  "company",
+  "brand",
   "target_density_kg_m3",
   "scrap_kg_per_cbm",
   "mdi_kg_per_cbm",
-  "standard_cycle_time_mins"
+  "standard_cycle_time_mins",
+  "block_profile_section",
+  "block_length_inches",
+  "block_width_inches",
+  "block_height_inches",
+  "target_block_item"
  ],
  "fields": [
   {
+   "description": "Unique profile name, e.g. REB-70-75x72x10 (density + block size).",
    "fieldname": "density_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Density Name",
+   "label": "Profile Name",
    "reqd": 1,
    "unique": 1
+  },
+  {
+   "description": "Optional grouping label when several profiles share one grade (e.g. REB-70).",
+   "fieldname": "parent_density_grade",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Density Grade"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "ERP Brand",
+   "options": "Brand"
   },
   {
    "fieldname": "target_density_kg_m3",
@@ -43,10 +71,37 @@
    "fieldname": "standard_cycle_time_mins",
    "fieldtype": "Int",
    "label": "Standard Cycle Time (mins)"
+  },
+  {
+   "fieldname": "block_profile_section",
+   "fieldtype": "Section Break",
+   "label": "Block Profile (Press Output)"
+  },
+  {
+   "fieldname": "block_length_inches",
+   "fieldtype": "Float",
+   "label": "Block Length (inches)"
+  },
+  {
+   "fieldname": "block_width_inches",
+   "fieldtype": "Float",
+   "label": "Block Width (inches)"
+  },
+  {
+   "fieldname": "block_height_inches",
+   "fieldtype": "Float",
+   "label": "Block Height (inches)"
+  },
+  {
+   "description": "Default rebound block Item for this profile (from Rebond Item Generator).",
+   "fieldname": "target_block_item",
+   "fieldtype": "Link",
+   "label": "Target Block Item",
+   "options": "Item"
   }
  ],
  "links": [],
- "modified": "2026-05-28 00:00:00.000000",
+ "modified": "2026-11-03 10:30:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Rebound Configuration",

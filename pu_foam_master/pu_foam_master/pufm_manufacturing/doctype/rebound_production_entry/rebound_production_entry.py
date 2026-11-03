@@ -210,6 +210,22 @@ def _pick_batch_with_stock(item_code, warehouse, required_qty):
 
 
 @frappe.whitelist()
+def get_rebound_profile_defaults(rebound_configuration):
+	"""Defaults from Rebound Configuration block profile for production entry."""
+	if not rebound_configuration or not frappe.db.exists("Rebound Configuration", rebound_configuration):
+		return {}
+
+	config = frappe.get_doc("Rebound Configuration", rebound_configuration)
+	return {
+		"target_block_item": config.target_block_item,
+		"block_length_inches": config.block_length_inches,
+		"block_width_inches": config.block_width_inches,
+		"block_height_inches": config.block_height_inches,
+		"parent_density_grade": config.parent_density_grade,
+	}
+
+
+@frappe.whitelist()
 def get_item_dimensions(item_code):
 	if not item_code:
 		return {}

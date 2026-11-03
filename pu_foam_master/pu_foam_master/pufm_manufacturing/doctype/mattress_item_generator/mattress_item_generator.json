@@ -5,9 +5,12 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "foam_source",
   "density_configuration",
+  "rebound_block_profile",
   "product_line",
   "brand_name",
+  "erp_brand",
   "core_item_group",
   "mattress_item_group",
   "variants_section",
@@ -27,15 +30,33 @@
  ],
  "fields": [
   {
+   "default": "Virgin",
+   "fieldname": "foam_source",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Foam Source",
+   "options": "Virgin\nRebound",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.foam_source==\"Virgin\"",
    "fieldname": "density_configuration",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Density Configuration",
-   "options": "Density Configuration",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.foam_source==\"Virgin\"",
+   "options": "Density Configuration"
   },
   {
-   "description": "Product line prefix in item codes (e.g. Celefina, Orthopedic, Legend). Not the ERPNext Brand.",
+   "depends_on": "eval:doc.foam_source==\"Rebound\"",
+   "description": "Optional reference to a rebound block profile (production recipe). Not required to generate sellable mattress SKUs.",
+   "fieldname": "rebound_block_profile",
+   "fieldtype": "Link",
+   "label": "Rebound Block Profile",
+   "options": "Rebound Configuration"
+  },
+  {
+   "description": "Product line prefix in item codes (e.g. Celefina, Orthopedic, Rebound-Comfort). Not the ERPNext Brand.",
    "fieldname": "product_line",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -43,20 +64,30 @@
    "reqd": 1
   },
   {
+   "depends_on": "eval:doc.foam_source==\"Virgin\"",
    "fetch_from": "density_configuration.brand",
    "fieldname": "brand_name",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "ERP Brand (on Items)",
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.foam_source==\"Rebound\"",
+   "description": "ERPNext Brand stamped on generated Items when foam source is Rebound.",
+   "fieldname": "erp_brand",
+   "fieldtype": "Link",
+   "label": "ERP Brand",
+   "mandatory_depends_on": "eval:doc.foam_source==\"Rebound\"",
+   "options": "Brand"
+  },
+  {
    "default": "Foam Cores",
+   "depends_on": "eval:doc.generate_core",
    "fieldname": "core_item_group",
    "fieldtype": "Link",
    "label": "Core Item Group",
-   "options": "Item Group",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.generate_core",
+   "options": "Item Group"
   },
   {
    "default": "Finished Mattresses",
@@ -155,7 +186,7 @@
  ],
  "index_pages": [],
  "links": [],
- "modified": "2026-11-01 14:50:00.000000",
+ "modified": "2026-11-03 10:30:00.000000",
  "modified_by": "Administrator",
  "module": "pufm_manufacturing",
  "name": "Mattress Item Generator",

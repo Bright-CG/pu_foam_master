@@ -22,7 +22,7 @@ frappe.ui.form.on("Rebound Production Entry", {
 		}
 	},
 	rebound_configuration(frm) {
-		recalculate(frm);
+		apply_rebound_profile_defaults(frm).then(() => recalculate(frm));
 	},
 	target_block_item(frm) {
 		if (!frm.doc.target_block_item) {
@@ -55,6 +55,31 @@ frappe.ui.form.on("Rebound Production Entry", {
 		recalculate(frm);
 	},
 });
+
+function apply_rebound_profile_defaults(frm) {
+	if (!frm.doc.rebound_configuration) {
+		return Promise.resolve();
+	}
+	return frappe.call({
+		method:
+			"pu_foam_master.pufm_manufacturing.doctype.rebound_production_entry.rebound_production_entry.get_rebound_profile_defaults",
+		args: { rebound_configuration: frm.doc.rebound_configuration },
+	}).then((r) => {
+		const d = r.message || {};
+		if (d.target_block_item) {
+			frm.set_value("target_block_item", d.target_block_item);
+		}
+		if (flt(d.block_length_inches)) {
+			frm.set_value("length_inches", d.block_length_inches);
+		}
+		if (flt(d.block_width_inches)) {
+			frm.set_value("width_inches", d.block_width_inches);
+		}
+		if (flt(d.block_height_inches)) {
+			frm.set_value("height_inches", d.block_height_inches);
+		}
+	});
+}
 
 function recalculate(frm) {
 	if (!frm.doc.rebound_configuration) {

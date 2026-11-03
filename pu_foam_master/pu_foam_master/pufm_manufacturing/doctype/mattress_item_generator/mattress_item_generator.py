@@ -1,4 +1,5 @@
 import frappe
+from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint, flt
 
@@ -7,6 +8,9 @@ from pu_foam_master.pufm_manufacturing.utils.mattress_sku import (
 	sanitize_sku_token,
 )
 from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor
+
+FOAM_SOURCE_VIRGIN = "Virgin"
+FOAM_SOURCE_REBOUND = "Rebound"
 
 DEFAULT_SUFFIXES = {
 	"core_suffix": "-CORE",
@@ -49,8 +53,13 @@ class MattressItemGenerator(Document):
 			self.generate_fully_quilted = 0
 
 	def _validate_generation_flags(self):
+		source = self._foam_source()
+		if source == FOAM_SOURCE_VIRGIN and not self.density_configuration:
+			frappe.throw(_("Density Configuration is required when Foam Source is Virgin."))
+		if source == FOAM_SOURCE_REBOUND and not self.get("erp_brand"):
+			frappe.throw(_("ERP Brand is required when Foam Source is Rebound."))
 		if not (self.get("product_line") or "").strip():
-			frappe.throw("Product Line (SKU Prefix) is required.")
+			frappe.throw(_("Product Line (SKU Prefix) is required."))
 		if not any(
 			cint(self.get(flag))
 			for flag in (
@@ -60,7 +69,10 @@ class MattressItemGenerator(Document):
 				"generate_fully_quilted",
 			)
 		):
-			frappe.throw("Select at least one variant to generate (Core, Plain, SQ, or FQ).")
+			frappe.throw(_("Select at least one variant to generate (Core, Plain, SQ, or FQ)."))
+
+	def _foam_source(self):
+		return (self.get("foam_source") or FOAM_SOURCE_VIRGIN).strip()
 
 	def _recompute_cbm(self):
 		cbm_factor = get_cbm_factor()
@@ -162,11 +174,19 @@ def generate_mattress_items(docname):
 		"items": created_or_verified,
 		"product_line": product_line,
 		"erp_brand": brand_link,
+		"foam_source": doc._foam_source(),
 	}
 
 
 def _resolve_erp_brand_link(doc):
 	"""ERPNext Brand on Items (e.g. HappiFoam) — not the SKU product line."""
+	source = (doc.get("foam_source") or FOAM_SOURCE_VIRGIN).strip()
+	if source == FOAM_SOURCE_REBOUND:
+		brand = doc.get("erp_brand")
+		if brand and frappe.db.exists("Brand", brand):
+			return brand
+		return None
+
 	if doc.density_configuration:
 		density_brand = frappe.db.get_value(
 			"Density Configuration", doc.density_configuration, "brand"

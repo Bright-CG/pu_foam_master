@@ -33,7 +33,32 @@ frappe.ui.form.on("Mattress Item Generator", {
 				}
 			});
 		}
-	}
+	},
+	foam_source(frm) {
+		if (frm.doc.foam_source === "Rebound") {
+			frm.set_value("density_configuration", "");
+			if (cint(frm.doc.generate_core) && !frm.doc.generate_plain && !frm.doc.generate_side_quilted && !frm.doc.generate_fully_quilted) {
+				frm.set_value("generate_core", 0);
+				frm.set_value("generate_fully_quilted", 1);
+			}
+		}
+	},
+	rebound_block_profile(frm) {
+		if (!frm.doc.rebound_block_profile) {
+			return;
+		}
+		frappe.db.get_doc("Rebound Configuration", frm.doc.rebound_block_profile).then((doc) => {
+			if (doc.brand) {
+				frm.set_value("erp_brand", doc.brand);
+			}
+			if (!frm.doc.product_line) {
+				const line = (doc.parent_density_grade || doc.density_name || "").trim();
+				if (line) {
+					frm.set_value("product_line", line.split("-")[0] || line);
+				}
+			}
+		});
+	},
 });
 
 frappe.ui.form.on("Generator Size", {
