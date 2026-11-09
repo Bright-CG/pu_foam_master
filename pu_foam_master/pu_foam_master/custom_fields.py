@@ -106,3 +106,32 @@ def ensure_sales_invoice_rebate_fields():
 	}
 	create_custom_fields(si_fields, update=True)
 	frappe.db.commit()
+
+
+def ensure_sales_invoice_paper_invoice_field():
+	"""Pre-printed booklet number when the sale is written on paper and posted later."""
+	legacy_section = "Sales Invoice-custom_paper_invoice_section"
+	if frappe.db.exists("Custom Field", legacy_section):
+		frappe.delete_doc("Custom Field", legacy_section, force=1)
+
+	si_fields = {
+		"Sales Invoice": [
+			{
+				"fieldname": "custom_paper_invoice_no",
+				"label": "Paper Invoice No.",
+				"fieldtype": "Data",
+				"insert_after": "due_date",
+				"allow_on_submit": 1,
+				"in_list_view": 1,
+				"in_standard_filter": 1,
+				"in_global_search": 1,
+				"description": (
+					"Number from the pre-printed sales invoice booklet used when the sale "
+					"was not entered in ERP immediately (e.g. no network). Leave blank for "
+					"fully electronic invoices."
+				),
+			},
+		]
+	}
+	create_custom_fields(si_fields, update=True)
+	frappe.db.commit()

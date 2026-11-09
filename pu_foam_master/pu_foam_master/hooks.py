@@ -93,6 +93,7 @@ after_migrate = [
 	"pu_foam_master.setup_migrations.migrate_mattress_pvc_and_pour_settings",
 	"pu_foam_master.setup_migrations.migrate_pufm_bom_operation_rename",
 	"pu_foam_master.custom_fields.ensure_sales_invoice_rebate_fields",
+	"pu_foam_master.custom_fields.ensure_sales_invoice_paper_invoice_field",
 	"pu_foam_master.setup_defaults.ensure_customer_rebate_fields",
 	"pu_foam_master.setup_defaults.ensure_default_rebate_tiers",
 	"pu_foam_master.setup_defaults.migrate_customer_rebate_tier_links",

@@ -43,7 +43,12 @@ def search_items_for_bulk_invoice(item_group, txt=None, limit=80):
 			item.description
 		FROM `tabItem` item
 		WHERE {where}
-		ORDER BY item.name ASC
+		ORDER BY
+			CASE WHEN COALESCE(item.custom_width, 0) > 0 THEN 0 ELSE 1 END,
+			item.custom_width ASC,
+			item.custom_length ASC,
+			item.custom_height ASC,
+			item.name ASC
 		LIMIT %(limit)s
 		""".format(
 			where=" AND ".join(conditions)
