@@ -16,6 +16,10 @@ PUFM_ROLES = (
 	"PUFM Store",
 	"PUFM Rebound",
 	"PUFM Brand Policy",
+	"PUFM Rebate Settlement User",
+	"PUFM Rebate Settlement Manager",
+	"PUFM Rebate Transfer User",
+	"PUFM Rebate Transfer Manager",
 )
 
 

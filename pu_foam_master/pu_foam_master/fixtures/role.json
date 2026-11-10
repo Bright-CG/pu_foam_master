@@ -82,5 +82,33 @@
   "is_custom": 1,
   "name": "PUFM Brand Policy",
   "role_name": "PUFM Brand Policy"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Rebate Settlement User",
+  "role_name": "PUFM Rebate Settlement User"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Rebate Settlement Manager",
+  "role_name": "PUFM Rebate Settlement Manager"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Rebate Transfer User",
+  "role_name": "PUFM Rebate Transfer User"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "is_custom": 1,
+  "name": "PUFM Rebate Transfer Manager",
+  "role_name": "PUFM Rebate Transfer Manager"
  }
 ]

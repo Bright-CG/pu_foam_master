@@ -126,10 +126,30 @@ WORKFLOW_SPECS = {
 
 REBATE_SETTLEMENT_WORKFLOW = {
 	"name": "PUFM Rebate Settlement Approval",
-	"draft_roles": ["Accounts Manager", "PUFM Manager", "System Manager"],
-	"pending_roles": ["PUFM Manager", "System Manager"],
-	"approved_edit_roles": ["PUFM Manager", "System Manager"],
-	"bypass_roles": ["PUFM Manager", "System Manager"],
+	"draft_roles": [
+		"PUFM Rebate Settlement User",
+		"PUFM Rebate Settlement Manager",
+		"Accounts Manager",
+		"PUFM Manager",
+		"System Manager",
+	],
+	"pending_roles": [
+		"PUFM Rebate Settlement Manager",
+		"PUFM Manager",
+		"Accounts Manager",
+		"System Manager",
+	],
+	"approved_edit_roles": [
+		"PUFM Rebate Settlement Manager",
+		"PUFM Manager",
+		"Accounts Manager",
+		"System Manager",
+	],
+	"bypass_roles": [
+		"PUFM Rebate Settlement Manager",
+		"PUFM Manager",
+		"System Manager",
+	],
 }
 
 
