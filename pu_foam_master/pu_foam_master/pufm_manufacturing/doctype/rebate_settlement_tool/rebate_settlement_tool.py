@@ -5,6 +5,10 @@ from frappe.utils import cint, flt
 
 from pu_foam_master.pufm_manufacturing.utils.settings import get_rebate_expense_account
 from pu_foam_master.rebate.customer import get_customer_rebate_rate
+from pu_foam_master.rebate.turnover import (
+	aggregate_rebatable_turnover_by_customer,
+	fetch_taxes_for_sales_invoices,
+)
 from pu_foam_master.rebate.customer_links import (
 	get_customer_receivable_account,
 	get_linked_rebate_customer,
@@ -183,35 +187,39 @@ def get_customers(from_date, to_date, customer_group=None):
 		conditions.append("c.customer_group = %(customer_group)s")
 		params["customer_group"] = customer_group
 
-	rows = frappe.db.sql(
+	invoice_rows = frappe.db.sql(
 		f"""
 		SELECT
+			si.name AS name,
 			si.customer AS customer,
-			SUM(si.net_total) AS rebatable_turnover
+			si.net_total AS net_total,
+			IFNULL(si.discount_amount, 0) AS discount_amount
 		FROM `tabSales Invoice` si
 		INNER JOIN `tabCustomer` c ON c.name = si.customer
 		WHERE {' AND '.join(conditions)}
-		GROUP BY si.customer
-		HAVING SUM(si.net_total) > 0
-		ORDER BY si.customer
+		ORDER BY si.customer, si.name
 		""",
 		params,
 		as_dict=True,
 	)
 
+	taxes_by_invoice = fetch_taxes_for_sales_invoices([row.name for row in invoice_rows])
+	turnover_by_customer = aggregate_rebatable_turnover_by_customer(invoice_rows, taxes_by_invoice)
+
 	results = []
-	for row in rows:
-		rebate_pct, freight_pct = get_customer_rebate_rate(row.customer)
+	for customer in sorted(turnover_by_customer.keys()):
+		turnover = flt(turnover_by_customer[customer])
+		if turnover <= 0:
+			continue
+		rebate_pct, freight_pct = get_customer_rebate_rate(customer)
 		if rebate_pct <= 0 and freight_pct <= 0:
 			continue
-
-		turnover = flt(row.rebatable_turnover)
 		rebate_amount = turnover * rebate_pct / 100
 		freight_amount = turnover * freight_pct / 100
 		results.append(
 			{
-				"customer": row.customer,
-				"rebate_customer": get_linked_rebate_customer(row.customer),
+				"customer": customer,
+				"rebate_customer": get_linked_rebate_customer(customer),
 				"rebatable_turnover": turnover,
 				"total_turnover": turnover,
 				"rebate_percentage": rebate_pct,

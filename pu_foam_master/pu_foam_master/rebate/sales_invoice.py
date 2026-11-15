@@ -3,8 +3,10 @@ from frappe import _
 from frappe.utils import flt
 
 from pu_foam_master.pufm_manufacturing.utils.settings import get_rebate_expense_account
-
-INSTANT_REBATE_ROW_DESCRIPTION = "Instant Rebate"
+from pu_foam_master.rebate.turnover import (
+	INSTANT_REBATE_ROW_DESCRIPTION,
+	get_sales_invoice_rebatable_base,
+)
 
 
 def apply_instant_rebate(doc, method=None):
@@ -17,7 +19,7 @@ def apply_instant_rebate(doc, method=None):
 		doc.custom_instant_rebate_amount = 0
 		return
 
-	base_amount = flt(doc.net_total) - flt(doc.discount_amount)
+	base_amount = get_sales_invoice_rebatable_base(doc)
 	doc.custom_instant_rebate_amount = base_amount * flt(doc.custom_instant_rebate_percentage) / 100
 
 

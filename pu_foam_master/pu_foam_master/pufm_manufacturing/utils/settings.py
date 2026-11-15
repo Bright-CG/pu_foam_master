@@ -50,6 +50,21 @@ def get_formula_factor(fieldname, settings=None):
 
 
 DEFAULT_USAGE_ALLOWANCE_PCT = 25.0
+DEFAULT_VAT_RATE_PCT = 7.5
+
+
+@frappe.whitelist()
+def get_default_vat_rate(settings=None):
+	"""VAT % from Pufm Manufacturing Settings (used when SI has no ERPNext VAT tax rows)."""
+	settings = settings or get_settings()
+	if hasattr(settings, "get"):
+		raw = settings.get("default_vat_rate")
+	else:
+		raw = getattr(settings, "default_vat_rate", None)
+	rate = flt(raw)
+	if rate <= 0:
+		return DEFAULT_VAT_RATE_PCT
+	return rate
 
 
 def get_usage_allowance_percent(fieldname, settings=None):

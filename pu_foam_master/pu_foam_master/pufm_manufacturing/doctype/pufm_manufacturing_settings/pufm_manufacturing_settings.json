@@ -585,6 +585,7 @@
             "options": "CBM\nCubic Inches"
         },
         {
+            "description": "Used to derive ex-VAT rebatable turnover when Sales Invoices have no VAT in Taxes and Charges (instant rebate and rebate settlement).",
             "fieldname": "default_vat_rate",
             "fieldtype": "Float",
             "label": "Default VAT Rate (%)"
