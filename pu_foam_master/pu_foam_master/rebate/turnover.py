@@ -30,7 +30,7 @@ def sales_invoice_gross_amount(doc):
 
 
 def rebatable_base_from_values(net_total, discount_amount=0, taxes=None):
-	"""Ex-VAT base from net total (VAT-inclusive) unless ERPNext VAT rows exist."""
+	"""Rebatable base: net minus discount, minus VAT % of that amount (PUFM Settings)."""
 	gross = flt(net_total) - flt(discount_amount)
 	if gross <= 0:
 		return 0.0
@@ -39,7 +39,7 @@ def rebatable_base_from_values(net_total, discount_amount=0, taxes=None):
 	rate = get_default_vat_rate()
 	if rate <= 0:
 		return gross
-	return gross * 100.0 / (100.0 + rate)
+	return gross - gross * rate / 100.0
 
 
 def get_sales_invoice_rebatable_base(doc):

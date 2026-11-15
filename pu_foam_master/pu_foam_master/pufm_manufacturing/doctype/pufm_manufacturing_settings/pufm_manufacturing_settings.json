@@ -585,7 +585,7 @@
             "options": "CBM\nCubic Inches"
         },
         {
-            "description": "Used to derive ex-VAT rebatable turnover when Sales Invoices have no VAT in Taxes and Charges (instant rebate and rebate settlement).",
+            "description": "VAT % deducted from net total (after discount) before instant rebate and period settlement when the invoice has no VAT in Taxes and Charges. Formula: net − discount − (that amount × this rate ÷ 100).",
             "fieldname": "default_vat_rate",
             "fieldtype": "Float",
             "label": "Default VAT Rate (%)"

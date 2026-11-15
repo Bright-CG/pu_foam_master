@@ -91,7 +91,7 @@ function get_sales_invoice_rebatable_base(frm) {
 	if (rate <= 0) {
 		return gross;
 	}
-	return (gross * 100) / (100 + rate);
+	return gross - (gross * rate) / 100;
 }
 
 function calculate_instant_rebate(frm) {

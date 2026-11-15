@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pu_foam_master",
-    version="0.0.8",
+    version="0.0.9",
     description="PU Foam Master",
     author="Bright",
     license="Proprietary",
