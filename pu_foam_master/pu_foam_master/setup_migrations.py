@@ -253,6 +253,52 @@ def disable_foam_core_serials():
 		print("[setup_migrations] Mattress core Items already Batch-only.")
 
 
+def disable_finished_mattress_serials():
+	"""Finished mattresses (Plain / SQ / FQ) are Batch-only. Clear Has Serial No."""
+	from frappe.utils import cint
+
+	from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
+		DEFAULT_BATCH_NUMBER_SERIES,
+		list_finished_mattress_item_codes,
+	)
+
+	updated = []
+	for item_code in list_finished_mattress_item_codes():
+		has_serial = cint(frappe.db.get_value("Item", item_code, "has_serial_no"))
+		has_batch = cint(frappe.db.get_value("Item", item_code, "has_batch_no"))
+		create_new = cint(frappe.db.get_value("Item", item_code, "create_new_batch"))
+		series = frappe.db.get_value("Item", item_code, "batch_number_series") or ""
+		if not has_serial and has_batch and create_new and series.strip():
+			continue
+		values = {
+			"has_serial_no": 0,
+			"has_batch_no": 1,
+			"create_new_batch": 1,
+		}
+		if not str(series).strip():
+			values["batch_number_series"] = DEFAULT_BATCH_NUMBER_SERIES
+		frappe.db.set_value("Item", item_code, values, update_modified=False)
+		updated.append(item_code)
+
+	if updated:
+		for item_code in updated:
+			frappe.db.sql(
+				"""
+				UPDATE `tabSerial No`
+				SET status = 'Inactive'
+				WHERE item_code = %s
+					AND IFNULL(status, '') != 'Inactive'
+				""",
+				(item_code,),
+			)
+		frappe.db.commit()
+		print(
+			f"[setup_migrations] Disabled serials on {len(updated)} finished mattress Item(s)."
+		)
+	else:
+		print("[setup_migrations] Finished mattress Items already Batch-only.")
+
+
 def backfill_mattress_item_brand_and_finish():
 	"""Stamp Item.brand and custom_finish_type from current names (one-time / idempotent)."""
 	import re

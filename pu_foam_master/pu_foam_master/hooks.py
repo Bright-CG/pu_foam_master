@@ -85,6 +85,7 @@ after_migrate = [
 	"pu_foam_master.setup_migrations.backfill_production_batch_company",
 	"pu_foam_master.setup_migrations.disable_foam_block_serials",
 	"pu_foam_master.setup_migrations.disable_foam_core_serials",
+	"pu_foam_master.setup_migrations.disable_finished_mattress_serials",
 	"pu_foam_master.setup_defaults.migrate_rebate_expense_account",
 	"pu_foam_master.setup_defaults.ensure_demo_pvc_gsm_default",
 	"pu_foam_master.setup_defaults.ensure_pufm_roles",

@@ -136,7 +136,7 @@ def generate_mattress_items(docname):
 				brand=brand_link,
 				product_line=product_line,
 				finish_type=None,
-				serial_tracked=False,
+				is_finished_mattress=False,
 			)
 			row.core_item = core_code
 			created_or_verified.append(core_code)
@@ -158,7 +158,7 @@ def generate_mattress_items(docname):
 				brand=brand_link,
 				product_line=product_line,
 				finish_type=finish_type,
-				serial_tracked=True,
+				is_finished_mattress=True,
 			)
 			created_or_verified.append(code)
 			if primary_finished is None:
@@ -224,15 +224,18 @@ def _ensure_item(
 	brand=None,
 	product_line=None,
 	finish_type=None,
-	serial_tracked=True,
+	is_finished_mattress=False,
 ):
 	from pu_foam_master.pufm_manufacturing.utils.item_traceability import (
-		apply_core_traceability,
-		apply_finished_good_traceability,
 		core_traceability_defaults,
 		ensure_core_item_traceability,
-		finished_good_traceability_defaults,
-		item_has_stock_ledger,
+		ensure_finished_mattress_item_traceability,
+	)
+
+	ensure_traceability = (
+		ensure_finished_mattress_item_traceability
+		if is_finished_mattress
+		else ensure_core_item_traceability
 	)
 
 	if frappe.db.exists("Item", item_code):
@@ -249,25 +252,11 @@ def _ensure_item(
 			item.brand = brand
 		if finish_type:
 			item.custom_finish_type = finish_type
-		if serial_tracked:
-			if item_has_stock_ledger(item_code):
-				item.save(ignore_permissions=True)
-			else:
-				apply_finished_good_traceability(item, brand=brand)
-				item.save(ignore_permissions=True)
-		elif item_has_stock_ledger(item_code):
-			item.save(ignore_permissions=True)
-			ensure_core_item_traceability(item_code, brand=brand, throw_if_locked=False)
-		else:
-			apply_core_traceability(item, brand=brand)
-			item.save(ignore_permissions=True)
+		item.save(ignore_permissions=True)
+		ensure_traceability(item_code, brand=brand, throw_if_locked=False)
 		return
 
-	defaults = (
-		finished_good_traceability_defaults(brand=brand)
-		if serial_tracked
-		else core_traceability_defaults(brand=brand)
-	)
+	defaults = core_traceability_defaults(brand=brand)
 	payload = {
 		"doctype": "Item",
 		"item_code": item_code,

@@ -3,8 +3,7 @@
 
 """Finished-good Item traceability defaults.
 
-Foam blocks and mattress cores are Batch-only (qty > 1 on conversion / assembly).
-Finished mattresses keep Batch + Serial (warranty).
+Foam blocks, mattress cores, and finished mattresses are Batch-only.
 """
 
 from __future__ import annotations
@@ -13,31 +12,18 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
-# ERPNext Item naming series for auto Batch / Serial when not set by the voucher
+# ERPNext Item naming series for auto Batch when not set by the voucher
 DEFAULT_BATCH_NUMBER_SERIES = "BATCH-.YYYY.-.#####"
-DEFAULT_SERIAL_NO_SERIES = "S-.YYYY.-.#####"
+
+FINISHED_MATTRESS_FINISH_TYPES = frozenset(
+	{"Plain", "Side Quilted", "Fully Quilted"}
+)
+FINISHED_MATTRESS_SUFFIXES = ("-PLAIN", "-SQ", "-FQ")
 
 
 def apply_finished_good_traceability(item, brand=None):
-	"""Force Batch + Serial tracking on finished mattress Item docs.
-
-	Mutates ``item`` in place. Caller is responsible for insert/save.
-	Do not use this for foam blocks or cores — use ``apply_block_traceability``
-	/ ``apply_core_traceability``.
-	"""
-	item.has_batch_no = 1
-	item.create_new_batch = 1
-	item.has_serial_no = 1
-
-	if not (item.get("batch_number_series") or "").strip():
-		item.batch_number_series = DEFAULT_BATCH_NUMBER_SERIES
-	if not (item.get("serial_no_series") or "").strip():
-		item.serial_no_series = DEFAULT_SERIAL_NO_SERIES
-
-	if brand:
-		item.brand = brand
-
-	return item
+	"""Force Batch-only tracking on finished mattress Item docs (alias of core/block)."""
+	return apply_core_traceability(item, brand=brand)
 
 
 def apply_block_traceability(item, brand=None):
@@ -61,17 +47,8 @@ def apply_core_traceability(item, brand=None):
 
 
 def finished_good_traceability_defaults(brand=None):
-	"""Dict suitable for ``frappe.get_doc({...})`` / ``doc.update(...)``."""
-	data = {
-		"has_batch_no": 1,
-		"create_new_batch": 1,
-		"has_serial_no": 1,
-		"batch_number_series": DEFAULT_BATCH_NUMBER_SERIES,
-		"serial_no_series": DEFAULT_SERIAL_NO_SERIES,
-	}
-	if brand:
-		data["brand"] = brand
-	return data
+	"""Batch-only defaults for finished mattress Items (same as cores)."""
+	return core_traceability_defaults(brand=brand)
 
 
 def block_traceability_defaults(brand=None):
@@ -126,36 +103,56 @@ def is_foam_core_item(item_code):
 
 
 def ensure_item_finished_good_traceability(item_code, brand=None, throw_if_locked=True):
-	"""Load Item, apply FG batch/serial flags, save. Returns the Item doc."""
+	"""Ensure finished mattress Item is Batch-only."""
+	return ensure_finished_mattress_item_traceability(
+		item_code, brand=brand, throw_if_locked=throw_if_locked
+	)
+
+
+def is_finished_mattress_item(item_code):
+	"""True for sellable mattress SKUs (Plain / SQ / FQ), not cores or blocks."""
+	if not item_code:
+		return False
+	if is_foam_block_item(item_code) or is_foam_core_item(item_code):
+		return False
+	name = str(item_code)
+	upper = name.upper()
+	if any(upper.endswith(suffix) for suffix in FINISHED_MATTRESS_SUFFIXES):
+		return True
+	finish = frappe.db.get_value("Item", item_code, "custom_finish_type")
+	return (finish or "").strip() in FINISHED_MATTRESS_FINISH_TYPES
+
+
+def ensure_finished_mattress_item_traceability(item_code, brand=None, throw_if_locked=True):
+	"""Ensure finished mattress Item is Batch-only (has_serial_no = 0)."""
 	if not item_code or not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Item {0} does not exist.").format(item_code))
 
 	item = frappe.get_doc("Item", item_code)
 	needs = (
 		not cint(item.has_batch_no)
-		or not cint(item.has_serial_no)
+		or cint(item.has_serial_no)
 		or not cint(item.create_new_batch)
 		or not (item.get("batch_number_series") or "").strip()
-		or not (item.get("serial_no_series") or "").strip()
 		or (brand and item.brand != brand)
 	)
 	if not needs:
 		return item
 
-	if item_has_stock_ledger(item_code) and (
-		not cint(item.has_batch_no) or not cint(item.has_serial_no) or not cint(item.create_new_batch)
-	):
-		if throw_if_locked:
-			frappe.throw(
-				_(
-					"Item {0} already has stock transactions, so Has Batch No / Has Serial No "
-					"cannot be changed. Cancel the linked Stock Entries first "
-					"(run pu_foam_master.scripts.unlock_block_item_traceability.unlock_block_items)."
-				).format(item_code)
-			)
-		return item
+	if item_has_stock_ledger(item_code):
+		values = {
+			"has_batch_no": 1,
+			"create_new_batch": 1,
+			"has_serial_no": 0,
+		}
+		if not (item.get("batch_number_series") or "").strip():
+			values["batch_number_series"] = DEFAULT_BATCH_NUMBER_SERIES
+		if brand:
+			values["brand"] = brand
+		frappe.db.set_value("Item", item_code, values, update_modified=False)
+		return frappe.get_doc("Item", item_code)
 
-	apply_finished_good_traceability(item, brand=brand)
+	apply_core_traceability(item, brand=brand)
 	item.save(ignore_permissions=True)
 	return item
 
@@ -237,4 +234,28 @@ def list_foam_core_item_codes():
 			pluck="name",
 		)
 	return sorted({n for n in (by_suffix + legacy + by_group) if is_foam_core_item(n)})
+
+
+def list_finished_mattress_item_codes():
+	"""Active finished mattress Items (Plain / SQ / FQ), excluding cores and blocks."""
+	by_finish = frappe.get_all(
+		"Item",
+		filters={
+			"disabled": 0,
+			"custom_finish_type": ["in", list(FINISHED_MATTRESS_FINISH_TYPES)],
+		},
+		pluck="name",
+	)
+	by_name = []
+	for suffix in FINISHED_MATTRESS_SUFFIXES:
+		by_name.extend(
+			frappe.get_all(
+				"Item",
+				filters={"disabled": 0, "name": ["like", f"%{suffix}"]},
+				pluck="name",
+			)
+		)
+	return sorted(
+		{n for n in (by_finish + by_name) if is_finished_mattress_item(n)}
+	)
 
