@@ -65,6 +65,7 @@ fixtures = [
 					"PUFM Rebate Settlement Manager",
 					"PUFM Rebate Transfer User",
 					"PUFM Rebate Transfer Manager",
+					"PUFM Customer Creator",
 				],
 			]
 		],
@@ -102,7 +103,7 @@ after_migrate = [
 	"pu_foam_master.setup_defaults.ensure_customer_rebate_fields",
 	"pu_foam_master.setup_defaults.ensure_default_rebate_tiers",
 	"pu_foam_master.setup_defaults.migrate_customer_rebate_tier_links",
-	"pu_foam_master.setup_workspace.create_workspace",
+	"pu_foam_master.setup_workspace.sync_pufm_create_customer_workspaces",
 ]
 
 after_install = [
@@ -118,6 +119,7 @@ doctype_js = {
 	"Sales Order": "public/js/sales_order.js",
 	"Item": "public/js/item.js",
 	"Rebate Balance Transfer": "pufm_manufacturing/doctype/rebate_balance_transfer/rebate_balance_transfer.js",
+	"PUFM Create Customer": "pufm_manufacturing/doctype/pufm_create_customer/pufm_create_customer.js",
 }
 
 doc_events = {

@@ -20,6 +20,7 @@ PUFM_ROLES = (
 	"PUFM Rebate Settlement Manager",
 	"PUFM Rebate Transfer User",
 	"PUFM Rebate Transfer Manager",
+	"PUFM Customer Creator",
 )
 
 

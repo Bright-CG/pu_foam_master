@@ -1,0 +1,241 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-11-17 22:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "registration_type",
+  "company",
+  "section_ids",
+  "main_customer_id",
+  "rebate_customer_id",
+  "column_break_ids",
+  "existing_main_customer",
+  "section_customer",
+  "customer_name",
+  "rebate_customer_name",
+  "customer_type",
+  "customer_group",
+  "column_break_cust",
+  "is_distributor",
+  "rebate_tier",
+  "section_preview",
+  "trade_receivable_account",
+  "rebate_receivable_account",
+  "section_created",
+  "created_main_customer",
+  "created_rebate_customer"
+ ],
+ "fields": [
+  {
+   "default": "PUFM-CUST-.YYYY.-.MM.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "PUFM-CUST-.YYYY.-.MM.-.#####",
+   "reqd": 1
+  },
+  {
+   "default": "Main and Rebate Wallet",
+   "fieldname": "registration_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Registration Type",
+   "options": "Trade Customer Only\nMain and Rebate Wallet\nRebate Wallet for Existing Main",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_ids",
+   "fieldtype": "Section Break",
+   "label": "Customer IDs"
+  },
+  {
+   "description": "Numeric account number (no leading zeros). Rebate wallet will be REBATE{this ID} when applicable.",
+   "fieldname": "main_customer_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Main Customer ID"
+  },
+  {
+   "depends_on": "eval:['Main and Rebate Wallet','Rebate Wallet for Existing Main'].includes(doc.registration_type)",
+   "description": "Always REBATE plus the main customer ID (read-only policy).",
+   "fieldname": "rebate_customer_id",
+   "fieldtype": "Data",
+   "label": "Rebate Customer ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ids",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.registration_type=='Rebate Wallet for Existing Main'",
+   "fieldname": "existing_main_customer",
+   "fieldtype": "Link",
+   "label": "Existing Main Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "section_customer",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "depends_on": "eval:doc.registration_type!='Rebate Wallet for Existing Main'",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Customer Name"
+  },
+  {
+   "depends_on": "eval:['Main and Rebate Wallet','Rebate Wallet for Existing Main'].includes(doc.registration_type)",
+   "description": "Defaults to main customer name plus \" - Rebate\" when left blank.",
+   "fieldname": "rebate_customer_name",
+   "fieldtype": "Data",
+   "label": "Rebate Customer Name"
+  },
+  {
+   "default": "Company",
+   "fieldname": "customer_type",
+   "fieldtype": "Select",
+   "label": "Customer Type",
+   "options": "Company\nIndividual"
+  },
+  {
+   "fieldname": "customer_group",
+   "fieldtype": "Link",
+   "label": "Customer Group",
+   "options": "Customer Group"
+  },
+  {
+   "fieldname": "column_break_cust",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:['Main and Rebate Wallet','Trade Customer Only'].includes(doc.registration_type)",
+   "fieldname": "is_distributor",
+   "fieldtype": "Check",
+   "label": "Is Distributor"
+  },
+  {
+   "depends_on": "eval:doc.is_distributor && doc.registration_type!='Rebate Wallet for Existing Main'",
+   "fieldname": "rebate_tier",
+   "fieldtype": "Link",
+   "label": "Rebate Tier",
+   "options": "Rebate Tier"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_preview",
+   "fieldtype": "Section Break",
+   "label": "Receivable Accounts (preview)"
+  },
+  {
+   "fieldname": "trade_receivable_account",
+   "fieldtype": "Link",
+   "label": "Trade Receivable Account",
+   "options": "Account",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rebate_receivable_account",
+   "fieldtype": "Link",
+   "label": "Rebate Wallet Receivable Account",
+   "options": "Account",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.docstatus==1",
+   "fieldname": "section_created",
+   "fieldtype": "Section Break",
+   "label": "Created Customers"
+  },
+  {
+   "fieldname": "created_main_customer",
+   "fieldtype": "Link",
+   "label": "Created Main Customer",
+   "no_copy": 1,
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "created_rebate_customer",
+   "fieldtype": "Link",
+   "label": "Created Rebate Wallet Customer",
+   "no_copy": 1,
+   "options": "Customer",
+   "read_only": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-11-17 22:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "pufm_manufacturing",
+ "name": "PUFM Create Customer",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 0,
+   "cancel": 0,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 0,
+   "cancel": 0,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 0,
+   "cancel": 0,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PUFM Customer Creator",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

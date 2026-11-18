@@ -63,6 +63,7 @@ class PufmManufacturingSettings(Document):
 		self._validate_required_operational_fields()
 		self._validate_warehouse_companies()
 		self._validate_rebate_account_type()
+		self._validate_rebate_wallet_receivable_account()
 		self._validate_mattress_labour_absorption()
 		self._validate_scrap_rates()
 
@@ -119,6 +120,25 @@ class PufmManufacturingSettings(Document):
 				_("Rebate Expense Account must be an Expense account."),
 				frappe.ValidationError,
 			)
+
+	def _validate_rebate_wallet_receivable_account(self):
+		account = self.rebate_wallet_receivable_account
+		if not account:
+			return
+		account_type = frappe.db.get_value("Account", account, "account_type")
+		if account_type != "Receivable":
+			frappe.throw(
+				_("Rebate Wallet Receivable Account must have Account Type Receivable."),
+				frappe.ValidationError,
+			)
+		company = self.default_company
+		if company:
+			acc_company = frappe.db.get_value("Account", account, "company")
+			if acc_company and acc_company != company:
+				frappe.throw(
+					_("Rebate Wallet Receivable Account must belong to {0}.").format(company),
+					frappe.ValidationError,
+				)
 
 	def _validate_mattress_labour_absorption(self):
 		if flt(self.mattress_labour_per_pc) > 0 and not self.mattress_labour_absorption_account:

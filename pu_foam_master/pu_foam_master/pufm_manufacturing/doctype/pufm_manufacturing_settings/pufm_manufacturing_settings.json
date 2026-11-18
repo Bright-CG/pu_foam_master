@@ -68,8 +68,8 @@
         "scrap_default_container_capacity_kg",
         "scrap_default_process_loss_ngn",
         "financial_scrap_defaults_section",
-        "rebate_income_account",
         "rebate_expense_account",
+        "rebate_wallet_receivable_account",
         "scrap_input_rate",
         "scrap_output_rate",
         "rebound_economics_section",
@@ -487,15 +487,16 @@
             "label": "Financial & Scrap Defaults"
         },
         {
-            "fieldname": "rebate_income_account",
-            "fieldtype": "Link",
-            "label": "Rebate Income Account",
-            "options": "Account"
-        },
-        {
             "fieldname": "rebate_expense_account",
             "fieldtype": "Link",
             "label": "Rebate Expense Account",
+            "options": "Account"
+        },
+        {
+            "description": "Default receivable on new rebate wallet Customers created from PUFM Create Customer (e.g. 300-135 Rebate Wallet Receivable). Must differ from the company trade debtors account.",
+            "fieldname": "rebate_wallet_receivable_account",
+            "fieldtype": "Link",
+            "label": "Rebate Wallet Receivable Account",
             "options": "Account"
         },
         {
