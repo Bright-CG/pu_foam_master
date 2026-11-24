@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from pu_foam_master.pufm_manufacturing.utils.block_item_groups import resolve_block_item_group
 from pu_foam_master.pufm_manufacturing.utils.settings import get_cbm_factor
 
 VIRTUAL_ITEM_SUFFIX = "-BASE-FOAM-M3"
@@ -137,15 +138,14 @@ def resolve_warehouse_for_company(preferred, company, name_contains=None):
 	return None
 
 
-def ensure_virtual_item(density_name):
+def ensure_virtual_item(density_name, density_doc=None):
 	item_code = get_virtual_item_code(density_name)
 	if frappe.db.exists("Item", item_code):
 		return item_code
 
-	item_group = (
-		frappe.db.get_single_value("Pufm Manufacturing Settings", "block_item_group")
-		or "Products"
-	)
+	config_group = getattr(density_doc, "block_item_group", None) if density_doc else None
+	name = (getattr(density_doc, "density_name", None) or density_name or "").strip()
+	item_group = resolve_block_item_group(name, config_group)
 	item = frappe.new_doc("Item")
 	item.item_code = item_code
 	item.item_name = item_code
@@ -194,7 +194,7 @@ def sync_bom_for_density_config(doc, cancel_existing=True):
 	3. Create and submit a new BOM
 	4. Relink active_bom / default_bom
 	"""
-	virtual_item = ensure_virtual_item(doc.density_name)
+	virtual_item = ensure_virtual_item(doc.density_name, density_doc=doc)
 	company = resolve_density_company(doc)
 	if not company:
 		frappe.throw(_("Company is required on Density Configuration to create BOMs."))

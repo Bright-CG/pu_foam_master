@@ -10,6 +10,7 @@
         "density_name",
         "company",
         "brand",
+        "block_item_group",
         "dimensions_sb",
         "width_inches",
         "height_inches",
@@ -55,6 +56,14 @@
             "in_list_view": 1,
             "label": "Brand",
             "options": "Brand"
+        },
+        {
+            "allow_on_submit": 1,
+            "description": "Item Group for block Items generated from this density. When empty, naming rules apply (D* → Happi Blocks, Economy/Power → B Blocks, Standard/Great/Kings/Legend → Mattress Blocks), then Block Item Group in Pufm Manufacturing Settings.",
+            "fieldname": "block_item_group",
+            "fieldtype": "Link",
+            "label": "Block Item Group",
+            "options": "Item Group"
         },
         {
             "fieldname": "dimensions_sb",

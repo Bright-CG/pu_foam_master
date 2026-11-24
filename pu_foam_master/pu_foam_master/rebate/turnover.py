@@ -26,6 +26,9 @@ def invoice_has_erpnext_vat_taxes(taxes):
 
 
 def sales_invoice_gross_amount(doc):
+	"""Selling amount before instant rebate (ex-VAT logic uses this as gross)."""
+	if doc.get("custom_apply_instant_rebate"):
+		return flt(doc.get("net_total"))
 	return flt(doc.get("net_total")) - flt(doc.get("discount_amount"))
 
 

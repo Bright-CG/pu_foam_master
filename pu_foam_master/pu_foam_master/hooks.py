@@ -104,6 +104,7 @@ after_migrate = [
 	"pu_foam_master.setup_defaults.ensure_default_rebate_tiers",
 	"pu_foam_master.setup_defaults.migrate_customer_rebate_tier_links",
 	"pu_foam_master.setup_workspace.sync_pufm_create_customer_workspaces",
+	"pu_foam_master.setup_migrations.remove_pufm_customer_id_rename_doctype",
 ]
 
 after_install = [

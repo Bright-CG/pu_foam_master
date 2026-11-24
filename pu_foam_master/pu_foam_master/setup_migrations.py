@@ -690,3 +690,54 @@ def _copy_child_table_rows(old_dt, new_dt, parenttype):
 		).db_insert()
 		moved += 1
 	return moved
+
+
+REMOVED_CUSTOMER_ID_RENAME_DOCTYPE = "PUFM Customer ID Rename"
+
+
+def remove_pufm_customer_id_rename_doctype():
+	"""Drop deprecated Customer ID Rename tool (use ERPNext Customer rename instead)."""
+	dt = REMOVED_CUSTOMER_ID_RENAME_DOCTYPE
+	if not frappe.db.exists("DocType", dt):
+		_strip_workspace_links_for_doctype(dt)
+		return
+
+	if frappe.db.table_exists(f"tab{dt}"):
+		for row in frappe.get_all(dt, fields=["name", "docstatus"]):
+			try:
+				doc = frappe.get_doc(dt, row.name)
+				if doc.docstatus == 1:
+					frappe.delete_doc(dt, doc.name, force=1)
+				else:
+					frappe.delete_doc(dt, doc.name, force=1)
+			except Exception:
+				frappe.log_error(title=f"remove_pufm_customer_id_rename {row.name}")
+
+	try:
+		frappe.delete_doc("DocType", dt, force=1)
+		print(f"[setup_migrations] Removed DocType {dt}.")
+	except Exception:
+		frappe.log_error(title=f"remove_pufm_customer_id_rename DocType {dt}")
+
+	_strip_workspace_links_for_doctype(dt)
+	frappe.db.commit()
+	frappe.clear_cache()
+
+
+def _strip_workspace_links_for_doctype(link_to: str):
+	"""Remove workspace sidebar links pointing at a removed DocType."""
+	for ws_name in frappe.get_all("Workspace", pluck="name"):
+		doc = frappe.get_doc("Workspace", ws_name)
+		changed = False
+		kept = []
+		for row in doc.links:
+			if row.type == "Link" and row.link_to == link_to:
+				changed = True
+				continue
+			kept.append(row.as_dict())
+		if changed:
+			doc.set("links", [])
+			for link in kept:
+				doc.append("links", link)
+			doc.save(ignore_permissions=True)
+			print(f"[setup_workspace] Removed '{link_to}' link from Workspace {ws_name}.")

@@ -3,6 +3,10 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
+from pu_foam_master.pufm_manufacturing.utils.block_item_groups import (
+	infer_block_item_group_from_density_name,
+	resolve_block_item_group,
+)
 from pu_foam_master.pufm_manufacturing.utils.density_bom import (
 	PRECISION,
 	build_block_item_code,
@@ -27,6 +31,7 @@ class DensityConfiguration(Document):
 			self.company = get_preferred_company()
 		if not self.company:
 			frappe.throw(_("Company is required."))
+		self._default_block_item_group()
 		self.calculate_values()
 
 	def on_submit(self):
@@ -49,7 +54,7 @@ class DensityConfiguration(Document):
 			operations_changed = self.has_value_changed("bom_operations")
 
 			if not (dimensions_changed or chemicals_changed or operations_changed):
-				# Brand / text-only changes: refresh Item brand, skip BOM rebuild
+				# Brand / block group only: skip BOM rebuild
 				if self.has_value_changed("brand"):
 					_sync_block_item_brands(self)
 				return
@@ -62,6 +67,14 @@ class DensityConfiguration(Document):
 
 	def on_cancel(self):
 		cancel_active_bom(self)
+
+	def _default_block_item_group(self):
+		"""Pre-fill Block Item Group from density_name rules when empty."""
+		if (self.block_item_group or "").strip():
+			return
+		suggested = infer_block_item_group_from_density_name(self.density_name)
+		if suggested and frappe.db.exists("Item Group", suggested):
+			self.block_item_group = suggested
 
 	def calculate_values(self):
 		inch_to_m = get_formula_factor("inches_to_meters_factor")
@@ -184,16 +197,13 @@ def generate_block_items(docname, lengths_string=None):
 		frappe.throw(_("Width (Inches) and Height (Inches) must be greater than zero."))
 
 	settings = frappe.get_single("Pufm Manufacturing Settings")
-	item_group = settings.block_item_group or "Raw Material"
+	item_group = resolve_block_item_group(doc.density_name, doc.get("block_item_group"))
 	# Prefer density Brand, fall back to manufacturing default
 	default_brand = doc.get("brand") or settings.default_brand or None
-	if not frappe.db.exists("Item Group", item_group):
-		frappe.throw(
-			_("Item Group {0} does not exist. Set Block Item Group in settings.").format(item_group)
-		)
 
 	created = []
 	updated = []
+	skipped = []
 	invalid = []
 
 	for token in length_tokens:
@@ -212,11 +222,24 @@ def generate_block_items(docname, lengths_string=None):
 		volume_cbm = flt((length * width * height) / get_cbm_factor(), PRECISION)
 
 		if frappe.db.exists("Item", item_code):
+			# Item already exists (any Item Group). Never re-insert; do not change item_group here.
 			item = frappe.get_doc("Item", item_code)
-			item.custom_length = length
-			item.custom_width = width
-			item.custom_height = height
-			item.custom_cbm_value = volume_cbm
+			changed_fields = {
+				"custom_length": length,
+				"custom_width": width,
+				"custom_height": height,
+				"custom_cbm_value": volume_cbm,
+			}
+			needs_save = any(flt(item.get(k)) != flt(v) for k, v in changed_fields.items())
+			if default_brand and item.brand != default_brand:
+				needs_save = True
+
+			if not needs_save:
+				skipped.append(item_code)
+				continue
+
+			for key, value in changed_fields.items():
+				item.set(key, value)
 			if item_has_stock_ledger(item_code):
 				item.save(ignore_permissions=True)
 				ensure_block_item_traceability(item_code, brand=default_brand, throw_if_locked=False)
@@ -254,6 +277,12 @@ def generate_block_items(docname, lengths_string=None):
 		parts.append(_("Created {0}: {1}").format(len(created), ", ".join(created)))
 	if updated:
 		parts.append(_("Updated {0}: {1}").format(len(updated), ", ".join(updated)))
+	if skipped:
+		parts.append(
+			_("Already exist (skipped, not re-created) {0}: {1}").format(
+				len(skipped), ", ".join(skipped)
+			)
+		)
 	if invalid:
 		parts.append(_("Invalid lengths ignored: {0}").format(", ".join(invalid)))
 	if not parts:
@@ -263,6 +292,7 @@ def generate_block_items(docname, lengths_string=None):
 		"message": " | ".join(parts),
 		"created": created,
 		"updated": updated,
+		"skipped": skipped,
 		"invalid": invalid,
 	}
 
