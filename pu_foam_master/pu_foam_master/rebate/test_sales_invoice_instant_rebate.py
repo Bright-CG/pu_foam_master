@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Bright and Contributors
 # See license.txt
 
+import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import flt
 
@@ -18,3 +19,39 @@ class TestSalesInvoiceInstantRebate(FrappeTestCase):
 		)
 		base = get_sales_invoice_rebatable_base(doc)
 		self.assertEqual(flt(base, 2), flt(98100 - 98100 * 7.5 / 100, 2))
+
+	def test_instant_rebate_ignores_additional_discount_on_base(self):
+		"""Instant rebate additional discount must not reduce the rebatable base."""
+		net_total = 534803.37
+		instant_discount = 53502.57
+		doc = frappe._dict(
+			net_total=net_total,
+			discount_amount=instant_discount,
+			taxes=[frappe._dict(description="VAT", add_deduct_tax="Add", tax_amount=40000)],
+			custom_apply_instant_rebate=1,
+		)
+		base = get_sales_invoice_rebatable_base(doc)
+		self.assertEqual(flt(base, 2), flt(net_total, 2))
+
+	def test_total_greater_than_net_skips_extra_vat_strip(self):
+		"""Item rates VAT-inclusive: net is ex-VAT; do not strip default VAT % again."""
+		doc = frappe._dict(
+			net_total=534803.37,
+			total=578408.11,
+			discount_amount=0,
+			taxes=[],
+			custom_apply_instant_rebate=1,
+		)
+		base = get_sales_invoice_rebatable_base(doc)
+		self.assertEqual(flt(base, 2), flt(534803.37, 2))
+
+	def test_manual_additional_discount_reduces_base(self):
+		doc = frappe._dict(
+			net_total=100000,
+			discount_amount=10000,
+			taxes=[],
+			custom_apply_instant_rebate=0,
+		)
+		base = get_sales_invoice_rebatable_base(doc)
+		expected_gross = 90000 - 90000 * 7.5 / 100
+		self.assertEqual(flt(base, 2), flt(expected_gross, 2))

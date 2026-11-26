@@ -63,6 +63,7 @@ class PufmManufacturingSettings(Document):
 		self._validate_required_operational_fields()
 		self._validate_warehouse_companies()
 		self._validate_rebate_account_type()
+		self._validate_sales_additional_discount_account()
 		self._validate_rebate_wallet_receivable_account()
 		self._validate_mattress_labour_absorption()
 		self._validate_scrap_rates()
@@ -118,6 +119,25 @@ class PufmManufacturingSettings(Document):
 		if root_type and root_type != "Expense":
 			frappe.throw(
 				_("Rebate Expense Account must be an Expense account."),
+				frappe.ValidationError,
+			)
+
+	def _validate_sales_additional_discount_account(self):
+		account = self.sales_additional_discount_account
+		if not account:
+			return
+		if account == self.rebate_expense_account:
+			frappe.throw(
+				_(
+					"Sales Additional Discount Account must differ from Rebate Expense Account "
+					"(instant rebate vs commercial discount)."
+				),
+				frappe.ValidationError,
+			)
+		root_type = frappe.db.get_value("Account", account, "root_type")
+		if root_type and root_type != "Expense":
+			frappe.throw(
+				_("Sales Additional Discount Account must be an Expense account."),
 				frappe.ValidationError,
 			)
 

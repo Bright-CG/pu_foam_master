@@ -69,6 +69,7 @@
         "scrap_default_process_loss_ngn",
         "financial_scrap_defaults_section",
         "rebate_expense_account",
+        "sales_additional_discount_account",
         "rebate_wallet_receivable_account",
         "scrap_input_rate",
         "scrap_output_rate",
@@ -490,6 +491,13 @@
             "fieldname": "rebate_expense_account",
             "fieldtype": "Link",
             "label": "Rebate Expense Account",
+            "options": "Account"
+        },
+        {
+            "description": "Used automatically on Sales Invoices when staff apply ERPNext Additional Discount (not Instant Rebate). Requires Selling Settings → Enable Discount Accounting.",
+            "fieldname": "sales_additional_discount_account",
+            "fieldtype": "Link",
+            "label": "Sales Additional Discount Account",
             "options": "Account"
         },
         {

@@ -150,6 +150,25 @@ def get_rebate_expense_account():
 	return account
 
 
+def get_sales_additional_discount_account():
+	"""GL account for normal Sales Invoice additional discount (non-instant rebate)."""
+	account = frappe.db.get_single_value(SETTINGS_DOCTYPE, "sales_additional_discount_account")
+	if not account:
+		frappe.throw(
+			_(
+				"Set <b>Sales Additional Discount Account</b> on "
+				"<a href='/app/pufm-manufacturing-settings'>Pufm Manufacturing Settings</a> "
+				"before applying Additional Discount on a Sales Invoice."
+			)
+		)
+
+	root_type = frappe.db.get_value("Account", account, "root_type")
+	if root_type != "Expense":
+		frappe.throw(_("Sales Additional Discount Account must be an Expense account."))
+
+	return account
+
+
 def validate_account_type(account, expected_root_type, label):
 	if not account:
 		return

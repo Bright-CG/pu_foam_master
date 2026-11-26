@@ -57,9 +57,11 @@ frappe.ui.form.on("Sales Invoice", {
 	},
 	additional_discount_percentage(frm) {
 		block_discount_if_instant_rebate(frm);
+		ensure_manual_additional_discount_account(frm);
 	},
 	discount_amount(frm) {
 		block_discount_if_instant_rebate(frm);
+		ensure_manual_additional_discount_account(frm);
 	},
 	additional_discount_account(frm) {
 		block_discount_if_instant_rebate(frm);
@@ -69,6 +71,9 @@ frappe.ui.form.on("Sales Invoice", {
 ["net_total", "discount_amount"].forEach((fieldname) => {
 	frappe.ui.form.on("Sales Invoice", fieldname, (frm) => {
 		if (frm._pufm_syncing_instant_rebate) {
+			return;
+		}
+		if (fieldname === "discount_amount" && frm.doc.custom_apply_instant_rebate) {
 			return;
 		}
 		calculate_instant_rebate(frm);
@@ -90,7 +95,12 @@ frappe.ui.form.on("Sales Taxes and Charges", {
 const INSTANT_REBATE_ROW_DESCRIPTION = "Instant Rebate";
 
 function ensure_pufm_vat_rate(frm) {
-	if (frm._pufm_vat_rate != null && frm._pufm_rebate_expense_account) {
+	const ready =
+		frm._pufm_vat_rate != null &&
+		frm._pufm_rebate_expense_account !== undefined &&
+		frm._pufm_sales_discount_account !== undefined;
+	if (ready) {
+		toggle_additional_discount_read_only(frm);
 		return;
 	}
 	const tasks = [];
@@ -101,10 +111,10 @@ function ensure_pufm_vat_rate(frm) {
 			})
 		);
 	}
-	if (!frm._pufm_rebate_expense_account) {
+	if (frm._pufm_rebate_expense_account === undefined || frm._pufm_sales_discount_account === undefined) {
 		tasks.push(
 			frappe.call({
-				method: "pu_foam_master.rebate.sales_invoice.get_instant_rebate_discount_defaults",
+				method: "pu_foam_master.rebate.sales_invoice.get_pufm_sales_invoice_discount_accounts",
 			})
 		);
 	}
@@ -119,41 +129,22 @@ function ensure_pufm_vat_rate(frm) {
 			const msg = r.message;
 			if (typeof msg === "number") {
 				frm._pufm_vat_rate = flt(msg) || 7.5;
-			} else if (msg.additional_discount_account) {
-				frm._pufm_rebate_expense_account = msg.additional_discount_account;
+			} else if (typeof msg === "object") {
+				if (frm._pufm_rebate_expense_account === undefined) {
+					frm._pufm_rebate_expense_account = msg.rebate_expense_account || null;
+				}
+				if (frm._pufm_sales_discount_account === undefined) {
+					frm._pufm_sales_discount_account = msg.sales_additional_discount_account || null;
+				}
 			}
 		});
 		if (frm._pufm_vat_rate == null) {
 			frm._pufm_vat_rate = 7.5;
 		}
+		toggle_additional_discount_read_only(frm);
+		ensure_manual_additional_discount_account(frm);
 		calculate_instant_rebate(frm);
 	});
-}
-
-function sales_invoice_has_erpnext_vat_taxes(frm) {
-	return (frm.doc.taxes || []).some(
-		(row) =>
-			row.description !== INSTANT_REBATE_ROW_DESCRIPTION &&
-			row.add_deduct_tax !== "Deduct" &&
-			flt(row.tax_amount) > 0
-	);
-}
-
-function get_sales_invoice_rebatable_base(frm) {
-	const gross = frm.doc.custom_apply_instant_rebate
-		? flt(frm.doc.net_total)
-		: flt(frm.doc.net_total) - flt(frm.doc.discount_amount);
-	if (gross <= 0) {
-		return 0;
-	}
-	if (sales_invoice_has_erpnext_vat_taxes(frm)) {
-		return gross;
-	}
-	const rate = frm._pufm_vat_rate != null ? frm._pufm_vat_rate : 7.5;
-	if (rate <= 0) {
-		return gross;
-	}
-	return gross - (gross * rate) / 100;
 }
 
 function has_manual_additional_discount(frm) {
@@ -221,18 +212,43 @@ function block_discount_if_instant_rebate(frm) {
 }
 
 function toggle_additional_discount_read_only(frm) {
-	const hide = !!frm.doc.custom_apply_instant_rebate;
-	const fields = [
-		"apply_discount_on",
-		"additional_discount_percentage",
-		"discount_amount",
-		"additional_discount_account",
-	];
-	fields.forEach((fieldname) => {
-		frm.set_df_property(fieldname, "read_only", hide ? 1 : 0);
-	});
-	if (hide && frm.doc.apply_discount_on !== "Grand Total") {
+	const instant = !!frm.doc.custom_apply_instant_rebate;
+	const lock_discount_account =
+		!instant && !!frm._pufm_sales_discount_account;
+	frm.set_df_property("apply_discount_on", "read_only", instant ? 1 : 0);
+	frm.set_df_property("additional_discount_percentage", "read_only", instant ? 1 : 0);
+	frm.set_df_property("discount_amount", "read_only", instant ? 1 : 0);
+	frm.set_df_property("additional_discount_account", "read_only", instant || lock_discount_account ? 1 : 0);
+	if (instant && frm.doc.apply_discount_on !== "Grand Total") {
 		frm.set_value("apply_discount_on", "Grand Total");
+	}
+}
+
+function ensure_manual_additional_discount_account(frm) {
+	if (frm.doc.docstatus !== 0 || frm.doc.custom_apply_instant_rebate) {
+		return;
+	}
+	if (frm._pufm_sales_discount_account === undefined) {
+		ensure_pufm_vat_rate(frm);
+		return;
+	}
+	if (!frm._pufm_sales_discount_account) {
+		return;
+	}
+	const hasDiscount =
+		flt(frm.doc.additional_discount_percentage) > 0 || flt(frm.doc.discount_amount) > 0;
+	if (!hasDiscount) {
+		return;
+	}
+	const jobs = [];
+	if (!frm.doc.apply_discount_on) {
+		jobs.push(frm.set_value("apply_discount_on", "Grand Total"));
+	}
+	if (frm.doc.additional_discount_account !== frm._pufm_sales_discount_account) {
+		jobs.push(frm.set_value("additional_discount_account", frm._pufm_sales_discount_account));
+	}
+	if (jobs.length) {
+		Promise.all(jobs).then(() => trigger_invoice_tax_recalc(frm));
 	}
 }
 
@@ -274,15 +290,33 @@ function calculate_instant_rebate(frm) {
 		ensure_pufm_vat_rate(frm);
 		return;
 	}
-	const base = get_sales_invoice_rebatable_base(frm);
-	const amount = flt((base * flt(frm.doc.custom_instant_rebate_percentage)) / 100, 2);
-	frm.set_value("custom_instant_rebate_amount", amount).then(() => {
-		if (amount <= 0) {
-			clear_instant_discount_fields(frm);
-			return;
-		}
-		sync_instant_as_additional_discount(frm, amount).then(() => {
-			trigger_invoice_tax_recalc(frm);
-		});
+	frm._pufm_rebate_calc_seq = (frm._pufm_rebate_calc_seq || 0) + 1;
+	const seq = frm._pufm_rebate_calc_seq;
+	frappe.call({
+		method: "pu_foam_master.rebate.sales_invoice.compute_instant_rebate_amount",
+		args: {
+			net_total: frm.doc.net_total,
+			total: frm.doc.total,
+			discount_amount: frm.doc.discount_amount,
+			custom_apply_instant_rebate: frm.doc.custom_apply_instant_rebate ? 1 : 0,
+			custom_exclude_from_rebate: frm.doc.custom_exclude_from_rebate ? 1 : 0,
+			custom_instant_rebate_percentage: frm.doc.custom_instant_rebate_percentage,
+			taxes: frm.doc.taxes,
+		},
+		callback(r) {
+			if (seq !== frm._pufm_rebate_calc_seq || frm._pufm_syncing_instant_rebate) {
+				return;
+			}
+			const amount = flt(r.message && r.message.amount);
+			frm.set_value("custom_instant_rebate_amount", amount).then(() => {
+				if (amount <= 0) {
+					clear_instant_discount_fields(frm);
+					return;
+				}
+				sync_instant_as_additional_discount(frm, amount).then(() => {
+					trigger_invoice_tax_recalc(frm);
+				});
+			});
+		},
 	});
 }
