@@ -177,7 +177,7 @@ def _apply_manual_additional_discount_account(doc):
 @frappe.whitelist()
 def compute_instant_rebate_amount(
 	net_total,
-	custom_instant_rebate_percentage,
+	custom_instant_rebate_percentage=0,
 	custom_apply_instant_rebate=0,
 	custom_exclude_from_rebate=0,
 	discount_amount=0,
@@ -194,7 +194,11 @@ def compute_instant_rebate_amount(
 		custom_exclude_from_rebate=cint(custom_exclude_from_rebate),
 		custom_instant_rebate_percentage=custom_instant_rebate_percentage,
 	)
-	if not doc.custom_apply_instant_rebate or doc.custom_exclude_from_rebate:
+	if (
+		not doc.custom_apply_instant_rebate
+		or doc.custom_exclude_from_rebate
+		or flt(doc.custom_instant_rebate_percentage) <= 0
+	):
 		return {"rebatable_base": 0, "amount": 0}
 	base = get_sales_invoice_rebatable_base(doc)
 	amount = _instant_rebate_amount_from_base(doc, base)

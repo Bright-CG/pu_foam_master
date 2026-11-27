@@ -290,17 +290,23 @@ function calculate_instant_rebate(frm) {
 		ensure_pufm_vat_rate(frm);
 		return;
 	}
+	if (flt(frm.doc.custom_instant_rebate_percentage) <= 0) {
+		frm.set_value("custom_instant_rebate_amount", 0);
+		clear_instant_discount_fields(frm);
+		return;
+	}
 	frm._pufm_rebate_calc_seq = (frm._pufm_rebate_calc_seq || 0) + 1;
 	const seq = frm._pufm_rebate_calc_seq;
+	const rebate_pct = flt(frm.doc.custom_instant_rebate_percentage);
 	frappe.call({
 		method: "pu_foam_master.rebate.sales_invoice.compute_instant_rebate_amount",
 		args: {
-			net_total: frm.doc.net_total,
-			total: frm.doc.total,
-			discount_amount: frm.doc.discount_amount,
+			net_total: flt(frm.doc.net_total),
+			total: flt(frm.doc.total),
+			discount_amount: flt(frm.doc.discount_amount),
 			custom_apply_instant_rebate: frm.doc.custom_apply_instant_rebate ? 1 : 0,
 			custom_exclude_from_rebate: frm.doc.custom_exclude_from_rebate ? 1 : 0,
-			custom_instant_rebate_percentage: frm.doc.custom_instant_rebate_percentage,
+			custom_instant_rebate_percentage: rebate_pct,
 			taxes: frm.doc.taxes,
 		},
 		callback(r) {

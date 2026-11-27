@@ -5,6 +5,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import flt
 
+from pu_foam_master.rebate.sales_invoice import compute_instant_rebate_amount
 from pu_foam_master.rebate.turnover import get_sales_invoice_rebatable_base
 
 
@@ -44,6 +45,13 @@ class TestSalesInvoiceInstantRebate(FrappeTestCase):
 		)
 		base = get_sales_invoice_rebatable_base(doc)
 		self.assertEqual(flt(base, 2), flt(534803.37, 2))
+
+	def test_compute_instant_rebate_without_percentage(self):
+		out = compute_instant_rebate_amount(
+			578408.11,
+			custom_apply_instant_rebate=1,
+		)
+		self.assertEqual(out["amount"], 0)
 
 	def test_manual_additional_discount_reduces_base(self):
 		doc = frappe._dict(
