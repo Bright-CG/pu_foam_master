@@ -12,18 +12,8 @@ from pu_foam_master.rebate.turnover import (
 )
 
 
-def apply_instant_rebate(doc, method=None):
-	"""Instant rebate: ex-VAT base × % → ERPNext Additional Discount on Grand Total."""
-	apply_instant_rebate_impl(doc, method)
-
-
-def apply_instant_rebate_on_save(doc, method=None):
-	"""Re-apply after ERPNext validate so discount/amount persist on the saved document."""
-	if doc.get("custom_apply_instant_rebate") and not doc.get("custom_exclude_from_rebate"):
-		apply_instant_rebate_impl(doc, method)
-
-
-def apply_instant_rebate_impl(doc, method=None):
+def validate_sales_invoice_rebate(doc, method=None):
+	"""Checks only — instant rebate amounts apply in before_save (once per save)."""
 	_strip_instant_rebate_tax_rows(doc)
 
 	if doc.get("custom_exclude_from_rebate") and doc.get("custom_apply_instant_rebate"):
@@ -35,11 +25,38 @@ def apply_instant_rebate_impl(doc, method=None):
 		_ensure_not_rebate_wallet_customer(doc)
 		_ensure_discount_accounting_enabled()
 		_reject_manual_additional_discount(doc)
+		return
+
+	doc.custom_instant_rebate_amount = 0
+	_apply_manual_additional_discount_account(doc)
+
+
+def apply_instant_rebate_on_save(doc, method=None):
+	"""Apply instant rebate once after ERPNext validate/totals — avoids double shrink on save."""
+	if getattr(doc.flags, "pufm_instant_rebate_applied", False):
+		return
+	if doc.get("custom_exclude_from_rebate") or not doc.get("custom_apply_instant_rebate"):
+		return
+	apply_instant_rebate_impl(doc, method)
+	doc.flags.pufm_instant_rebate_applied = True
+
+
+def apply_instant_rebate(doc, method=None):
+	"""Backward-compatible entry for submit safety net."""
+	apply_instant_rebate_impl(doc, method)
+
+
+def apply_instant_rebate_impl(doc, method=None):
+	_strip_instant_rebate_tax_rows(doc)
 
 	if doc.get("custom_exclude_from_rebate") or not doc.get("custom_apply_instant_rebate"):
 		doc.custom_instant_rebate_amount = 0
 		_apply_manual_additional_discount_account(doc)
 		return
+
+	_ensure_not_rebate_wallet_customer(doc)
+	_ensure_discount_accounting_enabled()
+	_reject_manual_additional_discount(doc)
 
 	base_amount = get_sales_invoice_rebatable_base(doc)
 	amount = _instant_rebate_amount_from_base(doc, base_amount)
@@ -56,7 +73,8 @@ def apply_instant_rebate_impl(doc, method=None):
 def ensure_rebate_tax_row(doc, method=None):
 	"""Submit safety net — re-apply discount path and strip legacy tax rows."""
 	_strip_instant_rebate_tax_rows(doc)
-	apply_instant_rebate(doc, method)
+	doc.flags.pufm_instant_rebate_applied = False
+	apply_instant_rebate_impl(doc, method)
 	if doc.get("custom_apply_instant_rebate"):
 		_reject_manual_additional_discount(doc)
 
@@ -183,13 +201,15 @@ def compute_instant_rebate_amount(
 	discount_amount=0,
 	total=None,
 	taxes=None,
+	items=None,
 ):
-	"""Same calculation as validate — keeps the form in sync before save."""
+	"""Same calculation as before_save — keeps the form in sync before save."""
 	doc = frappe._dict(
 		net_total=net_total,
 		total=total if total is not None else net_total,
 		discount_amount=discount_amount,
 		taxes=frappe.parse_json(taxes) if isinstance(taxes, str) else (taxes or []),
+		items=frappe.parse_json(items) if isinstance(items, str) else (items or []),
 		custom_apply_instant_rebate=cint(custom_apply_instant_rebate),
 		custom_exclude_from_rebate=cint(custom_exclude_from_rebate),
 		custom_instant_rebate_percentage=custom_instant_rebate_percentage,

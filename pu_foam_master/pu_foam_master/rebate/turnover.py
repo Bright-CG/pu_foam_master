@@ -26,6 +26,17 @@ def invoice_has_erpnext_vat_taxes(taxes):
 	return False
 
 
+def sales_invoice_items_net_total(doc):
+	"""Sum item net amounts — stable before instant rebate additional discount."""
+	total = 0.0
+	for row in doc.get("items") or []:
+		val = flt(row.get("net_amount"))
+		if not val:
+			val = flt(row.get("amount"))
+		total += val
+	return total
+
+
 def selling_amount_is_vat_exclusive(doc, taxes=None):
 	"""Net is already ex-VAT: explicit tax rows and/or Total > Net (VAT in item rates)."""
 	taxes = taxes if taxes is not None else (doc.get("taxes") if doc else None)
@@ -33,7 +44,7 @@ def selling_amount_is_vat_exclusive(doc, taxes=None):
 		return True
 	if not doc:
 		return False
-	net = flt(doc.get("net_total"))
+	net = sales_invoice_items_net_total(doc) or flt(doc.get("net_total"))
 	total = flt(doc.get("total"))
 	return total > net + 0.01
 
@@ -41,8 +52,30 @@ def selling_amount_is_vat_exclusive(doc, taxes=None):
 def sales_invoice_gross_amount(doc):
 	"""Selling amount before instant rebate (ex-VAT logic uses this as gross)."""
 	if doc.get("custom_apply_instant_rebate"):
-		return flt(doc.get("net_total"))
+		items_net = sales_invoice_items_net_total(doc)
+		if items_net > 0:
+			return items_net
+		gross = flt(doc.get("net_total"))
+		return _gross_before_instant_additional_discount(doc, gross)
 	return flt(doc.get("net_total")) - flt(doc.get("discount_amount"))
+
+
+def _gross_before_instant_additional_discount(doc, gross):
+	"""Restore selling net if header net_total already reflects instant rebate discount."""
+	disc = flt(doc.get("discount_amount"))
+	if disc <= 0:
+		return gross
+	rebate_ac = frappe.db.get_single_value("Pufm Manufacturing Settings", "rebate_expense_account")
+	account = (doc.get("additional_discount_account") or "").strip()
+	if not rebate_ac or account != rebate_ac:
+		return gross
+	# Circular save: net_total ≈ total − instant rebate; restore pre-rebate selling net
+	inv_total = flt(doc.get("total"))
+	if inv_total > 0 and abs(flt(doc.get("net_total")) + disc - inv_total) < 0.02:
+		return inv_total
+	if gross + disc > flt(doc.get("net_total")) + 0.01:
+		return gross + disc
+	return gross
 
 
 def rebatable_base_from_gross(gross, taxes=None, doc=None):

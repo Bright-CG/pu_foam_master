@@ -27,12 +27,29 @@ class TestSalesInvoiceInstantRebate(FrappeTestCase):
 		instant_discount = 53502.57
 		doc = frappe._dict(
 			net_total=net_total,
+			total=578408.11,
 			discount_amount=instant_discount,
 			taxes=[frappe._dict(description="VAT", add_deduct_tax="Add", tax_amount=40000)],
 			custom_apply_instant_rebate=1,
+			items=[frappe._dict(net_amount=net_total, amount=578408.11)],
 		)
 		base = get_sales_invoice_rebatable_base(doc)
 		self.assertEqual(flt(base, 2), flt(net_total, 2))
+
+	def test_items_net_stable_when_header_net_shrunk(self):
+		"""After save, header net_total may shrink; item net is still the rebate base."""
+		items_net = 534803.37
+		doc = frappe._dict(
+			net_total=525816.35,
+			total=578408.11,
+			discount_amount=52591.76,
+			taxes=[],
+			custom_apply_instant_rebate=1,
+			items=[frappe._dict(net_amount=items_net, amount=578408.11)],
+		)
+		base = get_sales_invoice_rebatable_base(doc)
+		self.assertEqual(flt(base, 2), flt(items_net, 2))
+		self.assertEqual(flt(base * 0.1, 2), flt(53480.34, 2))
 
 	def test_total_greater_than_net_skips_extra_vat_strip(self):
 		"""Item rates VAT-inclusive: net is ex-VAT; do not strip default VAT % again."""

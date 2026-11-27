@@ -308,6 +308,7 @@ function calculate_instant_rebate(frm) {
 			custom_exclude_from_rebate: frm.doc.custom_exclude_from_rebate ? 1 : 0,
 			custom_instant_rebate_percentage: rebate_pct,
 			taxes: frm.doc.taxes,
+			items: frm.doc.items,
 		},
 		callback(r) {
 			if (seq !== frm._pufm_rebate_calc_seq || frm._pufm_syncing_instant_rebate) {
