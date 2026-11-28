@@ -39,6 +39,9 @@ backup/
 # Legacy ERP archive — local/VPS tooling only (not part of bench app install)
 legacy_erp_archive/
 
+# Local migration and opening-balance workbooks. Not part of the app release.
+/exports/
+
 # Doc / note formats not tracked in this repo
 *.rst
 

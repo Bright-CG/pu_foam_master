@@ -3,7 +3,7 @@
 from collections import defaultdict
 
 import frappe
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from pu_foam_master.pufm_manufacturing.utils.settings import get_default_vat_rate
 
@@ -98,8 +98,40 @@ def rebatable_base_from_values(net_total, discount_amount=0, taxes=None, total=N
 	return rebatable_base_from_gross(gross, taxes, doc)
 
 
+def item_selling_gross(doc):
+	"""Sum of qty × rate. Falls back to row amount when rate is not on the row yet."""
+	total = 0.0
+	found = False
+	for row in doc.get("items") or []:
+		gross = flt(row.get("qty")) * flt(row.get("rate"))
+		if gross <= 0:
+			gross = flt(row.get("amount"))
+		if gross:
+			found = True
+			total += gross
+	return total if found else 0.0
+
+
+def rebatable_base_excluding_vat_unless_taxed(gross, taxes=None):
+	"""Ex-VAT base from selling gross. Strip settings VAT only when no real VAT tax row exists."""
+	gross = flt(gross)
+	if gross <= 0:
+		return 0.0
+	if invoice_has_erpnext_vat_taxes(taxes):
+		return gross
+	rate = get_default_vat_rate()
+	if rate <= 0:
+		return gross
+	return gross - gross * rate / 100.0
+
+
 def get_sales_invoice_rebatable_base(doc):
-	"""Live invoice: use selling gross before instant rebate (not rebate additional discount)."""
+	"""Instant rebate uses qty × rate and ignores net_amount after the rebate discount is spread."""
+	if cint(doc.get("custom_apply_instant_rebate")) and not cint(doc.get("custom_exclude_from_rebate")):
+		gross = item_selling_gross(doc)
+		if gross <= 0:
+			gross = flt(doc.get("total")) or flt(doc.get("net_total"))
+		return rebatable_base_excluding_vat_unless_taxed(gross, doc.get("taxes"))
 	gross = sales_invoice_gross_amount(doc)
 	return rebatable_base_from_gross(gross, doc.get("taxes"), doc)
 

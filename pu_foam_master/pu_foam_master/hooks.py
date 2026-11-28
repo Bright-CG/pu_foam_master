@@ -128,9 +128,10 @@ doc_events = {
 		"validate": "pu_foam_master.rebate.customer_links.validate_customer_rebate_links",
 	},
 	"Sales Invoice": {
+		"before_validate": "pu_foam_master.rebate.sales_invoice.prepare_instant_rebate_before_validate",
 		"validate": "pu_foam_master.rebate.sales_invoice.validate_sales_invoice_rebate",
-		"before_save": "pu_foam_master.rebate.sales_invoice.apply_instant_rebate_on_save",
-		"before_submit": "pu_foam_master.rebate.sales_invoice.ensure_rebate_tax_row",
+		"before_save": "pu_foam_master.rebate.sales_invoice.assert_instant_rebate_after_totals",
+		"before_submit": "pu_foam_master.rebate.sales_invoice.assert_instant_rebate_after_totals",
 	},
 	"Item": {
 		"validate": "pu_foam_master.pufm_manufacturing.utils.item_cbm.on_item_validate",

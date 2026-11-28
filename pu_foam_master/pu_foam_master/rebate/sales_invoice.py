@@ -12,8 +12,34 @@ from pu_foam_master.rebate.turnover import (
 )
 
 
+def prepare_instant_rebate_before_validate(doc, method=None):
+	"""Set the rebate from qty × rate before ERPNext spreads Additional Discount into item net."""
+	_strip_instant_rebate_tax_rows(doc)
+
+	if doc.get("custom_exclude_from_rebate") and doc.get("custom_apply_instant_rebate"):
+		frappe.throw(
+			_("Cannot apply Instant Rebate on a Non-Rebateable invoice. Choose one.")
+		)
+
+	if doc.get("custom_exclude_from_rebate") or not doc.get("custom_apply_instant_rebate"):
+		doc.custom_instant_rebate_amount = 0
+		_clear_instant_discount_fields(doc)
+		return
+
+	_ensure_not_rebate_wallet_customer(doc)
+	_ensure_discount_accounting_enabled()
+	_reject_foreign_additional_discount(doc)
+
+	amount = _expected_instant_rebate_amount(doc)
+	doc.custom_instant_rebate_amount = amount
+	if amount <= 0:
+		_clear_instant_discount_fields(doc)
+		return
+	_apply_instant_as_additional_discount(doc, amount)
+
+
 def validate_sales_invoice_rebate(doc, method=None):
-	"""Checks only — instant rebate amounts apply in before_save (once per save)."""
+	"""After ERPNext totals: reject a manual discount mixed with instant rebate."""
 	_strip_instant_rebate_tax_rows(doc)
 
 	if doc.get("custom_exclude_from_rebate") and doc.get("custom_apply_instant_rebate"):
@@ -24,59 +50,56 @@ def validate_sales_invoice_rebate(doc, method=None):
 	if doc.get("custom_apply_instant_rebate"):
 		_ensure_not_rebate_wallet_customer(doc)
 		_ensure_discount_accounting_enabled()
-		_reject_manual_additional_discount(doc)
+		_reject_foreign_additional_discount(doc)
 		return
 
 	doc.custom_instant_rebate_amount = 0
 	_apply_manual_additional_discount_account(doc)
 
 
-def apply_instant_rebate_on_save(doc, method=None):
-	"""Apply instant rebate once after ERPNext validate/totals — avoids double shrink on save."""
-	if getattr(doc.flags, "pufm_instant_rebate_applied", False):
-		return
+def assert_instant_rebate_after_totals(doc, method=None):
+	"""Save and submit must keep the qty × rate rebate. Do not recompute from discounted net."""
+	_strip_instant_rebate_tax_rows(doc)
 	if doc.get("custom_exclude_from_rebate") or not doc.get("custom_apply_instant_rebate"):
 		return
-	apply_instant_rebate_impl(doc, method)
-	doc.flags.pufm_instant_rebate_applied = True
+
+	expected = _expected_instant_rebate_amount(doc)
+	custom_amount = flt(doc.get("custom_instant_rebate_amount"), 2)
+	discount_amount = flt(doc.get("discount_amount"), 2)
+	if abs(custom_amount - expected) > 0.01 or abs(discount_amount - expected) > 0.01:
+		frappe.throw(
+			_(
+				"Instant Rebate Amount must stay {0} based on item quantity × rate. "
+				"It was {1} on the rebate field and {2} on Additional Discount. Save again after the items settle, "
+				"or clear Additional Discount and leave Instant Rebate in control."
+			).format(expected, custom_amount, discount_amount)
+		)
+	if flt(doc.get("additional_discount_percentage")) > 0:
+		frappe.throw(
+			_("Clear Additional Discount percentage. Use either Instant Rebate or Additional Discount, not both.")
+		)
+	rebate_account = get_rebate_expense_account()
+	if (doc.get("additional_discount_account") or "").strip() != rebate_account:
+		frappe.throw(
+			_("Instant Rebate must post to the Rebate Expense Account on Additional Discount.")
+		)
+
+
+def apply_instant_rebate_on_save(doc, method=None):
+	"""Backward-compatible name. Asserts only — does not recalculate totals."""
+	assert_instant_rebate_after_totals(doc, method)
 
 
 def apply_instant_rebate(doc, method=None):
-	"""Backward-compatible entry for submit safety net."""
-	apply_instant_rebate_impl(doc, method)
+	prepare_instant_rebate_before_validate(doc, method)
 
 
 def apply_instant_rebate_impl(doc, method=None):
-	_strip_instant_rebate_tax_rows(doc)
-
-	if doc.get("custom_exclude_from_rebate") or not doc.get("custom_apply_instant_rebate"):
-		doc.custom_instant_rebate_amount = 0
-		_apply_manual_additional_discount_account(doc)
-		return
-
-	_ensure_not_rebate_wallet_customer(doc)
-	_ensure_discount_accounting_enabled()
-	_reject_manual_additional_discount(doc)
-
-	base_amount = get_sales_invoice_rebatable_base(doc)
-	amount = _instant_rebate_amount_from_base(doc, base_amount)
-	doc.custom_instant_rebate_amount = amount
-
-	if amount <= 0:
-		_clear_instant_discount_fields(doc)
-	else:
-		_apply_instant_as_additional_discount(doc, amount)
-
-	_recalculate_invoice_totals(doc)
+	prepare_instant_rebate_before_validate(doc, method)
 
 
 def ensure_rebate_tax_row(doc, method=None):
-	"""Submit safety net — re-apply discount path and strip legacy tax rows."""
-	_strip_instant_rebate_tax_rows(doc)
-	doc.flags.pufm_instant_rebate_applied = False
-	apply_instant_rebate_impl(doc, method)
-	if doc.get("custom_apply_instant_rebate"):
-		_reject_manual_additional_discount(doc)
+	assert_instant_rebate_after_totals(doc, method)
 
 
 def _strip_instant_rebate_tax_rows(doc):
@@ -106,30 +129,36 @@ def _ensure_discount_accounting_enabled():
 		)
 
 
-def _reject_manual_additional_discount(doc):
-	"""Instant rebate and manual Additional Discount are mutually exclusive."""
+def _expected_instant_rebate_amount(doc):
+	return _instant_rebate_amount_from_base(doc, get_sales_invoice_rebatable_base(doc))
+
+
+def _reject_foreign_additional_discount(doc):
+	"""A manual Additional Discount cannot share the invoice with Instant Rebate.
+
+	A discount already posted to the rebate expense account is this feature's own row
+	and is replaced with the qty × rate amount.
+	"""
 	if not doc.get("custom_apply_instant_rebate"):
 		return
 	rebate_account = get_rebate_expense_account()
 	account = (doc.get("additional_discount_account") or "").strip()
 	amount = flt(doc.get("discount_amount"))
 	pct = flt(doc.get("additional_discount_percentage"))
-	instant = flt(doc.get("custom_instant_rebate_amount"))
 
 	if pct > 0:
 		frappe.throw(
 			_("Clear Additional Discount percentage. Use either Instant Rebate or Additional Discount, not both.")
 		)
 
-	if amount > 0 and account and account != rebate_account:
+	if amount > 0 and account != rebate_account:
 		frappe.throw(
 			_("Clear Additional Discount. Use either Instant Rebate or Additional Discount, not both.")
 		)
 
-	if amount > 0 and abs(amount - instant) > 0.01 and account != rebate_account:
-		frappe.throw(
-			_("Clear Additional Discount. Use either Instant Rebate or Additional Discount, not both.")
-		)
+
+def _reject_manual_additional_discount(doc):
+	_reject_foreign_additional_discount(doc)
 
 
 def _apply_instant_as_additional_discount(doc, amount):
@@ -153,11 +182,6 @@ def _clear_instant_discount_fields(doc):
 
 def _instant_rebate_amount_from_base(doc, base_amount):
 	return flt(base_amount * flt(doc.get("custom_instant_rebate_percentage")) / 100, 2)
-
-
-def _recalculate_invoice_totals(doc):
-	if hasattr(doc, "calculate_taxes_and_totals"):
-		doc.calculate_taxes_and_totals()
 
 
 def _has_manual_additional_discount(doc):
